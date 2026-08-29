@@ -11,6 +11,11 @@
   .admin-header p { margin:6px 0 0; color:var(--wood); }
   .admin-tools { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
   .admin-tools .btn { width:auto; margin:0; padding:10px 16px; }
+  .submission-settings { display:flex; justify-content:space-between; gap:22px; align-items:center; padding:18px 20px; margin:0 0 20px; border:1px solid var(--border); border-radius:18px; background:rgba(8,16,31,.72); }
+  .submission-settings h2 { margin:0 0 5px; font-size:1.14rem; }
+  .submission-settings p { margin:0; color:var(--muted); line-height:1.45; }
+  .setting-control { display:flex; align-items:center; gap:12px; flex:0 0 auto; }
+  .setting-status { min-width:62px; color:var(--gold-bright); font-weight:800; text-align:right; }
   .stats-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin:0 0 22px; }
   .stat-card { appearance:none; text-align:left; color:var(--text); background:rgba(8,16,31,.62); border:1px solid var(--border); border-radius:16px; padding:16px; cursor:pointer; font:inherit; transition:.15s ease; }
   .stat-card:hover { transform:translateY(-1px); border-color:var(--border-strong); }
@@ -32,6 +37,7 @@
   @media (max-width:760px) {
     .admin-header { display:block; }
     .admin-tools { justify-content:flex-start; margin-top:16px; }
+    .submission-settings { align-items:flex-start; }
     .stats-grid { grid-template-columns:repeat(2, 1fr); }
     .submission-row { gap:7px; }
     .submission-link { padding:14px; gap:10px; align-items:flex-start; flex-direction:column; }
@@ -56,6 +62,20 @@
 
   <div class="error-banner" data-error-banner></div>
   <div class="admin-success" id="successBanner"></div>
+
+  <section class="submission-settings" aria-label="Nativity submission availability">
+    <div>
+      <h2>Nativity Submissions</h2>
+      <p>When closed, visitors no longer see options to start a new nativity submission. Existing records and Tour Media remain available.</p>
+    </div>
+    <div class="setting-control">
+      <span class="setting-status" id="submissionStatus">Loading…</span>
+      <label class="switch" style="margin:0">
+        <input type="checkbox" id="submissionsToggle" disabled>
+        <span class="track"></span>
+      </label>
+    </div>
+  </section>
 
   <div class="stats-grid" aria-label="Submission filters">
     <button class="stat-card active" data-status="">
@@ -114,6 +134,24 @@ function statusLabel(status) {
   return status || 'all';
 }
 
+function renderSubmissionSetting(open) {
+  const toggle = document.getElementById('submissionsToggle');
+  toggle.checked = open;
+  toggle.disabled = false;
+  const label = document.getElementById('submissionStatus');
+  label.textContent = open ? 'OPEN' : 'CLOSED';
+  label.style.color = open ? 'var(--gold-bright)' : '#ffb0a1';
+}
+
+async function loadSettings() {
+  try {
+    const { submissionsOpen } = await api('/api/admin/settings');
+    renderSubmissionSetting(submissionsOpen);
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
 async function load() {
   hideError();
   const search = document.getElementById('search').value.trim();
@@ -159,6 +197,21 @@ async function load() {
     showError(err.message);
   }
 }
+
+document.getElementById('submissionsToggle').addEventListener('change', async (event) => {
+  hideError();
+  const toggle = event.target;
+  const desired = toggle.checked;
+  toggle.disabled = true;
+  try {
+    const result = await api('/api/admin/settings', { method: 'POST', body: { submissionsOpen: desired } });
+    renderSubmissionSetting(result.submissionsOpen);
+    showSuccess(result.submissionsOpen ? 'Nativity submissions are open.' : 'Nativity submissions are closed.');
+  } catch (err) {
+    showError(err.message);
+    await loadSettings();
+  }
+});
 
 document.getElementById('search').addEventListener('input', debounce(load, 300));
 document.getElementById('clearSearchBtn').addEventListener('click', () => {
@@ -212,6 +265,7 @@ function debounce(fn, ms) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
+loadSettings();
 load();
 </script>
 </body>
