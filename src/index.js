@@ -33,6 +33,18 @@ class NavBodyHandler {
   }
 }
 
+class LandingSubtitleHandler {
+  element(element) {
+    element.remove();
+  }
+}
+
+class LandingDescriptionHandler {
+  element(element) {
+    element.setAttribute('content', 'A Stroll to the Stable in Seguin, November 27 through December 6, 2026.');
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -59,7 +71,14 @@ export default {
         const contentType = response.headers.get('Content-Type') || '';
         const isHome = path === '/' || path === '/index.html';
 
-        if (method === 'GET' && !isHome && contentType.includes('text/html')) {
+        if (method === 'GET' && contentType.includes('text/html')) {
+          if (isHome) {
+            return new HTMLRewriter()
+              .on('.landing-subtitle', new LandingSubtitleHandler())
+              .on('meta[name="description"]', new LandingDescriptionHandler())
+              .transform(response);
+          }
+
           return new HTMLRewriter()
             .on('head', new NavHeadHandler())
             .on('body', new NavBodyHandler())
