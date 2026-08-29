@@ -5,41 +5,81 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manage Admins — Stroll to the Stable</title>
 <link rel="stylesheet" href="/style.css">
+<style>
+  .manage-header { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; margin-bottom:22px; }
+  .manage-header .btn { width:auto; margin:0; }
+  .admin-entry { display:flex; justify-content:space-between; gap:14px; align-items:center; padding:16px 0; border-bottom:1px solid var(--border); }
+  .admin-entry:last-child { border-bottom:0; }
+  .admin-entry .name { color:var(--gold-bright); font-weight:700; overflow-wrap:anywhere; }
+  .admin-entry .meta { color:var(--muted); font-size:13px; margin-top:3px; }
+  .admin-entry .btn { width:auto; margin:0; padding:9px 14px; flex:0 0 auto; }
+  .permanent-badge { display:inline-block; color:var(--gold); border:1px solid var(--border-strong); border-radius:999px; padding:5px 9px; font-size:12px; font-weight:700; }
+  .admin-success { display:none; margin:0 0 16px; padding:12px 14px; border-radius:12px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
+  @media (max-width:620px) { .manage-header { display:block; } .manage-header .btn { margin-top:14px; } }
+</style>
 </head>
 <body>
 <div class="page">
-  <p class="eyebrow">Stroll to the Stable · Admin</p>
-  <h1>Manage Admins</h1>
+  <div class="manage-header">
+    <div>
+      <p class="eyebrow">Stroll to the Stable · Admin</p>
+      <h1>Manage Admins</h1>
+      <p style="color:var(--wood); margin:6px 0 0">Control who can access the event administration tools.</p>
+    </div>
+    <a class="btn btn-outline" href="/admin-dashboard.html">← Submissions</a>
+  </div>
 
   <div class="error-banner" data-error-banner></div>
+  <div class="admin-success" id="successBanner"></div>
 
   <div class="card">
     <div class="field">
       <label for="newAdminEmail">Add an admin by email</label>
-      <input type="email" id="newAdminEmail" placeholder="name@example.com">
+      <input type="email" id="newAdminEmail" placeholder="name@example.com" autocomplete="email">
+      <div class="hint">They will use this email address to receive an admin login code.</div>
     </div>
     <button class="btn btn-primary" id="addBtn">Add Admin</button>
   </div>
 
-  <div id="list"></div>
-
-  <p style="text-align:center; margin-top:10px"><a class="link" href="/admin-dashboard.html">Back</a></p>
+  <div class="card">
+    <h2>Current Admins</h2>
+    <div id="list" style="margin-top:8px"></div>
+  </div>
 </div>
 <script src="/js/app.js"></script>
 <script>
+let currentAdmins = new Map();
+
+function esc(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function showSuccess(message) {
+  const el = document.getElementById('successBanner');
+  el.textContent = message;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
 async function load() {
   hideError();
   try {
     const { admins } = await api('/api/admin/admins');
+    currentAdmins = new Map(admins.map((a) => [a.email, a]));
     document.getElementById('list').innerHTML = admins.map((a) => `
-      <div class="admin-list-item">
+      <div class="admin-entry">
         <div>
-          <div class="name">${a.email}</div>
-          <div class="meta">${a.is_permanent ? 'Permanent admin' : 'Added by ' + (a.added_by || 'unknown')}</div>
+          <div class="name">${esc(a.email)}</div>
+          <div class="meta">${a.is_permanent ? 'Permanent administrator' : 'Added by ' + esc(a.added_by || 'unknown')}</div>
         </div>
         ${a.is_permanent
-          ? ''
-          : `<button class="btn btn-danger" style="width:auto; margin:0; padding:10px 16px" onclick="removeAdmin('${a.email}')">Remove</button>`}
+          ? '<span class="permanent-badge">Permanent</span>'
+          : `<button class="btn btn-danger" data-remove-admin="${esc(a.email)}">Remove</button>`}
       </div>
     `).join('');
   } catch (err) {
@@ -51,24 +91,45 @@ document.getElementById('addBtn').addEventListener('click', async () => {
   hideError();
   const email = document.getElementById('newAdminEmail').value.trim();
   if (!email) { showError('Enter an email address.'); return; }
+  const btn = document.getElementById('addBtn');
+  btn.disabled = true;
   try {
     await api('/api/admin/admins', { method: 'POST', body: { email } });
     document.getElementById('newAdminEmail').value = '';
-    load();
+    showSuccess(`${email} has admin access.`);
+    await load();
   } catch (err) {
     showError(err.message);
+  } finally {
+    btn.disabled = false;
   }
 });
 
-async function removeAdmin(email) {
+document.getElementById('newAdminEmail').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('addBtn').click();
+});
+
+document.getElementById('list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-remove-admin]');
+  if (!btn) return;
+  const email = btn.dataset.removeAdmin;
+  if (!currentAdmins.has(email)) return;
+
+  if (!window.confirm(`Remove admin access for ${email}?\n\nThey will no longer be able to sign in as an administrator.`)) return;
+
   hideError();
+  btn.disabled = true;
+  btn.textContent = 'Removing…';
   try {
     await api(`/api/admin/admins/${encodeURIComponent(email)}`, { method: 'DELETE' });
-    load();
+    showSuccess(`${email} no longer has admin access.`);
+    await load();
   } catch (err) {
     showError(err.message);
+    btn.disabled = false;
+    btn.textContent = 'Remove';
   }
-}
+});
 
 load();
 </script>

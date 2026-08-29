@@ -10,10 +10,6 @@ export async function listNativities(request, env, session) {
   const like = search ? `%${search}%` : null;
 
   const sql = db(env);
-  // A single parameterized query handles all four combinations (no filter,
-  // status only, search only, both) — the NULL checks make each clause a
-  // no-op when that filter isn't in use, so no nested SQL-fragment
-  // composition is needed.
   const rows = await sql`
     SELECT id, submission_number, status, event_year, owner_name, owner_phone, owner_email
     FROM nativity_search
@@ -25,7 +21,17 @@ export async function listNativities(request, env, session) {
       )
     ORDER BY id DESC
   `;
-  return json({ nativities: rows });
+
+  const countRows = await sql`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
+      COUNT(*) FILTER (WHERE status = 'submitted')::int AS submitted,
+      COUNT(*) FILTER (WHERE status = 'returned')::int AS returned
+    FROM nativities
+  `;
+
+  return json({ nativities: rows, counts: countRows[0] });
 }
 
 export async function getNativity(request, env, session, id) {
@@ -39,6 +45,42 @@ export async function getNativity(request, env, session, id) {
   if (rows.length === 0) return error('Not found.', 404);
   const pieces = await sql`SELECT * FROM nativity_pieces WHERE nativity_id = ${id} ORDER BY piece_number`;
   return json({ nativity: rows[0], pieces });
+}
+
+export async function deleteNativity(request, env, session, id) {
+  requireAdmin(session);
+  const sql = db(env);
+
+  const rows = await sql`
+    SELECT id, submission_number, photo_key, display_photo_key
+    FROM nativities
+    WHERE id = ${id}
+  `;
+  if (rows.length === 0) return error('Not found.', 404);
+
+  const pieceRows = await sql`
+    SELECT photo_key
+    FROM nativity_pieces
+    WHERE nativity_id = ${id} AND photo_key IS NOT NULL
+  `;
+
+  // A newer yearly submission may point back to this one as its source.
+  // Preserve that newer record while removing the historical link.
+  await sql`UPDATE nativities SET cloned_from_id = NULL WHERE cloned_from_id = ${id}`;
+  await sql`DELETE FROM nativities WHERE id = ${id}`;
+
+  // Database deletion is authoritative. Photo cleanup is best-effort so a
+  // temporary R2 problem never leaves a submission half-deleted.
+  const keys = [rows[0].photo_key, rows[0].display_photo_key, ...pieceRows.map((p) => p.photo_key)].filter(Boolean);
+  if (keys.length) {
+    try {
+      await Promise.all(keys.map((key) => env.PHOTOS.delete(key)));
+    } catch (err) {
+      console.error('Submission deleted but one or more R2 photos could not be removed:', err);
+    }
+  }
+
+  return json({ ok: true, submission_number: rows[0].submission_number });
 }
 
 export async function toggleWaiver(request, env, session, id) {

@@ -5,33 +5,113 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Admin — Stroll to the Stable</title>
 <link rel="stylesheet" href="/style.css">
+<style>
+  .admin-page { max-width: 980px; }
+  .admin-header { display:flex; justify-content:space-between; gap:24px; align-items:flex-start; margin-bottom:26px; }
+  .admin-header p { margin:6px 0 0; color:var(--wood); }
+  .admin-tools { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+  .admin-tools .btn { width:auto; margin:0; padding:10px 16px; }
+  .stats-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin:0 0 22px; }
+  .stat-card { appearance:none; text-align:left; color:var(--text); background:rgba(8,16,31,.62); border:1px solid var(--border); border-radius:16px; padding:16px; cursor:pointer; font:inherit; transition:.15s ease; }
+  .stat-card:hover { transform:translateY(-1px); border-color:var(--border-strong); }
+  .stat-card.active { border-color:var(--gold); box-shadow:0 0 0 1px rgba(242,199,110,.18), inset 0 1px 0 rgba(255,255,255,.04); background:rgba(20,28,46,.9); }
+  .stat-number { display:block; font-family:'Fraunces', Georgia, serif; color:var(--gold-bright); font-size:1.8rem; line-height:1; }
+  .stat-label { display:block; margin-top:7px; color:var(--muted); font-size:.82rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+  .admin-search { display:flex; gap:10px; align-items:center; padding:14px; background:rgba(7,14,27,.56); border:1px solid var(--border); border-radius:18px; margin-bottom:12px; }
+  .admin-search input { margin:0; }
+  .admin-search .btn { width:auto; margin:0; white-space:nowrap; padding:12px 16px; }
+  .result-summary { display:flex; justify-content:space-between; gap:12px; color:var(--muted); font-size:14px; margin:0 2px 12px; }
+  .submission-list { display:grid; gap:10px; }
+  .submission-row { display:flex; align-items:stretch; gap:10px; }
+  .submission-link { flex:1; min-width:0; text-decoration:none; display:flex; justify-content:space-between; gap:18px; align-items:center; padding:17px 18px; border:1px solid var(--border); border-radius:16px; background:rgba(10,19,35,.78); transition:.15s ease; }
+  .submission-link:hover { border-color:var(--border-strong); background:rgba(14,25,44,.92); transform:translateY(-1px); }
+  .submission-name { font-weight:700; color:var(--gold-bright); overflow-wrap:anywhere; }
+  .submission-meta { color:var(--muted); font-size:14px; margin-top:3px; overflow-wrap:anywhere; }
+  .submission-delete { width:auto !important; min-width:88px; margin:0 !important; align-self:stretch; padding:10px 14px !important; }
+  .admin-success { display:none; margin:0 0 16px; padding:12px 14px; border-radius:12px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
+  @media (max-width:760px) {
+    .admin-header { display:block; }
+    .admin-tools { justify-content:flex-start; margin-top:16px; }
+    .stats-grid { grid-template-columns:repeat(2, 1fr); }
+    .submission-row { gap:7px; }
+    .submission-link { padding:14px; gap:10px; align-items:flex-start; flex-direction:column; }
+    .submission-delete { min-width:74px; }
+  }
+</style>
 </head>
 <body>
-<div class="page wide">
-  <p class="eyebrow">Stroll to the Stable · Admin</p>
-  <h1>All Submissions</h1>
+<div class="page wide admin-page">
+  <div class="admin-header">
+    <div>
+      <p class="eyebrow">Stroll to the Stable · Admin</p>
+      <h1>Submissions</h1>
+      <p>Search, check in, return, and manage every nativity from one place.</p>
+    </div>
+    <div class="admin-tools">
+      <a class="btn btn-outline" href="/admin-manage.html">Manage Admins</a>
+      <button class="btn btn-outline" id="logoutBtn">Log Out</button>
+    </div>
+  </div>
 
   <div class="error-banner" data-error-banner></div>
+  <div class="admin-success" id="successBanner"></div>
 
-  <div class="search-bar">
-    <input type="text" id="search" placeholder="Search name, phone, email, or piece description…">
+  <div class="stats-grid" aria-label="Submission filters">
+    <button class="stat-card active" data-status="">
+      <span class="stat-number" id="countAll">—</span>
+      <span class="stat-label">All</span>
+    </button>
+    <button class="stat-card" data-status="pending">
+      <span class="stat-number" id="countPending">—</span>
+      <span class="stat-label">Pending</span>
+    </button>
+    <button class="stat-card" data-status="submitted">
+      <span class="stat-number" id="countSubmitted">—</span>
+      <span class="stat-label">Checked In</span>
+    </button>
+    <button class="stat-card" data-status="returned">
+      <span class="stat-number" id="countReturned">—</span>
+      <span class="stat-label">Returned</span>
+    </button>
   </div>
 
-  <div class="btn-row" style="margin-bottom:20px; flex-wrap:wrap">
-    <button class="btn btn-outline" data-status="">All</button>
-    <button class="btn btn-outline" data-status="pending">Pending</button>
-    <button class="btn btn-outline" data-status="submitted">Submitted</button>
-    <button class="btn btn-outline" data-status="returned">Returned</button>
+  <div class="admin-search">
+    <input type="text" id="search" aria-label="Search submissions" placeholder="Search name, phone, email, submission number, or piece description…">
+    <button class="btn btn-outline" id="clearSearchBtn">Clear</button>
   </div>
 
-  <div id="list"></div>
+  <div class="result-summary">
+    <span id="resultCount">Loading…</span>
+    <span id="activeFilter">Showing all submissions</span>
+  </div>
 
-  <a class="btn btn-outline" href="/admin-manage.html" style="margin-top:20px">Manage Admins</a>
-  <p style="text-align:center; margin-top:10px"><a class="link" href="#" id="logoutLink">Log Out</a></p>
+  <div id="list" class="submission-list"></div>
 </div>
 <script src="/js/app.js"></script>
 <script>
 let currentStatus = '';
+let knownNativities = new Map();
+
+function esc(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function showSuccess(message) {
+  const el = document.getElementById('successBanner');
+  el.textContent = message;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+function statusLabel(status) {
+  if (status === 'submitted') return 'checked in';
+  return status || 'all';
+}
 
 async function load() {
   hideError();
@@ -39,21 +119,40 @@ async function load() {
   const qs = new URLSearchParams();
   if (search) qs.set('search', search);
   if (currentStatus) qs.set('status', currentStatus);
+
   try {
-    const { nativities } = await api('/api/admin/nativities?' + qs.toString());
+    const { nativities, counts } = await api('/api/admin/nativities?' + qs.toString());
+    knownNativities = new Map(nativities.map((n) => [String(n.id), n]));
+
+    document.getElementById('countAll').textContent = counts.total;
+    document.getElementById('countPending').textContent = counts.pending;
+    document.getElementById('countSubmitted').textContent = counts.submitted;
+    document.getElementById('countReturned').textContent = counts.returned;
+
+    const countText = nativities.length === 1 ? '1 result' : `${nativities.length} results`;
+    document.getElementById('resultCount').textContent = countText;
+    const filterBits = [];
+    if (currentStatus) filterBits.push(statusLabel(currentStatus));
+    if (search) filterBits.push(`matching “${search}”`);
+    document.getElementById('activeFilter').textContent = filterBits.length ? `Showing ${filterBits.join(' · ')}` : 'Showing all submissions';
+
     const list = document.getElementById('list');
     if (nativities.length === 0) {
-      list.innerHTML = '<div class="empty-state">No submissions match.</div>';
+      list.innerHTML = '<div class="empty-state">No submissions match this view.</div>';
       return;
     }
+
     list.innerHTML = nativities.map((n) => `
-      <a class="admin-list-item" href="/admin-detail.html?id=${n.id}">
-        <div>
-          <div class="name">${n.owner_name} — ${n.submission_number}</div>
-          <div class="meta">${n.owner_phone} · ${n.owner_email}</div>
-        </div>
-        <span class="status-pill status-${n.status}">${n.status}</span>
-      </a>
+      <div class="submission-row">
+        <a class="submission-link" href="/admin-detail.html?id=${n.id}">
+          <div>
+            <div class="submission-name">${esc(n.owner_name)} <span style="color:var(--muted); font-weight:500">· ${esc(n.submission_number)}</span></div>
+            <div class="submission-meta">${esc(n.owner_phone)} · ${esc(n.owner_email)} · ${esc(n.event_year)}</div>
+          </div>
+          <span class="status-pill status-${n.status}">${statusLabel(n.status)}</span>
+        </a>
+        <button class="btn btn-danger submission-delete" data-delete-id="${n.id}" title="Permanently delete ${esc(n.submission_number)}">Delete</button>
+      </div>
     `).join('');
   } catch (err) {
     showError(err.message);
@@ -61,25 +160,56 @@ async function load() {
 }
 
 document.getElementById('search').addEventListener('input', debounce(load, 300));
+document.getElementById('clearSearchBtn').addEventListener('click', () => {
+  document.getElementById('search').value = '';
+  load();
+});
+
 document.querySelectorAll('[data-status]').forEach((btn) => {
   btn.addEventListener('click', () => {
     currentStatus = btn.dataset.status;
-    document.querySelectorAll('[data-status]').forEach((b) => b.classList.remove('btn-primary'));
-    btn.classList.add('btn-primary');
+    document.querySelectorAll('[data-status]').forEach((b) => b.classList.toggle('active', b === btn));
     load();
   });
+});
+
+document.getElementById('list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-delete-id]');
+  if (!btn) return;
+  const nativity = knownNativities.get(btn.dataset.deleteId);
+  if (!nativity) return;
+
+  const confirmed = window.confirm(
+    `Permanently delete ${nativity.submission_number} from ${nativity.owner_name}?\n\nThis removes the submission, its piece records, and its stored photos. This cannot be undone.`
+  );
+  if (!confirmed) return;
+
+  hideError();
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+  try {
+    await api(`/api/admin/nativities/${nativity.id}`, { method: 'DELETE' });
+    showSuccess(`${nativity.submission_number} was deleted.`);
+    await load();
+  } catch (err) {
+    showError(err.message);
+    btn.disabled = false;
+    btn.textContent = 'Delete';
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  try {
+    await api('/api/logout', { method: 'POST' });
+  } finally {
+    window.location.href = '/index.html';
+  }
 });
 
 function debounce(fn, ms) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
-
-document.getElementById('logoutLink').addEventListener('click', async (e) => {
-  e.preventDefault();
-  await api('/api/logout', { method: 'POST' });
-  window.location.href = '/index.html';
-});
 
 load();
 </script>

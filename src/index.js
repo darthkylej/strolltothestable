@@ -73,6 +73,9 @@ export default {
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)$/)) && method === 'GET') {
         return await admin.getNativity(request, env, session, m[1]);
       }
+      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)$/)) && method === 'DELETE') {
+        return await admin.deleteNativity(request, env, session, m[1]);
+      }
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/waiver$/)) && method === 'POST') {
         return await admin.toggleWaiver(request, env, session, m[1]);
       }
