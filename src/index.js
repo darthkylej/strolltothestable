@@ -33,6 +33,12 @@ class NavBodyHandler {
   }
 }
 
+class LandingHeadHandler {
+  element(element) {
+    element.append('<script src="/landing-scene-fix.js" defer></script>', { html: true });
+  }
+}
+
 class LandingSubtitleHandler {
   element(element) {
     element.remove();
@@ -74,6 +80,7 @@ export default {
         if (method === 'GET' && contentType.includes('text/html')) {
           if (isHome) {
             return new HTMLRewriter()
+              .on('head', new LandingHeadHandler())
               .on('.landing-subtitle', new LandingSubtitleHandler())
               .on('meta[name="description"]', new LandingDescriptionHandler())
               .transform(response);
