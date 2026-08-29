@@ -8,6 +8,13 @@ import {
   listTourMediaObjects,
   serializeTourMedia,
 } from '../lib/tourMedia.js';
+import {
+  getSiteSettings,
+  setSubmissionsOpen,
+  getAdminNote,
+  setAdminNote,
+  deleteAdminNote,
+} from '../lib/siteSettings.js';
 
 export async function listNativities(request, env, session) {
   requireAdmin(session);
@@ -41,6 +48,20 @@ export async function listNativities(request, env, session) {
   return json({ nativities: rows, counts: countRows[0] });
 }
 
+export async function getAdminSettings(request, env, session) {
+  requireAdmin(session);
+  const settings = await getSiteSettings(env);
+  return json({ submissionsOpen: settings.submissionsOpen });
+}
+
+export async function updateAdminSettings(request, env, session) {
+  requireAdmin(session);
+  const { submissionsOpen } = await request.json();
+  if (typeof submissionsOpen !== 'boolean') return error('Invalid submission setting.');
+  const settings = await setSubmissionsOpen(env, submissionsOpen, session.email);
+  return json({ ok: true, submissionsOpen: settings.submissionsOpen });
+}
+
 export async function getNativity(request, env, session, id) {
   requireAdmin(session);
   const sql = db(env);
@@ -51,7 +72,82 @@ export async function getNativity(request, env, session, id) {
   `;
   if (rows.length === 0) return error('Not found.', 404);
   const pieces = await sql`SELECT * FROM nativity_pieces WHERE nativity_id = ${id} ORDER BY piece_number`;
-  return json({ nativity: rows[0], pieces });
+  const adminNote = await getAdminNote(env, id);
+  return json({ nativity: rows[0], pieces, adminNote });
+}
+
+export async function updateNativity(request, env, session, id) {
+  requireAdmin(session);
+  const body = await request.json();
+  const owner = body.owner || {};
+  const pieces = body.pieces;
+
+  if (!owner.name?.trim() || !owner.phone?.trim() || !owner.email?.trim()) {
+    return error('Donor name, phone, and email are required.');
+  }
+  if (!Array.isArray(pieces) || pieces.length === 0) {
+    return error('A submission must have at least one piece.');
+  }
+  for (const piece of pieces) {
+    if (!piece.description?.trim() || !piece.condition_notes?.trim()) {
+      return error('Every piece needs a description and condition note.');
+    }
+  }
+
+  const sql = db(env);
+  const rows = await sql`SELECT id, owner_user_id FROM nativities WHERE id = ${id}`;
+  if (rows.length === 0) return error('Not found.', 404);
+  const ownerUserId = rows[0].owner_user_id;
+
+  await sql`
+    UPDATE users
+    SET name = ${owner.name.trim()}, phone = ${owner.phone.trim()}, email = ${owner.email.trim()}
+    WHERE id = ${ownerUserId}
+  `;
+
+  await sql`
+    UPDATE nativities
+    SET story = ${body.story?.trim() || null},
+        include_in_tour = ${body.includeInTour !== false},
+        updated_at = now()
+    WHERE id = ${id}
+  `;
+
+  const existingPieces = await sql`SELECT id FROM nativity_pieces WHERE nativity_id = ${id}`;
+  const existingIds = new Set(existingPieces.map((p) => String(p.id)));
+  const keptIds = new Set();
+
+  for (let i = 0; i < pieces.length; i++) {
+    const piece = pieces[i];
+    const requestedId = piece.id ? String(piece.id) : '';
+
+    if (requestedId && existingIds.has(requestedId)) {
+      keptIds.add(requestedId);
+      await sql`
+        UPDATE nativity_pieces
+        SET piece_number = ${i + 1},
+            description = ${piece.description.trim()},
+            condition_notes = ${piece.condition_notes.trim()}
+        WHERE id = ${requestedId} AND nativity_id = ${id}
+      `;
+    } else {
+      await sql`
+        INSERT INTO nativity_pieces (nativity_id, piece_number, description, condition_notes, photo_key)
+        VALUES (${id}, ${i + 1}, ${piece.description.trim()}, ${piece.condition_notes.trim()}, NULL)
+      `;
+    }
+  }
+
+  for (const existing of existingPieces) {
+    if (!keptIds.has(String(existing.id))) {
+      await sql`DELETE FROM nativity_pieces WHERE id = ${existing.id} AND nativity_id = ${id}`;
+    }
+  }
+
+  await sql`UPDATE nativities SET piece_count = ${pieces.length}, updated_at = now() WHERE id = ${id}`;
+  await setAdminNote(env, id, body.adminNote || '', session.email);
+
+  return json({ ok: true });
 }
 
 export async function deleteNativity(request, env, session, id) {
@@ -75,12 +171,13 @@ export async function deleteNativity(request, env, session, id) {
   await sql`DELETE FROM nativities WHERE id = ${id}`;
 
   const keys = [rows[0].photo_key, rows[0].display_photo_key, ...pieceRows.map((p) => p.photo_key)].filter(Boolean);
-  if (keys.length) {
-    try {
-      await Promise.all(keys.map((key) => env.PHOTOS.delete(key)));
-    } catch (err) {
-      console.error('Submission deleted but one or more R2 photos could not be removed:', err);
-    }
+  try {
+    await Promise.all([
+      ...keys.map((key) => env.PHOTOS.delete(key)),
+      deleteAdminNote(env, id),
+    ]);
+  } catch (err) {
+    console.error('Submission deleted but one or more R2 objects could not be removed:', err);
   }
 
   return json({ ok: true, submission_number: rows[0].submission_number });
@@ -129,8 +226,53 @@ export async function markReturned(request, env, session, id) {
   const sql = db(env);
   const rows = await sql`SELECT status FROM nativities WHERE id = ${id}`;
   if (rows.length === 0) return error('Not found.', 404);
-  if (rows[0].status !== 'submitted') return error('Only a submitted (checked-in) nativity can be marked returned.');
+  if (rows[0].status !== 'submitted') return error('Only a submitted nativity can be marked returned.');
   await sql`UPDATE nativities SET status = 'returned', returned_at = now(), updated_at = now() WHERE id = ${id}`;
+  return json({ ok: true });
+}
+
+async function putAdminPhoto(request, env, keyPrefix) {
+  const contentType = request.headers.get('Content-Type') || 'image/jpeg';
+  if (!contentType.startsWith('image/')) return error('Choose an image file.', 415);
+  const key = `${keyPrefix}/${crypto.randomUUID()}.jpg`;
+  const bytes = await request.arrayBuffer();
+  await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType } });
+  return key;
+}
+
+export async function uploadMainPhoto(request, env, session, id) {
+  requireAdmin(session);
+  const sql = db(env);
+  const rows = await sql`SELECT id FROM nativities WHERE id = ${id}`;
+  if (rows.length === 0) return error('Not found.', 404);
+  const key = await putAdminPhoto(request, env, `admin-edits/${id}/main`);
+  if (key instanceof Response) return key;
+  await sql`UPDATE nativities SET photo_key = ${key}, updated_at = now() WHERE id = ${id}`;
+  return json({ ok: true, key });
+}
+
+export async function clearMainPhoto(request, env, session, id) {
+  requireAdmin(session);
+  const sql = db(env);
+  await sql`UPDATE nativities SET photo_key = NULL, updated_at = now() WHERE id = ${id}`;
+  return json({ ok: true });
+}
+
+export async function uploadPiecePhoto(request, env, session, id, pieceId) {
+  requireAdmin(session);
+  const sql = db(env);
+  const rows = await sql`SELECT id FROM nativity_pieces WHERE id = ${pieceId} AND nativity_id = ${id}`;
+  if (rows.length === 0) return error('Piece not found.', 404);
+  const key = await putAdminPhoto(request, env, `admin-edits/${id}/pieces/${pieceId}`);
+  if (key instanceof Response) return key;
+  await sql`UPDATE nativity_pieces SET photo_key = ${key} WHERE id = ${pieceId} AND nativity_id = ${id}`;
+  return json({ ok: true, key });
+}
+
+export async function clearPiecePhoto(request, env, session, id, pieceId) {
+  requireAdmin(session);
+  const sql = db(env);
+  await sql`UPDATE nativity_pieces SET photo_key = NULL WHERE id = ${pieceId} AND nativity_id = ${id}`;
   return json({ ok: true });
 }
 
@@ -140,11 +282,8 @@ export async function uploadDisplayPhoto(request, env, session, id) {
   const existing = await sql`SELECT id FROM nativities WHERE id = ${id}`;
   if (existing.length === 0) return error('Not found.', 404);
 
-  const contentType = request.headers.get('Content-Type') || 'image/jpeg';
-  const key = `display/${id}/${crypto.randomUUID()}.jpg`;
-  const bytes = await request.arrayBuffer();
-  await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType } });
-
+  const key = await putAdminPhoto(request, env, `display/${id}`);
+  if (key instanceof Response) return key;
   await sql`UPDATE nativities SET display_photo_key = ${key}, updated_at = now() WHERE id = ${id}`;
   return json({ ok: true, key });
 }
@@ -165,10 +304,6 @@ function decodeMetadataHeader(value, maxLength) {
   }
 }
 
-// ── Standalone Scroll to the Stable media ──────────────────────────────
-// These files live directly in R2 and are not attached to a donor or a
-// nativity submission. This makes the public collection suitable for art,
-// photographs, and videos as well as checked-in nativities.
 export async function listTourMedia(request, env, session) {
   requireAdmin(session);
   const objects = await listTourMediaObjects(env);
@@ -179,9 +314,7 @@ export async function uploadTourMedia(request, env, session) {
   requireAdmin(session);
 
   const spec = getTourMediaSpec(request.headers.get('Content-Type'));
-  if (!spec) {
-    return error('Use a JPG, PNG, WebP, GIF, MP4, WebM, or MOV file.', 415);
-  }
+  if (!spec) return error('Use a JPG, PNG, WebP, GIF, MP4, WebM, or MOV file.', 415);
 
   const contentLength = Number(request.headers.get('Content-Length') || 0);
   if (contentLength > MAX_TOUR_MEDIA_BYTES) {
@@ -212,14 +345,11 @@ export async function uploadTourMedia(request, env, session) {
 export async function deleteTourMedia(request, env, session) {
   requireAdmin(session);
   const { key } = await request.json();
-  if (!key || !String(key).startsWith(TOUR_MEDIA_PREFIX)) {
-    return error('Invalid tour media item.');
-  }
+  if (!key || !String(key).startsWith(TOUR_MEDIA_PREFIX)) return error('Invalid tour media item.');
   await env.PHOTOS.delete(String(key));
   return json({ ok: true });
 }
 
-// ── Admin list management ────────────────────────────────────────────────
 export async function listAdmins(request, env, session) {
   requireAdmin(session);
   const sql = db(env);
