@@ -36,6 +36,24 @@
 <script>
 let pendingEmail = '';
 
+// If this browser still has a valid admin session, do not make the admin
+// repeat the email-code login flow. A deliberate logout clears the session
+// cookie, so logged-out admins will remain on this page as expected.
+(async function redirectIfAlreadyAdmin() {
+  try {
+    const response = await fetch('/api/admin/admins', {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    });
+    if (response.ok) {
+      window.location.replace('/admin-dashboard.html');
+    }
+  } catch (_) {
+    // If the session check itself fails, leave the normal login form usable.
+  }
+})();
+
 document.getElementById('emailForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   hideError();
