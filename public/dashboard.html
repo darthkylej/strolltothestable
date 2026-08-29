@@ -48,7 +48,7 @@ async function load() {
           </label>
           <span style="font-size:14px; color:var(--wood)">Show in public virtual tour</span>
         </div>
-        ${n.event_year < CURRENT_YEAR
+        ${n.status === 'returned' && Number(n.event_year) < CURRENT_YEAR
           ? `<button class="btn btn-secondary" onclick="resubmit(${n.id})">Submit Again This Year</button>`
           : ''}
       </div>
