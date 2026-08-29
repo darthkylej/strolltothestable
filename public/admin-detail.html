@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Submission — Stroll to the Stable Admin</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="page wide">
+  <p class="eyebrow">Stroll to the Stable · Admin</p>
+  <h1 id="title">Loading…</h1>
+  <span class="status-pill" id="statusPill"></span>
+
+  <div class="error-banner" data-error-banner></div>
+
+  <div class="card" style="margin-top:20px">
+    <h2>Donor</h2>
+    <p id="ownerInfo"></p>
+  </div>
+
+  <div class="card">
+    <h2>Photo &amp; Story</h2>
+    <img id="mainPhoto" style="width:100%; border-radius:12px; display:none">
+    <p id="storyText" style="color:var(--wood)"></p>
+  </div>
+
+  <div class="card">
+    <h2>Display / Glamour Shot</h2>
+    <p style="color:var(--wood); font-size:14px">If present, this photo — the nativity in its final display spot — is shown in the public tour instead of the donor's own photo.</p>
+    <img id="displayPhoto" style="width:100%; border-radius:12px; display:none; margin-top:10px">
+    <p id="noDisplayPhoto" style="color:var(--wood)">No glamour shot yet.</p>
+    <input type="file" id="displayPhotoInput" accept="image/*" capture="environment" style="margin-top:10px">
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn btn-secondary" id="uploadDisplayBtn">Upload / Replace</button>
+      <button class="btn btn-danger" id="clearDisplayBtn" style="display:none">Remove</button>
+    </div>
+  </div>
+
+  <h2>Pieces</h2>
+  <div id="pieces"></div>
+
+  <div class="toggle-row" id="waiverRow">
+    <label class="switch">
+      <input type="checkbox" id="waiverToggle">
+      <span class="track"></span>
+    </label>
+    <div>
+      <div style="font-weight:700">Waiver signed</div>
+      <div style="color:var(--wood); font-size:14px">Toggle on once the signed waiver is in hand.</div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="finalizeBtn">Finalize Check-In</button>
+  <button class="btn btn-secondary" id="returnBtn" style="display:none">Mark Returned to Owner</button>
+
+  <p style="text-align:center; margin-top:10px"><a class="link" href="/admin-dashboard.html">Back to All Submissions</a></p>
+</div>
+<script src="/js/app.js"></script>
+<script>
+const id = new URLSearchParams(window.location.search).get('id');
+let current = null;
+
+async function load() {
+  hideError();
+  try {
+    const { nativity, pieces } = await api(`/api/admin/nativities/${id}`);
+    current = nativity;
+    document.getElementById('title').textContent = nativity.submission_number;
+    document.getElementById('statusPill').textContent = nativity.status;
+    document.getElementById('statusPill').className = `status-pill status-${nativity.status}`;
+    document.getElementById('ownerInfo').innerHTML =
+      `${nativity.owner_name}<br>${nativity.owner_phone}<br>${nativity.owner_email}`;
+
+    if (nativity.photo_key) {
+      const img = document.getElementById('mainPhoto');
+      img.src = `/photos/${nativity.photo_key}`;
+      img.style.display = 'block';
+    }
+    document.getElementById('storyText').textContent = nativity.story || '(No story provided.)';
+
+    const displayImg = document.getElementById('displayPhoto');
+    const noDisplayMsg = document.getElementById('noDisplayPhoto');
+    const clearBtn = document.getElementById('clearDisplayBtn');
+    if (nativity.display_photo_key) {
+      displayImg.src = `/photos/${nativity.display_photo_key}`;
+      displayImg.style.display = 'block';
+      noDisplayMsg.style.display = 'none';
+      clearBtn.style.display = 'block';
+    } else {
+      displayImg.style.display = 'none';
+      noDisplayMsg.style.display = 'block';
+      clearBtn.style.display = 'none';
+    }
+
+    document.getElementById('pieces').innerHTML = pieces.map((p) => `
+      <div class="piece-card">
+        <label><span class="piece-number">${p.piece_number}</span>${p.description}</label>
+        <p style="color:var(--wood); margin:8px 0 0">Condition: ${p.condition_notes}</p>
+        ${p.photo_key ? `<img src="/photos/${p.photo_key}" style="width:100%; border-radius:10px; margin-top:8px">` : ''}
+      </div>
+    `).join('');
+
+    document.getElementById('waiverToggle').checked = nativity.waiver_signed;
+    const finalizeBtn = document.getElementById('finalizeBtn');
+    const returnBtn = document.getElementById('returnBtn');
+
+    if (nativity.status === 'pending') {
+      finalizeBtn.style.display = 'block';
+      finalizeBtn.disabled = !nativity.waiver_signed;
+      returnBtn.style.display = 'none';
+    } else if (nativity.status === 'submitted') {
+      finalizeBtn.style.display = 'none';
+      returnBtn.style.display = 'block';
+    } else {
+      finalizeBtn.style.display = 'none';
+      returnBtn.style.display = 'none';
+    }
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+document.getElementById('waiverToggle').addEventListener('change', async (e) => {
+  hideError();
+  try {
+    await api(`/api/admin/nativities/${id}/waiver`, { method: 'POST', body: { signed: e.target.checked } });
+    document.getElementById('finalizeBtn').disabled = !e.target.checked;
+  } catch (err) {
+    showError(err.message);
+    e.target.checked = !e.target.checked;
+  }
+});
+
+document.getElementById('finalizeBtn').addEventListener('click', async () => {
+  hideError();
+  try {
+    await api(`/api/admin/nativities/${id}/finalize`, { method: 'POST' });
+    load();
+  } catch (err) {
+    showError(err.message);
+  }
+});
+
+document.getElementById('returnBtn').addEventListener('click', async () => {
+  hideError();
+  try {
+    await api(`/api/admin/nativities/${id}/returned`, { method: 'POST' });
+    load();
+  } catch (err) {
+    showError(err.message);
+  }
+});
+
+document.getElementById('uploadDisplayBtn').addEventListener('click', async () => {
+  hideError();
+  const file = document.getElementById('displayPhotoInput').files[0];
+  if (!file) { showError('Choose a photo first.'); return; }
+  try {
+    await uploadPhotoTo(file, `/api/admin/nativities/${id}/display-photo`);
+    document.getElementById('displayPhotoInput').value = '';
+    load();
+  } catch (err) {
+    showError(err.message);
+  }
+});
+
+document.getElementById('clearDisplayBtn').addEventListener('click', async () => {
+  hideError();
+  try {
+    await api(`/api/admin/nativities/${id}/display-photo/clear`, { method: 'POST' });
+    load();
+  } catch (err) {
+    showError(err.message);
+  }
+});
+
+load();
+</script>
+</body>
+</html>

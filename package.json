@@ -1,0 +1,16 @@
+{
+  "name": "nativity-checkin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stroll to the Stable — nativity loan check-in app",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}

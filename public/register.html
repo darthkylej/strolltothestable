@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Register — Stroll to the Stable</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">Stroll to the Stable</p>
+  <h1>Register</h1>
+  <p style="color:var(--wood); margin-bottom:20px">We'll email you a username and password right after you submit this.</p>
+
+  <div class="error-banner" data-error-banner></div>
+
+  <form id="registerForm">
+    <div class="field">
+      <label for="name">Full name</label>
+      <input type="text" id="name" required>
+    </div>
+    <div class="field">
+      <label for="phone">Phone number</label>
+      <input type="tel" id="phone" required>
+    </div>
+    <div class="field">
+      <label for="email">Email address</label>
+      <input type="email" id="email" required>
+      <p class="hint">Double-check this — your login is sent here.</p>
+    </div>
+    <button type="submit" class="btn btn-primary">Register</button>
+  </form>
+
+  <p style="text-align:center; margin-top:10px"><a class="link" href="/index.html">Back</a></p>
+</div>
+<script src="/js/app.js"></script>
+<script>
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideError();
+  try {
+    await api('/api/register', {
+      method: 'POST',
+      body: {
+        name: document.getElementById('name').value,
+        phone: document.getElementById('phone').value,
+        email: document.getElementById('email').value,
+      },
+    });
+    window.location.href = '/dashboard.html';
+  } catch (err) {
+    showError(err.message);
+  }
+});
+</script>
+</body>
+</html>

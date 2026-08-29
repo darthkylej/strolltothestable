@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lend a Nativity — Stroll to the Stable</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">Lend a Nativity · Step 1 of 2</p>
+  <h1>Photo &amp; Story</h1>
+
+  <div class="error-banner" data-error-banner></div>
+
+  <form id="photoForm">
+    <div class="field">
+      <label for="photo">Photo of the nativity</label>
+      <input type="file" id="photo" accept="image/*" capture="environment" required>
+      <img id="preview" class="photo-preview">
+    </div>
+    <div class="field">
+      <label for="story">The story behind it (optional)</label>
+      <textarea id="story" placeholder="Where did it come from? Why is it special to your family?"></textarea>
+    </div>
+    <div class="field" style="display:flex; align-items:center; gap:12px">
+      <label class="switch" style="margin:0">
+        <input type="checkbox" id="includeInTour" checked>
+        <span class="track"></span>
+      </label>
+      <label for="includeInTour" style="margin:0; font-weight:600">Include in the public virtual tour</label>
+    </div>
+    <p class="hint" style="margin:-10px 0 18px">Anyone can view the tour online — turn this off if you'd rather keep your nativity's photo and story private.</p>
+    <button type="submit" class="btn btn-primary" id="submitBtn">Next: List the Pieces</button>
+  </form>
+
+  <p style="text-align:center; margin-top:10px"><a class="link" href="/dashboard.html">Cancel</a></p>
+</div>
+<script src="/js/app.js"></script>
+<script>
+document.getElementById('photo').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const preview = document.getElementById('preview');
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+});
+
+document.getElementById('photoForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideError();
+  const btn = document.getElementById('submitBtn');
+  const file = document.getElementById('photo').files[0];
+  if (!file) { showError('Please add a photo.'); return; }
+  btn.disabled = true;
+  btn.textContent = 'Uploading photo…';
+  try {
+    const photoKey = await uploadPhoto(file);
+    const { id } = await api('/api/nativities', {
+      method: 'POST',
+      body: {
+        photoKey,
+        story: document.getElementById('story').value,
+        includeInTour: document.getElementById('includeInTour').checked,
+      },
+    });
+    window.location.href = `/lend-pieces.html?id=${id}`;
+  } catch (err) {
+    showError(err.message);
+    btn.disabled = false;
+    btn.textContent = 'Next: List the Pieces';
+  }
+});
+</script>
+</body>
+</html>

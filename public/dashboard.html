@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Nativities — Stroll to the Stable</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">Stroll to the Stable</p>
+  <h1>My Nativities</h1>
+
+  <div class="error-banner" data-error-banner></div>
+
+  <a class="btn btn-primary" href="/lend-photo.html">Lend a Nativity</a>
+
+  <div id="list" style="margin-top:24px"></div>
+
+  <p style="text-align:center; margin-top:20px"><a class="link" href="#" id="logoutLink">Log Out</a></p>
+</div>
+<script src="/js/app.js"></script>
+<script>
+const CURRENT_YEAR = new Date().getFullYear();
+
+async function load() {
+  try {
+    const { nativities } = await api('/api/nativities');
+    const list = document.getElementById('list');
+    if (nativities.length === 0) {
+      list.innerHTML = '<div class="empty-state">You haven\'t submitted a nativity yet.</div>';
+      return;
+    }
+    list.innerHTML = nativities.map((n) => `
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start">
+          <div>
+            <div class="eyebrow">${n.event_year}</div>
+            <h2>${n.submission_number.startsWith('DRAFT') ? 'Not finished' : n.submission_number}</h2>
+          </div>
+          <span class="status-pill status-${n.status}">${n.status}</span>
+        </div>
+        <p style="color:var(--wood)">${n.piece_count} piece${n.piece_count === 1 ? '' : 's'}</p>
+        <div style="display:flex; align-items:center; gap:10px; margin:12px 0">
+          <label class="switch" style="margin:0">
+            <input type="checkbox" ${n.include_in_tour ? 'checked' : ''} onchange="toggleTour(${n.id}, this.checked)">
+            <span class="track"></span>
+          </label>
+          <span style="font-size:14px; color:var(--wood)">Show in public virtual tour</span>
+        </div>
+        ${n.event_year < CURRENT_YEAR
+          ? `<button class="btn btn-secondary" onclick="resubmit(${n.id})">Submit Again This Year</button>`
+          : ''}
+      </div>
+    `).join('');
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+async function resubmit(id) {
+  hideError();
+  try {
+    const { id: newId } = await api(`/api/nativities/${id}/resubmit`, { method: 'POST' });
+    window.location.href = `/lend-pieces.html?id=${newId}&review=1`;
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+async function toggleTour(id, checked) {
+  hideError();
+  try {
+    await api(`/api/nativities/${id}/tour-visibility`, { method: 'POST', body: { includeInTour: checked } });
+  } catch (err) {
+    showError(err.message);
+    load();
+  }
+}
+
+document.getElementById('logoutLink').addEventListener('click', async (e) => {
+  e.preventDefault();
+  await api('/api/logout', { method: 'POST' });
+  window.location.href = '/index.html';
+});
+
+load();
+</script>
+</body>
+</html>

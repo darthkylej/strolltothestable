@@ -1,0 +1,22 @@
+name = "nativity-checkin"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Static frontend pages (public/*.html, style.css) are served automatically
+# for any request that doesn't match a route in src/index.js.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# R2 bucket for nativity + piece photos. Create it once with:
+#   wrangler r2 bucket create nativity-photos
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "nativity-photos"
+
+# Secrets (set with `wrangler secret put <NAME>`, never committed here):
+#   DATABASE_URL      — Neon connection string (use the pooled one)
+#   SESSION_SECRET     — random 32+ byte string, signs session cookies
+#   RESEND_API_KEY     — same Resend account/domain as your other apps
+#   RESEND_FROM        — e.g. "Stroll to the Stable <noreply@yourdomain.org>"

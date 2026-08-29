@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lend a Nativity — Stroll to the Stable</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">Lend a Nativity · Step 2 of 2</p>
+  <h1>The Pieces</h1>
+
+  <div class="error-banner" data-error-banner></div>
+
+  <div id="countStep">
+    <div class="field">
+      <label for="pieceCount">How many pieces are in this nativity?</label>
+      <input type="text" id="pieceCount" inputmode="numeric" pattern="[0-9]*" required>
+    </div>
+    <button class="btn btn-primary" id="generateBtn">Generate the Form</button>
+  </div>
+
+  <form id="piecesForm" style="display:none">
+    <div id="pieceList"></div>
+    <button type="submit" class="btn btn-primary" id="submitBtn">Submit Nativity</button>
+  </form>
+
+  <p style="text-align:center; margin-top:10px"><a class="link" href="/dashboard.html">Cancel</a></p>
+</div>
+<script src="/js/app.js"></script>
+<script>
+const params = new URLSearchParams(window.location.search);
+const nativityId = params.get('id');
+const isReview = params.get('review') === '1';
+let existingPieces = [];
+
+function pieceCardHtml(i, existing) {
+  const desc = existing ? existing.description : '';
+  const cond = existing ? existing.condition_notes : '';
+  const photoNote = existing?.photo_key ? '<p class="hint">Existing photo on file — add a new one only if it needs updating.</p>' : '';
+  return `
+    <div class="piece-card">
+      <label><span class="piece-number">${i + 1}</span>Piece ${i + 1}</label>
+      <div class="field" style="margin-top:12px">
+        <label>Description</label>
+        <input type="text" class="piece-desc" data-i="${i}" value="${desc.replace(/"/g, '&quot;')}" placeholder="e.g. Shepherd holding a lamb" required>
+      </div>
+      <div class="field">
+        <label>Condition (note any cracks, chips, repairs)</label>
+        <input type="text" class="piece-cond" data-i="${i}" value="${cond.replace(/"/g, '&quot;')}" placeholder="e.g. No damage, or: small chip on base" required>
+      </div>
+      <div class="field">
+        <label>Photo of this piece (optional)</label>
+        <input type="file" class="piece-photo" data-i="${i}" accept="image/*" capture="environment">
+        ${photoNote}
+      </div>
+    </div>
+  `;
+}
+
+function renderPieces(count) {
+  const list = document.getElementById('pieceList');
+  let html = '';
+  for (let i = 0; i < count; i++) html += pieceCardHtml(i, existingPieces[i]);
+  list.innerHTML = html;
+  document.getElementById('countStep').style.display = 'none';
+  document.getElementById('piecesForm').style.display = 'block';
+}
+
+document.getElementById('generateBtn').addEventListener('click', () => {
+  hideError();
+  const count = parseInt(document.getElementById('pieceCount').value, 10);
+  if (!count || count < 1) { showError('Enter how many pieces this nativity has.'); return; }
+  renderPieces(count);
+});
+
+async function init() {
+  if (!isReview) return;
+  try {
+    const { nativity, pieces } = await api(`/api/nativities/${nativityId}`);
+    existingPieces = pieces;
+    document.getElementById('pieceCount').value = pieces.length;
+    renderPieces(pieces.length);
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+document.getElementById('piecesForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideError();
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+  try {
+    const descs = [...document.querySelectorAll('.piece-desc')];
+    const conds = [...document.querySelectorAll('.piece-cond')];
+    const photos = [...document.querySelectorAll('.piece-photo')];
+    const pieces = [];
+    for (let i = 0; i < descs.length; i++) {
+      let photoKey = existingPieces[i]?.photo_key || null;
+      if (photos[i].files[0]) photoKey = await uploadPhoto(photos[i].files[0]);
+      pieces.push({ description: descs[i].value, condition_notes: conds[i].value, photoKey });
+    }
+    await api(`/api/nativities/${nativityId}/pieces`, { method: 'POST', body: { pieces } });
+    window.location.href = '/dashboard.html';
+  } catch (err) {
+    showError(err.message);
+    btn.disabled = false;
+    btn.textContent = 'Submit Nativity';
+  }
+});
+
+init();
+</script>
+</body>
+</html>

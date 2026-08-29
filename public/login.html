@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log In — Stroll to the Stable</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">Stroll to the Stable</p>
+  <h1>Log In</h1>
+  <p style="color:var(--wood); margin-bottom:20px">Use the username and password from your registration email.</p>
+
+  <div class="error-banner" data-error-banner></div>
+
+  <form id="loginForm">
+    <div class="field">
+      <label for="username">Username</label>
+      <input type="text" id="username" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" autocomplete="current-password" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Log In</button>
+  </form>
+
+  <p style="text-align:center; margin-top:10px"><a class="link" href="/forgot.html">Forgot your login?</a></p>
+  <p style="text-align:center"><a class="link" href="/index.html">Back</a></p>
+</div>
+<script src="/js/app.js"></script>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideError();
+  try {
+    await api('/api/login', {
+      method: 'POST',
+      body: {
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+      },
+    });
+    window.location.href = '/dashboard.html';
+  } catch (err) {
+    showError(err.message);
+  }
+});
+</script>
+</body>
+</html>

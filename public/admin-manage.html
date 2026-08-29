@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manage Admins — Stroll to the Stable</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">Stroll to the Stable · Admin</p>
+  <h1>Manage Admins</h1>
+
+  <div class="error-banner" data-error-banner></div>
+
+  <div class="card">
+    <div class="field">
+      <label for="newAdminEmail">Add an admin by email</label>
+      <input type="email" id="newAdminEmail" placeholder="name@example.com">
+    </div>
+    <button class="btn btn-primary" id="addBtn">Add Admin</button>
+  </div>
+
+  <div id="list"></div>
+
+  <p style="text-align:center; margin-top:10px"><a class="link" href="/admin-dashboard.html">Back</a></p>
+</div>
+<script src="/js/app.js"></script>
+<script>
+async function load() {
+  hideError();
+  try {
+    const { admins } = await api('/api/admin/admins');
+    document.getElementById('list').innerHTML = admins.map((a) => `
+      <div class="admin-list-item">
+        <div>
+          <div class="name">${a.email}</div>
+          <div class="meta">${a.is_permanent ? 'Permanent admin' : 'Added by ' + (a.added_by || 'unknown')}</div>
+        </div>
+        ${a.is_permanent
+          ? ''
+          : `<button class="btn btn-danger" style="width:auto; margin:0; padding:10px 16px" onclick="removeAdmin('${a.email}')">Remove</button>`}
+      </div>
+    `).join('');
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+document.getElementById('addBtn').addEventListener('click', async () => {
+  hideError();
+  const email = document.getElementById('newAdminEmail').value.trim();
+  if (!email) { showError('Enter an email address.'); return; }
+  try {
+    await api('/api/admin/admins', { method: 'POST', body: { email } });
+    document.getElementById('newAdminEmail').value = '';
+    load();
+  } catch (err) {
+    showError(err.message);
+  }
+});
+
+async function removeAdmin(email) {
+  hideError();
+  try {
+    await api(`/api/admin/admins/${encodeURIComponent(email)}`, { method: 'DELETE' });
+    load();
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+load();
+</script>
+</body>
+</html>

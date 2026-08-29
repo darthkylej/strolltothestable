@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Stroll to the Stable</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="page wide">
+  <p class="eyebrow">Stroll to the Stable · Admin</p>
+  <h1>All Submissions</h1>
+
+  <div class="error-banner" data-error-banner></div>
+
+  <div class="search-bar">
+    <input type="text" id="search" placeholder="Search name, phone, email, or piece description…">
+  </div>
+
+  <div class="btn-row" style="margin-bottom:20px; flex-wrap:wrap">
+    <button class="btn btn-outline" data-status="">All</button>
+    <button class="btn btn-outline" data-status="pending">Pending</button>
+    <button class="btn btn-outline" data-status="submitted">Submitted</button>
+    <button class="btn btn-outline" data-status="returned">Returned</button>
+  </div>
+
+  <div id="list"></div>
+
+  <a class="btn btn-outline" href="/admin-manage.html" style="margin-top:20px">Manage Admins</a>
+  <p style="text-align:center; margin-top:10px"><a class="link" href="#" id="logoutLink">Log Out</a></p>
+</div>
+<script src="/js/app.js"></script>
+<script>
+let currentStatus = '';
+
+async function load() {
+  hideError();
+  const search = document.getElementById('search').value.trim();
+  const qs = new URLSearchParams();
+  if (search) qs.set('search', search);
+  if (currentStatus) qs.set('status', currentStatus);
+  try {
+    const { nativities } = await api('/api/admin/nativities?' + qs.toString());
+    const list = document.getElementById('list');
+    if (nativities.length === 0) {
+      list.innerHTML = '<div class="empty-state">No submissions match.</div>';
+      return;
+    }
+    list.innerHTML = nativities.map((n) => `
+      <a class="admin-list-item" href="/admin-detail.html?id=${n.id}">
+        <div>
+          <div class="name">${n.owner_name} — ${n.submission_number}</div>
+          <div class="meta">${n.owner_phone} · ${n.owner_email}</div>
+        </div>
+        <span class="status-pill status-${n.status}">${n.status}</span>
+      </a>
+    `).join('');
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+document.getElementById('search').addEventListener('input', debounce(load, 300));
+document.querySelectorAll('[data-status]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    currentStatus = btn.dataset.status;
+    document.querySelectorAll('[data-status]').forEach((b) => b.classList.remove('btn-primary'));
+    btn.classList.add('btn-primary');
+    load();
+  });
+});
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+document.getElementById('logoutLink').addEventListener('click', async (e) => {
+  e.preventDefault();
+  await api('/api/logout', { method: 'POST' });
+  window.location.href = '/index.html';
+});
+
+load();
+</script>
+</body>
+</html>

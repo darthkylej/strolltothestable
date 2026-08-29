@@ -1,0 +1,239 @@
+/* ── Stroll to the Stable — design tokens ──────────────────────────────
+   Palette:
+     --navy       #14213D  night sky — headers, primary text
+     --gold       #F2C14E  straw / star of Bethlehem — primary actions
+     --parchment  #FFF8E7  warm page background
+     --wood       #6B4226  stable timber — secondary text, borders
+     --barn-red   #B23A2E  required / destructive
+     --pasture    #4C7A51  success / finalized
+   Type: Fraunces (display, used sparingly) + Inter (everything else).
+*/
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --navy: #14213D;
+  --gold: #F2C14E;
+  --parchment: #FFF8E7;
+  --wood: #6B4226;
+  --barn-red: #B23A2E;
+  --pasture: #4C7A51;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--parchment);
+  color: var(--navy);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+h1, h2, .display {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  color: var(--navy);
+  margin: 0 0 4px;
+}
+h1 { font-size: 30px; }
+h2 { font-size: 22px; }
+
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+.page.wide { max-width: 720px; }
+
+/* Small star-and-arch signature mark, used once per page as a divider. */
+.stable-mark {
+  display: block;
+  margin: 4px 0 20px;
+  opacity: 0.55;
+}
+
+.eyebrow {
+  color: var(--wood);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 6px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid rgba(107, 66, 38, 0.15);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.field { margin-bottom: 18px; }
+.field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+.field .hint { color: var(--wood); font-size: 13px; margin-top: 4px; }
+
+input[type="text"], input[type="email"], input[type="tel"], input[type="password"], textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 17px;
+  padding: 14px 16px;
+  border: 2px solid rgba(107, 66, 38, 0.25);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--navy);
+}
+input:focus, textarea:focus, button:focus-visible, a.btn:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+textarea { resize: vertical; min-height: 90px; }
+
+/* Big, unmistakable buttons — the brief explicitly calls for this. */
+.btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 18px 20px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  box-sizing: border-box;
+  min-height: 56px;
+  margin-bottom: 12px;
+  transition: transform 0.08s ease;
+}
+.btn:active { transform: scale(0.98); }
+
+.btn-primary { background: var(--gold); color: var(--navy); }
+.btn-secondary { background: var(--navy); color: #fff; }
+.btn-outline { background: transparent; color: var(--navy); border: 2px solid var(--navy); }
+.btn-danger { background: transparent; color: var(--barn-red); border: 2px solid var(--barn-red); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-row { display: flex; gap: 12px; }
+.btn-row .btn { margin-bottom: 0; }
+
+a.link { color: var(--wood); font-weight: 600; }
+
+.status-pill {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.status-pending  { background: #FCE9C6; color: #8A5A00; }
+.status-submitted { background: #DCEBDD; color: var(--pasture); }
+.status-returned  { background: #E4E4E4; color: #555; }
+
+.error-banner {
+  background: #FBE7E4;
+  border: 1px solid var(--barn-red);
+  color: var(--barn-red);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  display: none;
+}
+
+.piece-card {
+  border: 1px solid rgba(107, 66, 38, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.piece-card .piece-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  margin-right: 8px;
+}
+
+.search-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.search-bar input { flex: 1; }
+
+.admin-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid rgba(107, 66, 38, 0.15);
+  border-radius: 12px;
+  margin-bottom: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+.admin-list-item:hover { border-color: var(--gold); }
+.admin-list-item .name { font-weight: 700; }
+.admin-list-item .meta { color: var(--wood); font-size: 14px; }
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 2px solid rgba(107, 66, 38, 0.2);
+  margin-bottom: 16px;
+}
+.toggle-row.on { border-color: var(--pasture); background: #F2F8F2; }
+
+.switch {
+  position: relative;
+  width: 52px; height: 30px;
+  flex-shrink: 0;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .track {
+  position: absolute; inset: 0;
+  background: #ccc; border-radius: 999px;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+.switch .track::before {
+  content: ""; position: absolute;
+  width: 24px; height: 24px; left: 3px; top: 3px;
+  background: #fff; border-radius: 50%;
+  transition: transform 0.15s;
+}
+.switch input:checked + .track { background: var(--pasture); }
+.switch input:checked + .track::before { transform: translateX(22px); }
+
+.photo-preview {
+  width: 100%;
+  border-radius: 12px;
+  margin-top: 10px;
+  display: none;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--wood);
+}
