@@ -3,11 +3,12 @@ main = "src/index.js"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Static frontend pages (public/*.html, style.css) are served automatically
-# for any request that doesn't match a route in src/index.js.
+# Static frontend pages live in public/. Run the Worker first so it can
+# inject the shared fixed navigation into HTML pages before serving them.
 [assets]
 directory = "./public"
 binding = "ASSETS"
+run_worker_first = true
 
 # R2 bucket for nativity + piece photos. Create it once with:
 #   wrangler r2 bucket create nativity-photos
