@@ -29,6 +29,16 @@
     }
   }
 
+  function adjustLandingActions() {
+    const actions = document.querySelector('.landing-actions');
+    const submit = document.getElementById('submitNativity');
+    const tour = actions?.querySelector('a[href="/tour.html"]');
+    if (!actions || !tour) return;
+
+    tour.textContent = '“Scroll” to the Stable';
+    if (submit) actions.insertBefore(submit, tour);
+  }
+
   async function applySubmissionSetting() {
     try {
       const response = await fetch('/api/settings', {
@@ -48,6 +58,7 @@
 
   function init() {
     adjustScene();
+    adjustLandingActions();
     applySubmissionSetting();
   }
 
