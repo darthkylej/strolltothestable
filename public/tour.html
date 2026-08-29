@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Virtual Tour — Stroll to the Stable</title>
+<title>Scroll to the Stable — Stroll to the Stable</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <div class="page wide">
-  <p class="eyebrow">Stroll to the Stable</p>
-  <h1>Virtual Nativity Tour</h1>
-  <svg class="stable-mark" width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M60 4 L64 14 L75 14 L66 21 L69 32 L60 25 L51 32 L54 21 L45 14 L56 14 Z" stroke="#6B4226" stroke-width="1.5"/>
-    <path d="M10 36 L30 20 L50 36" stroke="#6B4226" stroke-width="1.5"/>
-    <path d="M70 36 L90 20 L110 36" stroke="#6B4226" stroke-width="1.5"/>
+  <p class="eyebrow">Virtual Nativity Tour</p>
+  <h1>Scroll to the Stable</h1>
+  <svg class="stable-mark" width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M60 4 L64 14 L75 14 L66 21 L69 32 L60 25 L51 32 L54 21 L45 14 L56 14 Z" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M10 36 L30 20 L50 36" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M70 36 L90 20 L110 36" stroke="currentColor" stroke-width="1.5"/>
   </svg>
-  <p style="color:var(--wood); margin-bottom:24px">A look at the nativities loaned for this year's stroll — shared by families across the community.</p>
+  <p style="color:var(--wood); margin-bottom:24px">Explore the nativities shared by families across the community and stroll through the collection from wherever you are.</p>
 
   <div class="error-banner" data-error-banner></div>
   <div id="gallery"></div>
@@ -24,8 +24,6 @@
 <script>
 async function load() {
   try {
-    // Versioned once to bypass any five-minute tour response a visitor's
-    // browser may still have from the previous caching implementation.
     const { tour } = await api('/api/tour?v=2');
     const gallery = document.getElementById('gallery');
     if (tour.length === 0) {
