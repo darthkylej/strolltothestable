@@ -12,8 +12,9 @@
   <h1>Photo &amp; Story</h1>
 
   <div class="error-banner" data-error-banner></div>
+  <div class="empty-state" id="closedState" style="display:none">Nativity submissions are currently closed.</div>
 
-  <form id="photoForm">
+  <form id="photoForm" style="display:none">
     <div class="field">
       <label for="photo">Photo of the nativity</label>
       <input type="file" id="photo" accept="image/*" capture="environment" required>
@@ -38,6 +39,16 @@
 </div>
 <script src="/js/app.js"></script>
 <script>
+async function initialize() {
+  try {
+    const { submissionsOpen } = await api('/api/settings');
+    document.getElementById('photoForm').style.display = submissionsOpen ? 'block' : 'none';
+    document.getElementById('closedState').style.display = submissionsOpen ? 'none' : 'block';
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
 document.getElementById('photo').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -71,6 +82,8 @@ document.getElementById('photoForm').addEventListener('submit', async (e) => {
     btn.textContent = 'Next: List the Pieces';
   }
 });
+
+initialize();
 </script>
 </body>
 </html>
