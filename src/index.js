@@ -125,6 +125,9 @@ export default {
 
       if (method === 'GET' && path.startsWith('/photos/')) {
         const key = path.replace('/photos/', '');
+        // Keys beginning with an underscore are internal app data such as
+        // admin-only notes and site settings, never public photo content.
+        if (key.startsWith('_')) return new Response('Not found', { status: 404 });
         const obj = await env.PHOTOS.get(key);
         if (!obj) return new Response('Not found', { status: 404 });
         return new Response(obj.body, {
