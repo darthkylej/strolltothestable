@@ -11,27 +11,38 @@
   .detail-back { display:inline-block; margin-bottom:8px; color:var(--muted); text-decoration:none; }
   .detail-back:hover { color:var(--gold-bright); }
   .detail-status { margin-top:8px; }
-  .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-  .detail-grid .card { margin:0; }
-  .contact-line { margin:7px 0; color:var(--text); overflow-wrap:anywhere; }
-  .contact-label { display:inline-block; min-width:64px; color:var(--muted); font-size:14px; }
-  .section-note { color:var(--wood); font-size:14px; margin-top:4px; }
-  .photo-frame { width:100%; border-radius:14px; display:none; margin-top:12px; border:1px solid var(--border); }
+  .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .detail-grid.three { grid-template-columns:repeat(3, 1fr); }
+  .section-note { color:var(--wood); font-size:14px; margin-top:4px; line-height:1.5; }
+  .photo-frame { width:100%; border-radius:14px; display:none; margin:12px 0; border:1px solid var(--border); }
   .action-card { margin-top:16px; }
-  .action-row { display:flex; gap:10px; flex-wrap:wrap; }
+  .action-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
   .action-row .btn { width:auto; margin:0; }
   .detail-primary-action { min-width:190px; }
   .danger-zone { border-color:rgba(255,158,139,.32); background:linear-gradient(180deg, rgba(55,20,23,.28), rgba(28,13,19,.32)); }
   .danger-zone h2 { color:#ffd1c8; }
   .danger-zone p { color:#e8b8b0; }
-  .pieces-heading { margin-top:24px; }
-  .piece-card { position:relative; }
-  .piece-card img { border:1px solid var(--border); }
   .admin-success { display:none; margin:0 0 16px; padding:12px 14px; border-radius:12px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
+  .edit-card { margin-top:16px; }
+  .edit-card h2 { margin-bottom:6px; }
+  .edit-section { margin-top:22px; padding-top:20px; border-top:1px solid var(--border); }
+  .edit-section:first-of-type { border-top:0; padding-top:4px; }
+  .edit-section h3 { margin:0 0 12px; color:var(--gold-bright); }
+  .piece-edit { padding:16px; margin:12px 0; border:1px solid var(--border); border-radius:16px; background:rgba(8,16,31,.55); }
+  .piece-edit-head { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:12px; }
+  .piece-edit-title { font-weight:800; color:var(--gold-bright); }
+  .piece-remove { width:auto !important; margin:0 !important; padding:8px 12px !important; }
+  .piece-photo { width:100%; max-height:360px; object-fit:contain; border-radius:12px; margin:10px 0; background:#02050d; border:1px solid var(--border); }
+  .admin-note-card { border-color:rgba(242,199,110,.32); background:linear-gradient(180deg, rgba(39,31,16,.32), rgba(15,19,29,.5)); }
+  .admin-note-badge { display:inline-block; margin-bottom:8px; padding:4px 8px; border-radius:999px; background:rgba(242,199,110,.13); color:var(--gold-bright); font-size:.76rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+  .save-bar { position:sticky; bottom:12px; z-index:20; display:flex; justify-content:flex-end; margin-top:18px; pointer-events:none; }
+  .save-bar .btn { width:auto; min-width:210px; margin:0; box-shadow:0 12px 38px rgba(0,0,0,.42); pointer-events:auto; }
   @media (max-width:700px) {
     .detail-topbar { display:block; }
-    .detail-grid { grid-template-columns:1fr; }
+    .detail-grid, .detail-grid.three { grid-template-columns:1fr; }
     .action-row .btn { width:100%; }
+    .piece-edit-head { align-items:flex-start; }
+    .save-bar .btn { width:100%; }
   }
 </style>
 </head>
@@ -44,45 +55,111 @@
       <h1 id="title">Loading…</h1>
       <div class="detail-status"><span class="status-pill" id="statusPill"></span></div>
     </div>
-    <a class="btn btn-outline" href="/admin-manage.html" style="width:auto; margin:0">Manage Admins</a>
+    <div class="action-row">
+      <a class="btn btn-outline" href="/admin-tour-media.html">Tour Media</a>
+      <a class="btn btn-outline" href="/admin-manage.html">Manage Admins</a>
+    </div>
   </div>
 
   <div class="error-banner" data-error-banner></div>
   <div class="admin-success" id="successBanner"></div>
 
-  <div class="detail-grid">
-    <div class="card">
-      <h2>Donor</h2>
-      <div id="ownerInfo"></div>
-    </div>
+  <div class="card edit-card">
+    <h2>Edit Submission</h2>
+    <p class="section-note">Admins can correct all information entered by the donor before or after check-in.</p>
 
-    <div class="card">
-      <h2>Submission</h2>
-      <div id="submissionInfo"></div>
-    </div>
+    <section class="edit-section">
+      <h3>Donor Information</h3>
+      <div class="detail-grid">
+        <div class="field">
+          <label for="ownerName">Name</label>
+          <input id="ownerName" type="text">
+        </div>
+        <div class="field">
+          <label for="ownerPhone">Phone</label>
+          <input id="ownerPhone" type="tel">
+        </div>
+      </div>
+      <div class="field">
+        <label for="ownerEmail">Email</label>
+        <input id="ownerEmail" type="email">
+      </div>
+    </section>
+
+    <section class="edit-section">
+      <h3>Nativity Information</h3>
+      <div class="detail-grid three">
+        <div class="field">
+          <label>Submission Number</label>
+          <input id="submissionNumber" type="text" disabled>
+        </div>
+        <div class="field">
+          <label>Event Year</label>
+          <input id="eventYear" type="text" disabled>
+        </div>
+        <div class="field">
+          <label>Pieces</label>
+          <input id="pieceCount" type="text" disabled>
+        </div>
+      </div>
+      <div class="field">
+        <label for="storyInput">Story</label>
+        <textarea id="storyInput" rows="5" placeholder="Optional story or description"></textarea>
+      </div>
+      <div class="field" style="display:flex; align-items:center; gap:12px">
+        <label class="switch" style="margin:0">
+          <input type="checkbox" id="tourToggle">
+          <span class="track"></span>
+        </label>
+        <label for="tourToggle" style="margin:0; font-weight:700">Show this nativity in the public Virtual Tour</label>
+      </div>
+    </section>
+
+    <section class="edit-section">
+      <h3>Main Submitted Photo</h3>
+      <img id="mainPhoto" class="photo-frame" alt="Submitted nativity photo">
+      <p id="noMainPhoto" class="section-note">No main photo is attached.</p>
+      <input type="file" id="mainPhotoInput" accept="image/*" capture="environment">
+      <div class="action-row" style="margin-top:10px">
+        <button class="btn btn-secondary" id="uploadMainBtn" type="button">Upload / Replace Main Photo</button>
+        <button class="btn btn-danger" id="clearMainBtn" type="button" style="display:none">Remove Main Photo</button>
+      </div>
+    </section>
+
+    <section class="edit-section">
+      <div class="piece-edit-head">
+        <div>
+          <h3 style="margin-bottom:4px">Pieces</h3>
+          <p class="section-note" style="margin:0">Descriptions, condition notes, and piece photos can all be corrected here.</p>
+        </div>
+        <button class="btn btn-outline" id="addPieceBtn" type="button" style="width:auto; margin:0">Add Piece</button>
+      </div>
+      <div id="pieces"></div>
+    </section>
+  </div>
+
+  <div class="card admin-note-card">
+    <span class="admin-note-badge">Admin Only</span>
+    <h2>Private Notes</h2>
+    <p class="section-note">These notes are never shown to the donor or in the Virtual Tour.</p>
+    <textarea id="adminNote" rows="5" placeholder="Example: Friend Jerry is authorized to pick this up for the donor."></textarea>
+  </div>
+
+  <div class="save-bar">
+    <button class="btn btn-primary" id="saveChangesBtn" type="button">Save Submission Changes</button>
   </div>
 
   <div class="card" style="margin-top:16px">
-    <h2>Photo &amp; Story</h2>
-    <img id="mainPhoto" class="photo-frame" alt="Submitted nativity photo">
-    <p id="noMainPhoto" class="section-note">No main photo was submitted.</p>
-    <p id="storyText" style="color:var(--wood); white-space:pre-wrap"></p>
-  </div>
-
-  <div class="card">
     <h2>Display Photo</h2>
-    <p class="section-note">This is the final-display photo shown in the public virtual tour when one has been uploaded.</p>
+    <p class="section-note">This is the final-display photo shown in the public Virtual Tour when one has been uploaded.</p>
     <img id="displayPhoto" class="photo-frame" alt="Nativity display photo">
     <p id="noDisplayPhoto" class="section-note">No display photo yet.</p>
-    <input type="file" id="displayPhotoInput" accept="image/*" capture="environment" style="margin-top:10px">
+    <input type="file" id="displayPhotoInput" accept="image/*" capture="environment">
     <div class="action-row" style="margin-top:12px">
-      <button class="btn btn-secondary" id="uploadDisplayBtn">Upload / Replace Photo</button>
-      <button class="btn btn-danger" id="clearDisplayBtn" style="display:none">Remove Photo</button>
+      <button class="btn btn-secondary" id="uploadDisplayBtn">Upload / Replace Display Photo</button>
+      <button class="btn btn-danger" id="clearDisplayBtn" style="display:none">Remove Display Photo</button>
     </div>
   </div>
-
-  <h2 class="pieces-heading">Pieces</h2>
-  <div id="pieces"></div>
 
   <div class="card action-card">
     <h2>Check-In Status</h2>
@@ -105,7 +182,7 @@
 
   <div class="card danger-zone">
     <h2>Delete Submission</h2>
-    <p>Permanently removes this submission, all of its piece records, and its stored photos. The donor account itself is not deleted.</p>
+    <p>Permanently removes this submission, all of its piece records, its private admin note, and its stored photos. The donor account itself is not deleted.</p>
     <button class="btn btn-danger" id="deleteBtn" style="width:auto; margin:8px 0 0">Delete This Submission</button>
   </div>
 </div>
@@ -113,6 +190,7 @@
 <script>
 const id = new URLSearchParams(window.location.search).get('id');
 let current = null;
+let currentPieces = [];
 
 function esc(value) {
   return String(value ?? '')
@@ -135,67 +213,99 @@ function showSuccess(message) {
   setTimeout(() => { el.style.display = 'none'; }, 3500);
 }
 
+function pieceMarkup(piece, index) {
+  const hasId = !!piece.id;
+  return `
+    <div class="piece-edit" data-piece-id="${hasId ? esc(piece.id) : ''}">
+      <div class="piece-edit-head">
+        <div class="piece-edit-title">Piece <span data-piece-number>${index + 1}</span></div>
+        <button class="btn btn-danger piece-remove" type="button" data-remove-piece>Remove Piece</button>
+      </div>
+      <div class="field">
+        <label>Description</label>
+        <input type="text" data-piece-description value="${esc(piece.description || '')}" placeholder="Describe this piece">
+      </div>
+      <div class="field">
+        <label>Condition Notes</label>
+        <textarea rows="3" data-piece-condition placeholder="Condition at check-in">${esc(piece.condition_notes || '')}</textarea>
+      </div>
+      ${piece.photo_key ? `<img class="piece-photo" src="/photos/${esc(piece.photo_key)}" alt="Photo of piece ${index + 1}">` : '<p class="section-note" data-no-piece-photo>No photo attached to this piece.</p>'}
+      <input type="file" data-piece-photo-input accept="image/*" capture="environment">
+      <div class="action-row" style="margin-top:10px">
+        <button class="btn btn-secondary" type="button" data-upload-piece-photo ${hasId ? '' : 'disabled'}>Upload / Replace Photo</button>
+        ${piece.photo_key && hasId ? '<button class="btn btn-danger" type="button" data-clear-piece-photo>Remove Photo</button>' : ''}
+      </div>
+      ${hasId ? '' : '<p class="section-note">Save the submission once before adding a photo to this new piece.</p>'}
+    </div>`;
+}
+
+function renumberPieces() {
+  document.querySelectorAll('.piece-edit').forEach((card, index) => {
+    card.querySelector('[data-piece-number]').textContent = index + 1;
+  });
+  document.getElementById('pieceCount').value = document.querySelectorAll('.piece-edit').length;
+}
+
+function renderPieces(pieces) {
+  const el = document.getElementById('pieces');
+  el.innerHTML = pieces.map(pieceMarkup).join('');
+  renumberPieces();
+}
+
+function renderPhotos(nativity) {
+  const mainImg = document.getElementById('mainPhoto');
+  const noMain = document.getElementById('noMainPhoto');
+  const clearMain = document.getElementById('clearMainBtn');
+  if (nativity.photo_key) {
+    mainImg.src = `/photos/${nativity.photo_key}`;
+    mainImg.style.display = 'block';
+    noMain.style.display = 'none';
+    clearMain.style.display = 'inline-block';
+  } else {
+    mainImg.style.display = 'none';
+    noMain.style.display = 'block';
+    clearMain.style.display = 'none';
+  }
+
+  const displayImg = document.getElementById('displayPhoto');
+  const noDisplay = document.getElementById('noDisplayPhoto');
+  const clearDisplay = document.getElementById('clearDisplayBtn');
+  if (nativity.display_photo_key) {
+    displayImg.src = `/photos/${nativity.display_photo_key}`;
+    displayImg.style.display = 'block';
+    noDisplay.style.display = 'none';
+    clearDisplay.style.display = 'inline-block';
+  } else {
+    displayImg.style.display = 'none';
+    noDisplay.style.display = 'block';
+    clearDisplay.style.display = 'none';
+  }
+}
+
 async function load() {
   hideError();
   try {
-    const { nativity, pieces } = await api(`/api/admin/nativities/${id}`);
+    const { nativity, pieces, adminNote } = await api(`/api/admin/nativities/${id}`);
     current = nativity;
+    currentPieces = pieces;
 
     document.getElementById('title').textContent = nativity.submission_number;
     const statusPill = document.getElementById('statusPill');
     statusPill.textContent = statusLabel(nativity.status);
     statusPill.className = `status-pill status-${nativity.status}`;
 
-    document.getElementById('ownerInfo').innerHTML = `
-      <div class="contact-line"><span class="contact-label">Name</span>${esc(nativity.owner_name)}</div>
-      <div class="contact-line"><span class="contact-label">Phone</span><a href="tel:${esc(nativity.owner_phone)}">${esc(nativity.owner_phone)}</a></div>
-      <div class="contact-line"><span class="contact-label">Email</span><a href="mailto:${esc(nativity.owner_email)}">${esc(nativity.owner_email)}</a></div>
-    `;
+    document.getElementById('ownerName').value = nativity.owner_name || '';
+    document.getElementById('ownerPhone').value = nativity.owner_phone || '';
+    document.getElementById('ownerEmail').value = nativity.owner_email || '';
+    document.getElementById('submissionNumber').value = nativity.submission_number || '';
+    document.getElementById('eventYear').value = nativity.event_year || '';
+    document.getElementById('pieceCount').value = nativity.piece_count || 0;
+    document.getElementById('storyInput').value = nativity.story || '';
+    document.getElementById('tourToggle').checked = !!nativity.include_in_tour;
+    document.getElementById('adminNote').value = adminNote || '';
 
-    document.getElementById('submissionInfo').innerHTML = `
-      <div class="contact-line"><span class="contact-label">Year</span>${esc(nativity.event_year)}</div>
-      <div class="contact-line"><span class="contact-label">Pieces</span>${esc(nativity.piece_count)}</div>
-      <div class="contact-line"><span class="contact-label">Tour</span>${nativity.include_in_tour ? 'Included' : 'Hidden by donor'}</div>
-    `;
-
-    const mainImg = document.getElementById('mainPhoto');
-    const noMain = document.getElementById('noMainPhoto');
-    if (nativity.photo_key) {
-      mainImg.src = `/photos/${nativity.photo_key}`;
-      mainImg.style.display = 'block';
-      noMain.style.display = 'none';
-    } else {
-      mainImg.style.display = 'none';
-      noMain.style.display = 'block';
-    }
-    document.getElementById('storyText').textContent = nativity.story || '(No story provided.)';
-
-    const displayImg = document.getElementById('displayPhoto');
-    const noDisplayMsg = document.getElementById('noDisplayPhoto');
-    const clearBtn = document.getElementById('clearDisplayBtn');
-    if (nativity.display_photo_key) {
-      displayImg.src = `/photos/${nativity.display_photo_key}`;
-      displayImg.style.display = 'block';
-      noDisplayMsg.style.display = 'none';
-      clearBtn.style.display = 'inline-block';
-    } else {
-      displayImg.style.display = 'none';
-      noDisplayMsg.style.display = 'block';
-      clearBtn.style.display = 'none';
-    }
-
-    const piecesEl = document.getElementById('pieces');
-    if (!pieces.length) {
-      piecesEl.innerHTML = '<div class="empty-state">No pieces have been entered yet.</div>';
-    } else {
-      piecesEl.innerHTML = pieces.map((p) => `
-        <div class="piece-card">
-          <label><span class="piece-number">${esc(p.piece_number)}</span>${esc(p.description)}</label>
-          <p style="color:var(--wood); margin:8px 0 0">Condition: ${esc(p.condition_notes)}</p>
-          ${p.photo_key ? `<img src="/photos/${p.photo_key}" alt="Photo of piece ${esc(p.piece_number)}" style="width:100%; border-radius:10px; margin-top:8px">` : ''}
-        </div>
-      `).join('');
-    }
+    renderPhotos(nativity);
+    renderPieces(pieces);
 
     document.getElementById('waiverToggle').checked = nativity.waiver_signed;
     const finalizeBtn = document.getElementById('finalizeBtn');
@@ -216,6 +326,131 @@ async function load() {
     showError(err.message);
   }
 }
+
+function collectPieces() {
+  return [...document.querySelectorAll('.piece-edit')].map((card) => ({
+    id: card.dataset.pieceId || null,
+    description: card.querySelector('[data-piece-description]').value,
+    condition_notes: card.querySelector('[data-piece-condition]').value,
+  }));
+}
+
+document.getElementById('saveChangesBtn').addEventListener('click', async () => {
+  hideError();
+  const btn = document.getElementById('saveChangesBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    await api(`/api/admin/nativities/${id}`, {
+      method: 'PUT',
+      body: {
+        owner: {
+          name: document.getElementById('ownerName').value,
+          phone: document.getElementById('ownerPhone').value,
+          email: document.getElementById('ownerEmail').value,
+        },
+        story: document.getElementById('storyInput').value,
+        includeInTour: document.getElementById('tourToggle').checked,
+        adminNote: document.getElementById('adminNote').value,
+        pieces: collectPieces(),
+      },
+    });
+    showSuccess('Submission changes saved.');
+    await load();
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Submission Changes';
+  }
+});
+
+document.getElementById('addPieceBtn').addEventListener('click', () => {
+  const container = document.getElementById('pieces');
+  const index = container.querySelectorAll('.piece-edit').length;
+  container.insertAdjacentHTML('beforeend', pieceMarkup({ id:null, description:'', condition_notes:'', photo_key:null }, index));
+  renumberPieces();
+});
+
+document.getElementById('pieces').addEventListener('click', async (event) => {
+  const card = event.target.closest('.piece-edit');
+  if (!card) return;
+
+  if (event.target.closest('[data-remove-piece]')) {
+    if (document.querySelectorAll('.piece-edit').length <= 1) {
+      showError('A submission must have at least one piece.');
+      return;
+    }
+    card.remove();
+    renumberPieces();
+    return;
+  }
+
+  const pieceId = card.dataset.pieceId;
+  if (event.target.closest('[data-upload-piece-photo]')) {
+    hideError();
+    if (!pieceId) { showError('Save this new piece before adding its photo.'); return; }
+    const file = card.querySelector('[data-piece-photo-input]').files[0];
+    if (!file) { showError('Choose a piece photo first.'); return; }
+    const btn = event.target.closest('[data-upload-piece-photo]');
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+    try {
+      await uploadPhotoTo(file, `/api/admin/nativities/${id}/pieces/${pieceId}/photo`);
+      showSuccess('Piece photo updated.');
+      await load();
+    } catch (err) {
+      showError(err.message);
+      btn.disabled = false;
+      btn.textContent = 'Upload / Replace Photo';
+    }
+    return;
+  }
+
+  if (event.target.closest('[data-clear-piece-photo]')) {
+    hideError();
+    if (!window.confirm('Remove this piece photo?')) return;
+    try {
+      await api(`/api/admin/nativities/${id}/pieces/${pieceId}/photo/clear`, { method: 'POST' });
+      showSuccess('Piece photo removed.');
+      await load();
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+});
+
+document.getElementById('uploadMainBtn').addEventListener('click', async () => {
+  hideError();
+  const file = document.getElementById('mainPhotoInput').files[0];
+  if (!file) { showError('Choose a main photo first.'); return; }
+  const btn = document.getElementById('uploadMainBtn');
+  btn.disabled = true;
+  btn.textContent = 'Uploading…';
+  try {
+    await uploadPhotoTo(file, `/api/admin/nativities/${id}/main-photo`);
+    document.getElementById('mainPhotoInput').value = '';
+    showSuccess('Main photo updated.');
+    await load();
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Upload / Replace Main Photo';
+  }
+});
+
+document.getElementById('clearMainBtn').addEventListener('click', async () => {
+  hideError();
+  if (!window.confirm('Remove the main submitted photo?')) return;
+  try {
+    await api(`/api/admin/nativities/${id}/main-photo/clear`, { method: 'POST' });
+    showSuccess('Main photo removed.');
+    await load();
+  } catch (err) {
+    showError(err.message);
+  }
+});
 
 document.getElementById('waiverToggle').addEventListener('change', async (e) => {
   hideError();
@@ -274,7 +509,7 @@ document.getElementById('uploadDisplayBtn').addEventListener('click', async () =
     showError(err.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Upload / Replace Photo';
+    btn.textContent = 'Upload / Replace Display Photo';
   }
 });
 
@@ -294,7 +529,7 @@ document.getElementById('deleteBtn').addEventListener('click', async () => {
   hideError();
   if (!current) return;
   const confirmed = window.confirm(
-    `Permanently delete ${current.submission_number} from ${current.owner_name}?\n\nThis removes the submission, all piece records, and stored photos. This cannot be undone.`
+    `Permanently delete ${current.submission_number} from ${current.owner_name}?\n\nThis removes the submission, all piece records, private admin notes, and stored photos. This cannot be undone.`
   );
   if (!confirmed) return;
 

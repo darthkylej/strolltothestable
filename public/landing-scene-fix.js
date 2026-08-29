@@ -15,15 +15,10 @@
     if (!svg || svg.dataset.sceneFixed === 'true') return;
     svg.dataset.sceneFixed = 'true';
 
-    // Keep the guiding star comfortably inside the visible safe area and
-    // slow its existing pulse animation to one quarter of its original speed.
     const star = svg.querySelector('.bethlehem-star');
     if (star) star.style.animationDuration = '18s';
     wrap(star, 'translate(0 72)');
 
-    // Remove the Wise Men and camel caravan entirely. The landing artwork is
-    // intentionally limited to the night sky, stars, guiding star, horizon,
-    // and desert landscape.
     const firstCamel = svg.querySelector('use[href="#camel"]');
     const caravan = firstCamel?.parentElement;
     if (caravan) caravan.remove();
@@ -34,9 +29,31 @@
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', adjustScene, { once: true });
-  } else {
+  async function applySubmissionSetting() {
+    try {
+      const response = await fetch('/api/settings', {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      });
+      if (!response.ok) return;
+      const settings = await response.json();
+      if (settings.submissionsOpen === false) {
+        document.getElementById('submitNativity')?.remove();
+        document.getElementById('submitDialog')?.remove();
+      }
+    } catch {
+      // Backend creation remains authoritative if this display check fails.
+    }
+  }
+
+  function init() {
     adjustScene();
+    applySubmissionSetting();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
   }
 })();

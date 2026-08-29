@@ -1,9 +1,17 @@
 import { db } from '../lib/db.js';
 import { nextSubmissionNumber } from '../lib/auth.js';
 import { json, error, requireUser } from '../lib/util.js';
+import { getSiteSettings } from '../lib/siteSettings.js';
 
 function currentEventYear() {
   return new Date().getFullYear();
+}
+
+async function requireSubmissionsOpen(env) {
+  const settings = await getSiteSettings(env);
+  if (!settings.submissionsOpen) {
+    throw error('Nativity submissions are currently closed.', 403);
+  }
 }
 
 export async function listMine(request, env, session) {
@@ -27,9 +35,11 @@ export async function getOne(request, env, session, id) {
 }
 
 // Step 1 of "Lend a Nativity" — photo + optional story. Returns a draft id
-// that the pieces step (below) will fill in and finalize.
+// that the pieces step below will fill in and finalize.
 export async function create(request, env, session) {
   requireUser(session);
+  await requireSubmissionsOpen(env);
+
   const { photoKey, story, includeInTour } = await request.json();
   const sql = db(env);
   const eventYear = currentEventYear();
@@ -53,8 +63,8 @@ export async function setTourVisibility(request, env, session, id) {
   return json({ ok: true });
 }
 
-// Step 2 — the per-piece form. Replaces any existing draft submission_number
-// with a real one, since the online form is now complete.
+// Step 2 — the per-piece form. Existing drafts may still be completed after
+// new submissions have been closed.
 export async function submitPieces(request, env, session, id) {
   requireUser(session);
   const { pieces } = await request.json();
@@ -88,11 +98,12 @@ export async function submitPieces(request, env, session, id) {
   return json({ ok: true, submissionNumber });
 }
 
-// One-click resubmit: clone a returned nativity from a previous event year
-// into a brand-new pending row for the current year. The donor can edit before
-// their in-person check-in; a worker re-verifies condition regardless.
+// One-click resubmit creates a new current-year submission, so it is disabled
+// when admins have closed new nativity submissions.
 export async function resubmit(request, env, session, sourceId) {
   requireUser(session);
+  await requireSubmissionsOpen(env);
+
   const sql = db(env);
   const source = await sql`
     SELECT * FROM nativities WHERE id = ${sourceId} AND owner_user_id = ${session.userId}
@@ -125,9 +136,7 @@ export async function resubmit(request, env, session, sourceId) {
 }
 
 // Shared photo upload used by both the overall-nativity photo and each
-// piece's optional photo. Expects raw image bytes with a Content-Type
-// header; resizing happens client-side before this is called (see
-// public/js/upload.js) to keep R2 usage small.
+// piece's optional photo. Expects raw image bytes with a Content-Type header.
 export async function uploadPhoto(request, env, session) {
   requireUser(session);
   const contentType = request.headers.get('Content-Type') || 'image/jpeg';
