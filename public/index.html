@@ -3,27 +3,380 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stroll to the Stable — Nativity Check-In</title>
+<meta name="description" content="A Stroll to the Stable — a celebration of the Nativity in Seguin, November 27 through December 6, 2026.">
+<title>A Stroll to the Stable — Seguin</title>
 <link rel="stylesheet" href="/style.css">
+<style>
+  body.landing-page {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background-color: #050b1d;
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: #fff;
+    overflow-x: hidden;
+  }
+
+  body.landing-page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 1;
+    animation: none;
+    background:
+      linear-gradient(90deg, rgba(2, 6, 18, 0.80) 0%, rgba(2, 8, 24, 0.62) 37%, rgba(2, 8, 24, 0.20) 68%, rgba(2, 6, 18, 0.12) 100%),
+      linear-gradient(0deg, rgba(2, 5, 14, 0.74) 0%, rgba(2, 5, 14, 0.08) 34%, rgba(2, 5, 14, 0.10) 100%);
+  }
+
+  body.landing-page::after {
+    display: none;
+  }
+
+  .landing-hero {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding: clamp(42px, 7vw, 92px) clamp(22px, 7vw, 110px) 84px;
+  }
+
+  .landing-content {
+    width: min(680px, 100%);
+    padding: clamp(26px, 4vw, 42px);
+    border: 1px solid rgba(255, 230, 174, 0.22);
+    border-radius: 28px;
+    background: linear-gradient(145deg, rgba(3, 10, 27, 0.68), rgba(4, 12, 31, 0.44));
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .landing-kicker {
+    margin: 0 0 8px;
+    color: #f4d58f;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .landing-title {
+    margin: 0;
+    color: #fff7df;
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: clamp(2.65rem, 6vw, 5.2rem);
+    font-weight: 500;
+    line-height: 0.98;
+    letter-spacing: -0.035em;
+    text-shadow: 0 4px 30px rgba(0, 0, 0, 0.46);
+  }
+
+  .landing-subtitle {
+    margin: 14px 0 0;
+    color: #f3e4c3;
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+    font-weight: 500;
+  }
+
+  .event-date {
+    margin: 30px 0 18px;
+    color: #fff;
+    font-size: clamp(1.15rem, 2.5vw, 1.45rem);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  .hours-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 0 0 18px;
+  }
+
+  .hours-card {
+    padding: 16px 18px;
+    border: 1px solid rgba(255, 230, 174, 0.18);
+    border-radius: 16px;
+    background: rgba(3, 9, 24, 0.42);
+  }
+
+  .hours-card strong {
+    display: block;
+    margin-bottom: 3px;
+    color: #f4d58f;
+    font-size: 0.84rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .hours-card span {
+    color: #fff;
+    font-size: 1.06rem;
+    font-weight: 650;
+  }
+
+  .special-access {
+    margin: 0;
+    padding-left: 16px;
+    border-left: 2px solid rgba(244, 213, 143, 0.55);
+    color: rgba(255, 249, 235, 0.88);
+    font-size: 0.94rem;
+    line-height: 1.55;
+  }
+
+  .landing-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 28px;
+  }
+
+  .landing-btn {
+    appearance: none;
+    display: inline-flex;
+    min-height: 52px;
+    align-items: center;
+    justify-content: center;
+    padding: 13px 22px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  }
+
+  .landing-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .landing-btn.primary {
+    color: #10172a;
+    background: #f4d58f;
+    box-shadow: 0 12px 32px rgba(244, 213, 143, 0.18);
+  }
+
+  .landing-btn.primary:hover {
+    background: #ffe5a8;
+  }
+
+  .landing-btn.secondary {
+    color: #fff7df;
+    border-color: rgba(255, 239, 202, 0.46);
+    background: rgba(5, 13, 35, 0.50);
+  }
+
+  .landing-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.11);
+  }
+
+  .admin-link {
+    position: fixed;
+    right: 15px;
+    bottom: 10px;
+    z-index: 3;
+    color: rgba(255, 255, 255, 0.44);
+    font-size: 0.72rem;
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    transition: color 160ms ease;
+  }
+
+  .admin-link:hover,
+  .admin-link:focus-visible {
+    color: rgba(255, 255, 255, 0.82);
+    text-decoration: underline;
+  }
+
+  .submit-dialog {
+    width: min(430px, calc(100vw - 34px));
+    padding: 0;
+    border: 1px solid rgba(255, 230, 174, 0.28);
+    border-radius: 24px;
+    color: #fff;
+    background: #08132b;
+    box-shadow: 0 30px 100px rgba(0, 0, 0, 0.62);
+  }
+
+  .submit-dialog::backdrop {
+    background: rgba(1, 4, 12, 0.72);
+    backdrop-filter: blur(4px);
+  }
+
+  .dialog-inner {
+    position: relative;
+    padding: 30px;
+  }
+
+  .dialog-inner h2 {
+    margin: 0 0 8px;
+    color: #fff1c9;
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 1.8rem;
+  }
+
+  .dialog-inner p {
+    margin: 0 0 22px;
+    color: rgba(255, 255, 255, 0.78);
+  }
+
+  .dialog-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .dialog-actions .landing-btn {
+    width: 100%;
+  }
+
+  .dialog-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.70);
+    background: transparent;
+    font-size: 1.7rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .dialog-close:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  @media (max-width: 720px) {
+    body.landing-page {
+      background-attachment: scroll;
+      background-position: 62% center;
+    }
+
+    body.landing-page::before {
+      background:
+        linear-gradient(180deg, rgba(2, 6, 18, 0.26) 0%, rgba(2, 7, 20, 0.45) 35%, rgba(2, 6, 18, 0.84) 78%, rgba(2, 5, 14, 0.94) 100%);
+    }
+
+    .landing-hero {
+      align-items: flex-end;
+      padding: 34px 16px 54px;
+    }
+
+    .landing-content {
+      padding: 24px 20px;
+      border-radius: 22px;
+      background: rgba(3, 10, 27, 0.70);
+    }
+
+    .hours-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .landing-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    .landing-btn {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .dialog-actions {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
 </head>
-<body>
-<div class="page">
-  <p class="eyebrow">Stroll to the Stable</p>
-  <h1>Nativity Check-In</h1>
-  <svg class="stable-mark" width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M60 4 L64 14 L75 14 L66 21 L69 32 L60 25 L51 32 L54 21 L45 14 L56 14 Z" stroke="#6B4226" stroke-width="1.5"/>
-    <path d="M10 36 L30 20 L50 36" stroke="#6B4226" stroke-width="1.5"/>
-    <path d="M70 36 L90 20 L110 36" stroke="#6B4226" stroke-width="1.5"/>
-  </svg>
-  <p style="color:var(--wood); margin-bottom:28px">Loaning us your nativity for the stroll? Log in below, or register if this is your first time.</p>
+<body class="landing-page">
+<main class="landing-hero">
+  <section class="landing-content" aria-labelledby="event-title">
+    <p class="landing-kicker">Seguin's</p>
+    <h1 class="landing-title" id="event-title">A Stroll to the Stable</h1>
+    <p class="landing-subtitle">A celebration of the Nativity</p>
 
-  <a class="btn btn-primary" href="/login.html">Log In</a>
-  <a class="btn btn-secondary" href="/register.html">Register</a>
-  <a class="btn btn-outline" href="/admin-login.html">Admin Login</a>
+    <p class="event-date">November 27 – December 6, 2026</p>
 
-  <p style="text-align:center; margin-top:28px">
-    <a class="link" href="/tour.html">🌟 View the Virtual Tour — open to everyone, no login needed</a>
-  </p>
-</div>
+    <div class="hours-grid" aria-label="Public event hours">
+      <div class="hours-card">
+        <strong>Saturday &amp; Sunday</strong>
+        <span>9:00 AM – 9:00 PM</span>
+      </div>
+      <div class="hours-card">
+        <strong>Monday – Friday</strong>
+        <span>12:00 PM – 9:00 PM</span>
+      </div>
+    </div>
+
+    <p class="special-access">Weekday mornings are reserved for special appointments for nursing homes, older adults, immunocompromised guests, and anyone who would benefit from a quieter visit or additional assistance.</p>
+
+    <div class="landing-actions">
+      <a class="landing-btn primary" href="/tour.html">Virtual Tour</a>
+      <button class="landing-btn secondary" id="submitNativity" type="button">Submit your Nativity</button>
+    </div>
+  </section>
+</main>
+
+<a class="admin-link" href="/admin-login.html">Admin Login</a>
+
+<dialog class="submit-dialog" id="submitDialog">
+  <div class="dialog-inner">
+    <form method="dialog">
+      <button class="dialog-close" type="submit" aria-label="Close">×</button>
+    </form>
+    <h2>Submit your Nativity</h2>
+    <p>Already have an account, or joining us for the first time?</p>
+    <div class="dialog-actions">
+      <a class="landing-btn primary" href="/login.html">Log In</a>
+      <a class="landing-btn secondary" href="/register.html">Register</a>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  const dialog = document.getElementById('submitDialog');
+  document.getElementById('submitNativity').addEventListener('click', () => {
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+  });
+
+  dialog.addEventListener('click', event => {
+    if (event.target === dialog && typeof dialog.close === 'function') dialog.close();
+  });
+
+  async function loadLandingBackground() {
+    try {
+      const paths = [
+        '/landing-bg/part1.txt',
+        '/landing-bg/part2.txt',
+        '/landing-bg/part3.txt',
+        '/landing-bg/part4.txt'
+      ];
+      const parts = await Promise.all(paths.map(async path => {
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(`Failed to load ${path}`);
+        return response.text();
+      }));
+      document.body.style.backgroundImage = `url("data:image/jpeg;base64,${parts.join('')}")`;
+    } catch (error) {
+      console.error('Could not load landing background image.', error);
+    }
+  }
+
+  loadLandingBackground();
+</script>
 </body>
 </html>
