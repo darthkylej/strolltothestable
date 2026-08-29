@@ -24,7 +24,9 @@
 <script>
 async function load() {
   try {
-    const { tour } = await api('/api/tour');
+    // Versioned once to bypass any five-minute tour response a visitor's
+    // browser may still have from the previous caching implementation.
+    const { tour } = await api('/api/tour?v=2');
     const gallery = document.getElementById('gallery');
     if (tour.length === 0) {
       gallery.innerHTML = '<div class="empty-state">Nativities will appear here as they\'re checked in.</div>';
