@@ -15,7 +15,7 @@
     <path d="M10 36 L30 20 L50 36" stroke="#6B4226" stroke-width="1.5"/>
     <path d="M70 36 L90 20 L110 36" stroke="#6B4226" stroke-width="1.5"/>
   </svg>
-  <p style="color:var(--wood); margin-bottom:24px">A look at the nativities loaned for this year's stroll — shared by families across the ward.</p>
+  <p style="color:var(--wood); margin-bottom:24px">A look at the nativities loaned for this year's stroll — shared by families across the community.</p>
 
   <div class="error-banner" data-error-banner></div>
   <div id="gallery"></div>
@@ -36,10 +36,6 @@ async function load() {
       <div class="card">
         ${n.photoKey ? `<img src="/photos/${n.photoKey}" style="width:100%; border-radius:12px; margin-bottom:14px">` : ''}
         ${n.story ? `<p style="color:var(--wood); font-style:italic">${escapeHtml(n.story)}</p>` : ''}
-        ${n.pieceDescriptions.length ? `
-          <p class="eyebrow" style="margin-top:14px">Pieces</p>
-          <p>${n.pieceDescriptions.map(escapeHtml).join(' · ')}</p>
-        ` : ''}
       </div>
     `).join('');
   } catch (err) {
