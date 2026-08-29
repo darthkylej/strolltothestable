@@ -6,6 +6,33 @@ import * as admin from './routes/admin.js';
 import { getTour } from './routes/tour.js';
 import { error } from './lib/util.js';
 
+const HOME_NAV_HTML = `
+  <nav class="site-nav" aria-label="Site navigation">
+    <a class="site-home-link" href="/" aria-label="Go to Stroll to the Stable home page">
+      <svg class="site-home-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3.5 11.2 12 4l8.5 7.2"></path>
+        <path d="M5.7 9.6V20h12.6V9.6"></path>
+        <path d="M9.7 20v-6h4.6v6"></path>
+      </svg>
+      <span>Home</span>
+    </a>
+    <div class="site-nav-brand" aria-hidden="true">Stroll to the Stable</div>
+  </nav>`;
+
+class NavHeadHandler {
+  element(element) {
+    element.append('<link rel="stylesheet" href="/nav.css">', { html: true });
+  }
+}
+
+class NavBodyHandler {
+  element(element) {
+    const existingClass = element.getAttribute('class') || '';
+    element.setAttribute('class', `${existingClass} has-site-nav`.trim());
+    element.prepend(HOME_NAV_HTML, { html: true });
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -25,8 +52,21 @@ export default {
       }
 
       if (!path.startsWith('/api/')) {
-        // Not an API route — let the static assets binding serve public/*.html
-        return env.ASSETS.fetch(request);
+        // Static pages are served by the assets binding. Every HTML page
+        // except the landing page gets the same fixed, mobile-friendly Home
+        // navigation automatically, so new pages inherit it too.
+        const response = await env.ASSETS.fetch(request);
+        const contentType = response.headers.get('Content-Type') || '';
+        const isHome = path === '/' || path === '/index.html';
+
+        if (method === 'GET' && !isHome && contentType.includes('text/html')) {
+          return new HTMLRewriter()
+            .on('head', new NavHeadHandler())
+            .on('body', new NavBodyHandler())
+            .transform(response);
+        }
+
+        return response;
       }
 
       const session = await getSession(request, env);
