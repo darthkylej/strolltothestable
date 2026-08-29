@@ -70,6 +70,53 @@ class LandingHoursHandler {
   }
 }
 
+class AdminDashboardToolsHandler {
+  element(element) {
+    element.prepend('<a class="btn btn-outline" href="/admin-tour-media.html">Tour Media</a>', { html: true });
+  }
+}
+
+async function serveTourMedia(request, env, path) {
+  const key = path.slice(1);
+
+  if (request.method === 'HEAD') {
+    const object = await env.PHOTOS.head(key);
+    if (!object) return new Response('Not found', { status: 404 });
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set('etag', object.httpEtag);
+    headers.set('Accept-Ranges', 'bytes');
+    headers.set('Content-Length', String(object.size));
+    return new Response(null, { status: 200, headers });
+  }
+
+  const object = await env.PHOTOS.get(key, {
+    onlyIf: request.headers,
+    range: request.headers,
+  });
+  if (!object) return new Response('Not found', { status: 404 });
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  headers.set('Accept-Ranges', 'bytes');
+
+  if (!('body' in object)) {
+    return new Response(null, { status: 412, headers });
+  }
+
+  let status = 200;
+  if (object.range && request.headers.get('Range')) {
+    const offset = object.range.offset || 0;
+    const length = object.range.length || object.size;
+    status = 206;
+    headers.set('Content-Range', `bytes ${offset}-${offset + length - 1}/${object.size}`);
+    headers.set('Content-Length', String(length));
+  }
+
+  return new Response(object.body, { status, headers });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -77,8 +124,13 @@ export default {
     const method = request.method;
 
     try {
-      // ── Photos (public read, served through the Worker so no separate
-      // R2 public-domain setup is needed) ──────────────────────────────
+      // Standalone Scroll to the Stable artwork and video. Range-aware R2
+      // reads allow browser video controls and seeking to work normally.
+      if ((method === 'GET' || method === 'HEAD') && path.startsWith('/tour-media/')) {
+        return await serveTourMedia(request, env, path);
+      }
+
+      // Nativity photos.
       if (method === 'GET' && path.startsWith('/photos/')) {
         const key = path.replace('/photos/', '');
         const obj = await env.PHOTOS.get(key);
@@ -89,9 +141,6 @@ export default {
       }
 
       if (!path.startsWith('/api/')) {
-        // Static pages are served by the assets binding. Every HTML page
-        // except the landing page gets the same fixed, mobile-friendly Home
-        // navigation automatically, so new pages inherit it too.
         const response = await env.ASSETS.fetch(request);
         const contentType = response.headers.get('Content-Type') || '';
         const isHome = path === '/' || path === '/index.html';
@@ -106,10 +155,15 @@ export default {
               .transform(response);
           }
 
-          return new HTMLRewriter()
+          const rewriter = new HTMLRewriter()
             .on('head', new NavHeadHandler())
-            .on('body', new NavBodyHandler())
-            .transform(response);
+            .on('body', new NavBodyHandler());
+
+          if (path === '/admin-dashboard.html') {
+            rewriter.on('.admin-tools', new AdminDashboardToolsHandler());
+          }
+
+          return rewriter.transform(response);
         }
 
         return response;
@@ -117,7 +171,7 @@ export default {
 
       const session = await getSession(request, env);
 
-      // ── Public auth endpoints ──────────────────────────────────────
+      // Public auth endpoints.
       if (path === '/api/register' && method === 'POST') return await auth.register(request, env);
       if (path === '/api/login' && method === 'POST') return await auth.login(request, env);
       if (path === '/api/logout' && method === 'POST') return await auth.logout();
@@ -126,10 +180,10 @@ export default {
       if (path === '/api/admin/request-otp' && method === 'POST') return await adminAuth.requestOtp(request, env);
       if (path === '/api/admin/verify-otp' && method === 'POST') return await adminAuth.verifyOtp(request, env);
 
-      // ── Public virtual tour (no login) ──────────────────────────────
+      // Public Scroll to the Stable collection.
       if (path === '/api/tour' && method === 'GET') return await getTour(request, env);
 
-      // ── User endpoints (require a user session) ─────────────────────
+      // User endpoints.
       if (path === '/api/nativities' && method === 'GET') return await nativities.listMine(request, env, session);
       if (path === '/api/nativities' && method === 'POST') return await nativities.create(request, env, session);
       if (path === '/api/upload-photo' && method === 'POST') return await nativities.uploadPhoto(request, env, session);
@@ -148,10 +202,13 @@ export default {
         return await nativities.setTourVisibility(request, env, session, m[1]);
       }
 
-      // ── Admin endpoints (require an admin session) ───────────────────
+      // Admin endpoints.
       if (path === '/api/admin/nativities' && method === 'GET') return await admin.listNativities(request, env, session);
       if (path === '/api/admin/admins' && method === 'GET') return await admin.listAdmins(request, env, session);
       if (path === '/api/admin/admins' && method === 'POST') return await admin.addAdmin(request, env, session);
+      if (path === '/api/admin/tour-media' && method === 'GET') return await admin.listTourMedia(request, env, session);
+      if (path === '/api/admin/tour-media' && method === 'POST') return await admin.uploadTourMedia(request, env, session);
+      if (path === '/api/admin/tour-media' && method === 'DELETE') return await admin.deleteTourMedia(request, env, session);
 
       if ((m = path.match(/^\/api\/admin\/admins\/([^/]+)$/)) && method === 'DELETE') {
         return await admin.removeAdmin(request, env, session, decodeURIComponent(m[1]));
@@ -180,7 +237,7 @@ export default {
 
       return error('Not found', 404);
     } catch (err) {
-      if (err instanceof Response) return err; // thrown by requireUser/requireAdmin
+      if (err instanceof Response) return err;
       console.error(err);
       return error('Something went wrong. Please try again.', 500);
     }
