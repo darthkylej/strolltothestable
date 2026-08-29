@@ -115,14 +115,25 @@ export async function updateNativity(request, env, session, id) {
 
   const existingPieces = await sql`SELECT id FROM nativity_pieces WHERE nativity_id = ${id}`;
   const existingIds = new Set(existingPieces.map((p) => String(p.id)));
-  const keptIds = new Set();
+  const requestedExistingIds = new Set(
+    pieces
+      .map((piece) => piece.id ? String(piece.id) : '')
+      .filter((pieceId) => existingIds.has(pieceId))
+  );
+
+  // Delete removed pieces first so the unique nativity_id + piece_number
+  // constraint cannot collide while the remaining pieces are renumbered.
+  for (const existing of existingPieces) {
+    if (!requestedExistingIds.has(String(existing.id))) {
+      await sql`DELETE FROM nativity_pieces WHERE id = ${existing.id} AND nativity_id = ${id}`;
+    }
+  }
 
   for (let i = 0; i < pieces.length; i++) {
     const piece = pieces[i];
     const requestedId = piece.id ? String(piece.id) : '';
 
     if (requestedId && existingIds.has(requestedId)) {
-      keptIds.add(requestedId);
       await sql`
         UPDATE nativity_pieces
         SET piece_number = ${i + 1},
@@ -135,12 +146,6 @@ export async function updateNativity(request, env, session, id) {
         INSERT INTO nativity_pieces (nativity_id, piece_number, description, condition_notes, photo_key)
         VALUES (${id}, ${i + 1}, ${piece.description.trim()}, ${piece.condition_notes.trim()}, NULL)
       `;
-    }
-  }
-
-  for (const existing of existingPieces) {
-    if (!keptIds.has(String(existing.id))) {
-      await sql`DELETE FROM nativity_pieces WHERE id = ${existing.id} AND nativity_id = ${id}`;
     }
   }
 
