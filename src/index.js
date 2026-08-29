@@ -3,6 +3,7 @@ import * as auth from './routes/auth.js';
 import * as adminAuth from './routes/adminAuth.js';
 import * as nativities from './routes/nativities.js';
 import * as admin from './routes/admin.js';
+import * as settings from './routes/settings.js';
 import { getTour } from './routes/tour.js';
 import { error } from './lib/util.js';
 
@@ -118,13 +119,10 @@ export default {
     const method = request.method;
 
     try {
-      // Standalone Scroll to the Stable artwork and video. Range-aware R2
-      // reads allow browser video controls and seeking to work normally.
       if ((method === 'GET' || method === 'HEAD') && path.startsWith('/tour-media/')) {
         return await serveTourMedia(request, env, path);
       }
 
-      // Nativity photos.
       if (method === 'GET' && path.startsWith('/photos/')) {
         const key = path.replace('/photos/', '');
         const obj = await env.PHOTOS.get(key);
@@ -160,7 +158,8 @@ export default {
 
       const session = await getSession(request, env);
 
-      // Public auth endpoints.
+      if (path === '/api/settings' && method === 'GET') return await settings.getPublicSettings(request, env);
+
       if (path === '/api/register' && method === 'POST') return await auth.register(request, env);
       if (path === '/api/login' && method === 'POST') return await auth.login(request, env);
       if (path === '/api/logout' && method === 'POST') return await auth.logout();
@@ -169,10 +168,8 @@ export default {
       if (path === '/api/admin/request-otp' && method === 'POST') return await adminAuth.requestOtp(request, env);
       if (path === '/api/admin/verify-otp' && method === 'POST') return await adminAuth.verifyOtp(request, env);
 
-      // Public Scroll to the Stable collection.
       if (path === '/api/tour' && method === 'GET') return await getTour(request, env);
 
-      // User endpoints.
       if (path === '/api/nativities' && method === 'GET') return await nativities.listMine(request, env, session);
       if (path === '/api/nativities' && method === 'POST') return await nativities.create(request, env, session);
       if (path === '/api/upload-photo' && method === 'POST') return await nativities.uploadPhoto(request, env, session);
@@ -191,7 +188,8 @@ export default {
         return await nativities.setTourVisibility(request, env, session, m[1]);
       }
 
-      // Admin endpoints.
+      if (path === '/api/admin/settings' && method === 'GET') return await admin.getAdminSettings(request, env, session);
+      if (path === '/api/admin/settings' && method === 'POST') return await admin.updateAdminSettings(request, env, session);
       if (path === '/api/admin/nativities' && method === 'GET') return await admin.listNativities(request, env, session);
       if (path === '/api/admin/admins' && method === 'GET') return await admin.listAdmins(request, env, session);
       if (path === '/api/admin/admins' && method === 'POST') return await admin.addAdmin(request, env, session);
@@ -205,6 +203,9 @@ export default {
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)$/)) && method === 'GET') {
         return await admin.getNativity(request, env, session, m[1]);
       }
+      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)$/)) && method === 'PUT') {
+        return await admin.updateNativity(request, env, session, m[1]);
+      }
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)$/)) && method === 'DELETE') {
         return await admin.deleteNativity(request, env, session, m[1]);
       }
@@ -216,6 +217,18 @@ export default {
       }
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/returned$/)) && method === 'POST') {
         return await admin.markReturned(request, env, session, m[1]);
+      }
+      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/main-photo$/)) && method === 'POST') {
+        return await admin.uploadMainPhoto(request, env, session, m[1]);
+      }
+      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/main-photo\/clear$/)) && method === 'POST') {
+        return await admin.clearMainPhoto(request, env, session, m[1]);
+      }
+      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/pieces\/(\d+)\/photo$/)) && method === 'POST') {
+        return await admin.uploadPiecePhoto(request, env, session, m[1], m[2]);
+      }
+      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/pieces\/(\d+)\/photo\/clear$/)) && method === 'POST') {
+        return await admin.clearPiecePhoto(request, env, session, m[1], m[2]);
       }
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/display-photo$/)) && method === 'POST') {
         return await admin.uploadDisplayPhoto(request, env, session, m[1]);
