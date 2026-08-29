@@ -2,7 +2,9 @@ import { db } from '../lib/db.js';
 import { nextSubmissionNumber } from '../lib/auth.js';
 import { json, error, requireUser } from '../lib/util.js';
 
-const CURRENT_EVENT_YEAR = new Date().getFullYear();
+function currentEventYear() {
+  return new Date().getFullYear();
+}
 
 export async function listMine(request, env, session) {
   requireUser(session);
@@ -30,9 +32,10 @@ export async function create(request, env, session) {
   requireUser(session);
   const { photoKey, story, includeInTour } = await request.json();
   const sql = db(env);
+  const eventYear = currentEventYear();
   const rows = await sql`
     INSERT INTO nativities (submission_number, owner_user_id, event_year, photo_key, story, status, include_in_tour)
-    VALUES (${'DRAFT-' + crypto.randomUUID()}, ${session.userId}, ${CURRENT_EVENT_YEAR}, ${photoKey || null}, ${story || null}, 'pending', ${includeInTour !== false})
+    VALUES (${'DRAFT-' + crypto.randomUUID()}, ${session.userId}, ${eventYear}, ${photoKey || null}, ${story || null}, 'pending', ${includeInTour !== false})
     RETURNING id
   `;
   return json({ id: rows[0].id });
@@ -66,7 +69,8 @@ export async function submitPieces(request, env, session, id) {
   const owned = await sql`SELECT id FROM nativities WHERE id = ${id} AND owner_user_id = ${session.userId}`;
   if (owned.length === 0) return error('Nativity not found.', 404);
 
-  const submissionNumber = await nextSubmissionNumber(sql, CURRENT_EVENT_YEAR);
+  const eventYear = currentEventYear();
+  const submissionNumber = await nextSubmissionNumber(sql, eventYear);
 
   await sql`DELETE FROM nativity_pieces WHERE nativity_id = ${id}`;
   for (let i = 0; i < pieces.length; i++) {
@@ -84,9 +88,9 @@ export async function submitPieces(request, env, session, id) {
   return json({ ok: true, submissionNumber });
 }
 
-// One-click resubmit: clone last year's nativity (photo, story, pieces) into
-// a brand-new pending row for this year. The donor can edit before their
-// in-person check-in; a worker re-verifies condition regardless.
+// One-click resubmit: clone a returned nativity from a previous event year
+// into a brand-new pending row for the current year. The donor can edit before
+// their in-person check-in; a worker re-verifies condition regardless.
 export async function resubmit(request, env, session, sourceId) {
   requireUser(session);
   const sql = db(env);
@@ -95,15 +99,16 @@ export async function resubmit(request, env, session, sourceId) {
   `;
   if (source.length === 0) return error('Nativity not found.', 404);
   const src = source[0];
+  const eventYear = currentEventYear();
 
-  if (src.event_year === CURRENT_EVENT_YEAR) {
-    return error('This nativity is already registered for this year.');
+  if (src.status !== 'returned' || Number(src.event_year) >= eventYear) {
+    return error('Only returned nativities from a previous year can be submitted again.');
   }
 
-  const submissionNumber = await nextSubmissionNumber(sql, CURRENT_EVENT_YEAR);
+  const submissionNumber = await nextSubmissionNumber(sql, eventYear);
   const inserted = await sql`
     INSERT INTO nativities (submission_number, owner_user_id, event_year, photo_key, story, piece_count, status, include_in_tour, cloned_from_id)
-    VALUES (${submissionNumber}, ${session.userId}, ${CURRENT_EVENT_YEAR}, ${src.photo_key}, ${src.story}, ${src.piece_count}, 'pending', ${src.include_in_tour}, ${src.id})
+    VALUES (${submissionNumber}, ${session.userId}, ${eventYear}, ${src.photo_key}, ${src.story}, ${src.piece_count}, 'pending', ${src.include_in_tour}, ${src.id})
     RETURNING id
   `;
   const newId = inserted[0].id;
