@@ -5,17 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scroll to the Stable — Stroll to the Stable</title>
 <link rel="stylesheet" href="/style.css">
+<style>
+  .tour-card { overflow:hidden; }
+  .tour-media { width:100%; display:block; border-radius:12px; margin-bottom:14px; background:#02050d; }
+  video.tour-media { max-height:70vh; }
+  .tour-title { color:var(--gold-bright); margin:0 0 8px; font-family:'Fraunces', Georgia, serif; }
+  .tour-caption { color:var(--wood); margin:0; line-height:1.55; white-space:pre-wrap; }
+  .tour-story { color:var(--wood); font-style:italic; margin:0; }
+</style>
 </head>
 <body>
 <div class="page wide">
-  <p class="eyebrow">Virtual Nativity Tour</p>
+  <p class="eyebrow">Virtual Collection</p>
   <h1>Scroll to the Stable</h1>
   <svg class="stable-mark" width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <path d="M60 4 L64 14 L75 14 L66 21 L69 32 L60 25 L51 32 L54 21 L45 14 L56 14 Z" stroke="currentColor" stroke-width="1.5"/>
     <path d="M10 36 L30 20 L50 36" stroke="currentColor" stroke-width="1.5"/>
     <path d="M70 36 L90 20 L110 36" stroke="currentColor" stroke-width="1.5"/>
   </svg>
-  <p style="color:var(--wood); margin-bottom:24px">Explore the nativities shared by families across the community and stroll through the collection from wherever you are.</p>
+  <p style="color:var(--wood); margin-bottom:24px">Explore nativities, artwork, photographs, and videos shared as part of Stroll to the Stable.</p>
 
   <div class="error-banner" data-error-banner></div>
   <div id="gallery"></div>
@@ -24,27 +32,48 @@
 <script>
 async function load() {
   try {
-    const { tour } = await api('/api/tour?v=2');
+    const { tour } = await api('/api/tour?v=3');
     const gallery = document.getElementById('gallery');
     if (tour.length === 0) {
-      gallery.innerHTML = '<div class="empty-state">Nativities will appear here as they\'re checked in.</div>';
+      gallery.innerHTML = '<div class="empty-state">The collection will appear here as nativities, artwork, and videos are added.</div>';
       return;
     }
-    gallery.innerHTML = tour.map((n) => `
-      <div class="card">
-        ${n.photoKey ? `<img src="/photos/${n.photoKey}" style="width:100%; border-radius:12px; margin-bottom:14px">` : ''}
-        ${n.story ? `<p style="color:var(--wood); font-style:italic">${escapeHtml(n.story)}</p>` : ''}
-      </div>
-    `).join('');
+
+    gallery.innerHTML = tour.map(renderItem).join('');
   } catch (err) {
     showError(err.message);
   }
 }
 
+function renderItem(item) {
+  if (item.type === 'media') {
+    const media = item.mediaType === 'video'
+      ? `<video class="tour-media" src="${escapeAttr(item.url)}" controls playsinline preload="metadata"></video>`
+      : `<img class="tour-media" src="${escapeAttr(item.url)}" alt="${escapeAttr(item.title || 'Artwork in the Stroll to the Stable collection')}">`;
+
+    return `
+      <div class="card tour-card">
+        ${media}
+        ${item.title ? `<h2 class="tour-title">${escapeHtml(item.title)}</h2>` : ''}
+        ${item.caption ? `<p class="tour-caption">${escapeHtml(item.caption)}</p>` : ''}
+      </div>`;
+  }
+
+  return `
+    <div class="card tour-card">
+      ${item.photoKey ? `<img class="tour-media" src="/photos/${escapeAttr(item.photoKey)}" alt="Nativity display">` : ''}
+      ${item.story ? `<p class="tour-story">${escapeHtml(item.story)}</p>` : ''}
+    </div>`;
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = str ?? '';
   return div.innerHTML;
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str).replaceAll('`', '&#96;');
 }
 
 load();

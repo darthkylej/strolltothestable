@@ -1,6 +1,13 @@
 import { db } from '../lib/db.js';
 import { json, error, requireAdmin } from '../lib/util.js';
 import { sendClaimTicketEmail } from '../lib/email.js';
+import {
+  TOUR_MEDIA_PREFIX,
+  MAX_TOUR_MEDIA_BYTES,
+  getTourMediaSpec,
+  listTourMediaObjects,
+  serializeTourMedia,
+} from '../lib/tourMedia.js';
 
 export async function listNativities(request, env, session) {
   requireAdmin(session);
@@ -64,13 +71,9 @@ export async function deleteNativity(request, env, session, id) {
     WHERE nativity_id = ${id} AND photo_key IS NOT NULL
   `;
 
-  // A newer yearly submission may point back to this one as its source.
-  // Preserve that newer record while removing the historical link.
   await sql`UPDATE nativities SET cloned_from_id = NULL WHERE cloned_from_id = ${id}`;
   await sql`DELETE FROM nativities WHERE id = ${id}`;
 
-  // Database deletion is authoritative. Photo cleanup is best-effort so a
-  // temporary R2 problem never leaves a submission half-deleted.
   const keys = [rows[0].photo_key, rows[0].display_photo_key, ...pieceRows.map((p) => p.photo_key)].filter(Boolean);
   if (keys.length) {
     try {
@@ -131,10 +134,6 @@ export async function markReturned(request, env, session, id) {
   return json({ ok: true });
 }
 
-// ── Worker "glamour shot" — the nativity photographed in its final display
-// spot. When present, this is what the public tour shows instead of the
-// donor's own submitted photo. Workers can upload, replace, or clear it
-// at any time regardless of submission status.
 export async function uploadDisplayPhoto(request, env, session, id) {
   requireAdmin(session);
   const sql = db(env);
@@ -154,6 +153,69 @@ export async function clearDisplayPhoto(request, env, session, id) {
   requireAdmin(session);
   const sql = db(env);
   await sql`UPDATE nativities SET display_photo_key = NULL, updated_at = now() WHERE id = ${id}`;
+  return json({ ok: true });
+}
+
+function decodeMetadataHeader(value, maxLength) {
+  if (!value) return '';
+  try {
+    return decodeURIComponent(value).trim().slice(0, maxLength);
+  } catch {
+    return String(value).trim().slice(0, maxLength);
+  }
+}
+
+// ── Standalone Scroll to the Stable media ──────────────────────────────
+// These files live directly in R2 and are not attached to a donor or a
+// nativity submission. This makes the public collection suitable for art,
+// photographs, and videos as well as checked-in nativities.
+export async function listTourMedia(request, env, session) {
+  requireAdmin(session);
+  const objects = await listTourMediaObjects(env);
+  return json({ media: objects.map(serializeTourMedia) });
+}
+
+export async function uploadTourMedia(request, env, session) {
+  requireAdmin(session);
+
+  const spec = getTourMediaSpec(request.headers.get('Content-Type'));
+  if (!spec) {
+    return error('Use a JPG, PNG, WebP, GIF, MP4, WebM, or MOV file.', 415);
+  }
+
+  const contentLength = Number(request.headers.get('Content-Length') || 0);
+  if (contentLength > MAX_TOUR_MEDIA_BYTES) {
+    return error('This file is too large. The maximum upload size is 95 MB.', 413);
+  }
+  if (!request.body) return error('Choose a file to upload.');
+
+  const title = decodeMetadataHeader(request.headers.get('X-Media-Title'), 120);
+  const caption = decodeMetadataHeader(request.headers.get('X-Media-Caption'), 600);
+  const key = `${TOUR_MEDIA_PREFIX}${crypto.randomUUID()}.${spec.ext}`;
+
+  await env.PHOTOS.put(key, request.body, {
+    httpMetadata: {
+      contentType: spec.contentType,
+      cacheControl: 'public, max-age=31536000',
+    },
+    customMetadata: {
+      mediaType: spec.mediaType,
+      title,
+      caption,
+      uploadedBy: session.email,
+    },
+  });
+
+  return json({ ok: true, key, mediaType: spec.mediaType });
+}
+
+export async function deleteTourMedia(request, env, session) {
+  requireAdmin(session);
+  const { key } = await request.json();
+  if (!key || !String(key).startsWith(TOUR_MEDIA_PREFIX)) {
+    return error('Invalid tour media item.');
+  }
+  await env.PHOTOS.delete(String(key));
   return json({ ok: true });
 }
 
