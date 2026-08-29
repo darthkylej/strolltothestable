@@ -15,8 +15,10 @@
     if (!svg || svg.dataset.sceneFixed === 'true') return;
     svg.dataset.sceneFixed = 'true';
 
-    // Keep the guiding star comfortably inside the visible safe area.
+    // Keep the guiding star comfortably inside the visible safe area and
+    // slow its existing pulse animation to one quarter of its original speed.
     const star = svg.querySelector('.bethlehem-star');
+    if (star) star.style.animationDuration = '18s';
     wrap(star, 'translate(0 72)');
 
     // Remove the Wise Men and camel caravan entirely. The landing artwork is
