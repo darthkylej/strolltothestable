@@ -51,6 +51,25 @@ class LandingDescriptionHandler {
   }
 }
 
+class LandingHoursHandler {
+  element(element) {
+    element.setInnerContent(`
+      <div class="hours-card">
+        <strong>Saturday</strong>
+        <span>9:00 AM – 9:00 PM</span>
+      </div>
+      <div class="hours-card">
+        <strong>Sunday</strong>
+        <span>12:00 PM – 6:00 PM</span>
+      </div>
+      <div class="hours-card">
+        <strong>Monday – Friday</strong>
+        <span>12:00 PM – 9:00 PM</span>
+      </div>
+    `, { html: true });
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -83,6 +102,7 @@ export default {
               .on('head', new LandingHeadHandler())
               .on('.landing-subtitle', new LandingSubtitleHandler())
               .on('meta[name="description"]', new LandingDescriptionHandler())
+              .on('.hours-grid', new LandingHoursHandler())
               .transform(response);
           }
 
