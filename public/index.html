@@ -11,11 +11,7 @@
     margin: 0;
     padding: 0;
     min-height: 100vh;
-    background-color: #050b1d;
-    background-size: cover;
-    background-position: center center;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
+    background: #030715;
     color: #fff;
     overflow-x: hidden;
   }
@@ -29,12 +25,37 @@
     opacity: 1;
     animation: none;
     background:
-      linear-gradient(90deg, rgba(2, 6, 18, 0.80) 0%, rgba(2, 8, 24, 0.62) 37%, rgba(2, 8, 24, 0.20) 68%, rgba(2, 6, 18, 0.12) 100%),
-      linear-gradient(0deg, rgba(2, 5, 14, 0.74) 0%, rgba(2, 5, 14, 0.08) 34%, rgba(2, 5, 14, 0.10) 100%);
+      linear-gradient(90deg, rgba(2, 6, 18, 0.78) 0%, rgba(2, 8, 24, 0.56) 38%, rgba(2, 8, 24, 0.12) 70%, rgba(2, 6, 18, 0.06) 100%),
+      linear-gradient(0deg, rgba(2, 5, 14, 0.78) 0%, rgba(2, 5, 14, 0.05) 42%, rgba(2, 5, 14, 0.06) 100%);
   }
 
-  body.landing-page::after {
-    display: none;
+  body.landing-page::after { display: none; }
+
+  .landing-scene {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    background: #030715;
+  }
+
+  .landing-scene svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .scene-stars { animation: starDrift 18s ease-in-out infinite alternate; }
+  .bethlehem-star { transform-box: fill-box; transform-origin: center; animation: starPulse 4.5s ease-in-out infinite; }
+
+  @keyframes starDrift {
+    from { opacity: 0.72; transform: translateY(0); }
+    to { opacity: 1; transform: translateY(-3px); }
+  }
+
+  @keyframes starPulse {
+    0%, 100% { opacity: 0.88; transform: scale(0.94); }
+    50% { opacity: 1; transform: scale(1.08); }
   }
 
   .landing-hero {
@@ -47,18 +68,24 @@
   }
 
   .landing-content {
-    width: min(680px, 100%);
-    padding: clamp(26px, 4vw, 42px);
-    border: 1px solid rgba(255, 230, 174, 0.22);
-    border-radius: 28px;
-    background: linear-gradient(145deg, rgba(3, 10, 27, 0.68), rgba(4, 12, 31, 0.44));
-    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    width: min(690px, 100%);
+    padding: clamp(28px, 4vw, 44px);
+    border: 1px solid rgba(255, 230, 174, 0.26);
+    border-radius: 30px;
+    background:
+      linear-gradient(145deg, rgba(3, 10, 27, 0.76), rgba(4, 12, 31, 0.48));
+    box-shadow:
+      0 34px 100px rgba(0, 0, 0, 0.42),
+      inset 0 1px 0 rgba(255, 247, 221, 0.07);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
 
   .landing-kicker {
-    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    margin: 0 0 10px;
     color: #f4d58f;
     font-size: 0.82rem;
     font-weight: 700;
@@ -66,29 +93,44 @@
     text-transform: uppercase;
   }
 
+  .landing-kicker::before {
+    content: "✦";
+    font-size: 0.9rem;
+    text-shadow: 0 0 14px rgba(255, 226, 154, 0.8);
+  }
+
   .landing-title {
     margin: 0;
+    max-width: 620px;
     color: #fff7df;
     font-family: 'Fraunces', Georgia, serif;
-    font-size: clamp(2.65rem, 6vw, 5.2rem);
+    font-size: clamp(2.75rem, 6vw, 5.35rem);
     font-weight: 500;
-    line-height: 0.98;
-    letter-spacing: -0.035em;
-    text-shadow: 0 4px 30px rgba(0, 0, 0, 0.46);
+    line-height: 0.96;
+    letter-spacing: -0.04em;
+    text-shadow: 0 5px 34px rgba(0, 0, 0, 0.52);
   }
 
   .landing-subtitle {
-    margin: 14px 0 0;
+    margin: 15px 0 0;
     color: #f3e4c3;
     font-family: 'Fraunces', Georgia, serif;
-    font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+    font-size: clamp(1.15rem, 2.4vw, 1.58rem);
     font-weight: 500;
   }
 
+  .ornament {
+    width: 96px;
+    height: 1px;
+    margin: 24px 0 23px;
+    background: linear-gradient(90deg, #f4d58f, rgba(244, 213, 143, 0));
+    box-shadow: 0 0 12px rgba(244, 213, 143, 0.28);
+  }
+
   .event-date {
-    margin: 30px 0 18px;
+    margin: 0 0 18px;
     color: #fff;
-    font-size: clamp(1.15rem, 2.5vw, 1.45rem);
+    font-size: clamp(1.17rem, 2.5vw, 1.48rem);
     font-weight: 700;
     letter-spacing: 0.01em;
   }
@@ -102,17 +144,18 @@
 
   .hours-card {
     padding: 16px 18px;
-    border: 1px solid rgba(255, 230, 174, 0.18);
-    border-radius: 16px;
-    background: rgba(3, 9, 24, 0.42);
+    border: 1px solid rgba(255, 230, 174, 0.20);
+    border-radius: 17px;
+    background: rgba(3, 9, 24, 0.48);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
   }
 
   .hours-card strong {
     display: block;
     margin-bottom: 3px;
     color: #f4d58f;
-    font-size: 0.84rem;
-    letter-spacing: 0.06em;
+    font-size: 0.82rem;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
   }
 
@@ -125,7 +168,7 @@
   .special-access {
     margin: 0;
     padding-left: 16px;
-    border-left: 2px solid rgba(244, 213, 143, 0.55);
+    border-left: 2px solid rgba(244, 213, 143, 0.58);
     color: rgba(255, 249, 235, 0.88);
     font-size: 0.94rem;
     line-height: 1.55;
@@ -135,7 +178,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
-    margin-top: 28px;
+    margin-top: 29px;
   }
 
   .landing-btn {
@@ -154,29 +197,26 @@
     transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
   }
 
-  .landing-btn:hover {
-    transform: translateY(-1px);
-  }
+  .landing-btn:hover { transform: translateY(-1px); }
 
   .landing-btn.primary {
     color: #10172a;
-    background: #f4d58f;
-    box-shadow: 0 12px 32px rgba(244, 213, 143, 0.18);
+    background: linear-gradient(180deg, #ffe8ae, #efc66c);
+    box-shadow: 0 12px 34px rgba(244, 213, 143, 0.20);
   }
 
   .landing-btn.primary:hover {
-    background: #ffe5a8;
+    background: linear-gradient(180deg, #fff0c7, #f5d17f);
+    box-shadow: 0 15px 40px rgba(244, 213, 143, 0.26);
   }
 
   .landing-btn.secondary {
     color: #fff7df;
     border-color: rgba(255, 239, 202, 0.46);
-    background: rgba(5, 13, 35, 0.50);
+    background: rgba(5, 13, 35, 0.52);
   }
 
-  .landing-btn.secondary:hover {
-    background: rgba(255, 255, 255, 0.11);
-  }
+  .landing-btn.secondary:hover { background: rgba(255, 255, 255, 0.11); }
 
   .admin-link {
     position: fixed;
@@ -211,10 +251,7 @@
     backdrop-filter: blur(4px);
   }
 
-  .dialog-inner {
-    position: relative;
-    padding: 30px;
-  }
+  .dialog-inner { position: relative; padding: 30px; }
 
   .dialog-inner h2 {
     margin: 0 0 8px;
@@ -223,20 +260,9 @@
     font-size: 1.8rem;
   }
 
-  .dialog-inner p {
-    margin: 0 0 22px;
-    color: rgba(255, 255, 255, 0.78);
-  }
-
-  .dialog-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .dialog-actions .landing-btn {
-    width: 100%;
-  }
+  .dialog-inner p { margin: 0 0 22px; color: rgba(255, 255, 255, 0.78); }
+  .dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dialog-actions .landing-btn { width: 100%; }
 
   .dialog-close {
     position: absolute;
@@ -253,60 +279,145 @@
     cursor: pointer;
   }
 
-  .dialog-close:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.08);
-  }
+  .dialog-close:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
 
   @media (max-width: 720px) {
-    body.landing-page {
-      background-attachment: scroll;
-      background-position: 62% center;
-    }
-
     body.landing-page::before {
       background:
-        linear-gradient(180deg, rgba(2, 6, 18, 0.26) 0%, rgba(2, 7, 20, 0.45) 35%, rgba(2, 6, 18, 0.84) 78%, rgba(2, 5, 14, 0.94) 100%);
+        linear-gradient(180deg, rgba(2, 6, 18, 0.08) 0%, rgba(2, 7, 20, 0.30) 35%, rgba(2, 6, 18, 0.82) 72%, rgba(2, 5, 14, 0.95) 100%);
     }
 
     .landing-hero {
       align-items: flex-end;
-      padding: 34px 16px 54px;
+      padding: 32px 16px 54px;
     }
 
     .landing-content {
       padding: 24px 20px;
-      border-radius: 22px;
-      background: rgba(3, 10, 27, 0.70);
+      border-radius: 23px;
+      background: rgba(3, 10, 27, 0.73);
     }
 
-    .hours-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .landing-actions {
-      display: grid;
-      grid-template-columns: 1fr;
-    }
-
-    .landing-btn {
-      width: 100%;
-    }
+    .landing-title { font-size: clamp(2.55rem, 13vw, 4.1rem); }
+    .hours-grid { grid-template-columns: 1fr; }
+    .landing-actions { display: grid; grid-template-columns: 1fr; }
+    .landing-btn { width: 100%; }
   }
 
   @media (max-width: 420px) {
-    .dialog-actions {
-      grid-template-columns: 1fr;
-    }
+    .dialog-actions { grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scene-stars, .bethlehem-star { animation: none; }
   }
 </style>
 </head>
 <body class="landing-page">
+<div class="landing-scene" aria-hidden="true">
+  <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="nightSky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#02040f"/>
+        <stop offset="0.48" stop-color="#071638"/>
+        <stop offset="0.78" stop-color="#15284b"/>
+        <stop offset="1" stop-color="#492f2e"/>
+      </linearGradient>
+      <radialGradient id="horizonGlow" cx="50%" cy="50%" r="50%">
+        <stop offset="0" stop-color="#e6a55f" stop-opacity="0.44"/>
+        <stop offset="0.42" stop-color="#ba7049" stop-opacity="0.18"/>
+        <stop offset="1" stop-color="#7e4d47" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="starGlow" cx="50%" cy="50%" r="50%">
+        <stop offset="0" stop-color="#fffdf1" stop-opacity="1"/>
+        <stop offset="0.12" stop-color="#fff1b8" stop-opacity="0.95"/>
+        <stop offset="0.42" stop-color="#f0c86e" stop-opacity="0.34"/>
+        <stop offset="1" stop-color="#f0c86e" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="duneBack" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#29324b"/>
+        <stop offset="1" stop-color="#101321"/>
+      </linearGradient>
+      <linearGradient id="duneFront" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#151724"/>
+        <stop offset="1" stop-color="#05070d"/>
+      </linearGradient>
+      <filter id="blur40"><feGaussianBlur stdDeviation="40"/></filter>
+      <filter id="starBlur"><feGaussianBlur stdDeviation="8"/></filter>
+      <symbol id="camel" viewBox="-90 -95 180 150">
+        <g fill="#03050a" stroke="#03050a" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="0" cy="0" rx="50" ry="21"/>
+          <path d="M28 -5 C42 -30 47 -55 57 -68 C65 -78 76 -78 82 -70" fill="none" stroke-width="15"/>
+          <ellipse cx="85" cy="-68" rx="13" ry="8" transform="rotate(-10 85 -68)"/>
+          <path d="M-47 -5 Q-72 -18 -77 -6" fill="none" stroke-width="6"/>
+          <path d="M-28 12 L-36 50 M-8 14 L-4 50 M24 13 L18 50 M42 9 L49 50" fill="none" stroke-width="8"/>
+          <path d="M-43 -15 Q-27 -47 -7 -20 Q9 -47 28 -15"/>
+          <circle cx="1" cy="-48" r="9"/>
+          <path d="M-11 -39 Q1 -31 14 -39 L22 -7 L-20 -7 Z"/>
+          <path d="M-1 -58 L7 -50 L-9 -50 Z"/>
+        </g>
+      </symbol>
+    </defs>
+
+    <rect width="1200" height="900" fill="url(#nightSky)"/>
+    <ellipse cx="760" cy="545" rx="430" ry="150" fill="url(#horizonGlow)" filter="url(#blur40)"/>
+
+    <g class="scene-stars" fill="#fff8df">
+      <circle cx="75" cy="92" r="1.4"/><circle cx="138" cy="168" r="1"/><circle cx="205" cy="72" r="1.7"/>
+      <circle cx="276" cy="142" r="1.1"/><circle cx="342" cy="58" r="1"/><circle cx="397" cy="205" r="1.5"/>
+      <circle cx="468" cy="104" r="1.2"/><circle cx="526" cy="178" r="1"/><circle cx="592" cy="70" r="1.5"/>
+      <circle cx="642" cy="224" r="1.2"/><circle cx="704" cy="105" r="1"/><circle cx="827" cy="64" r="1.4"/>
+      <circle cx="889" cy="188" r="1.2"/><circle cx="965" cy="82" r="1.6"/><circle cx="1042" cy="146" r="1"/>
+      <circle cx="1121" cy="72" r="1.5"/><circle cx="1157" cy="238" r="1"/><circle cx="98" cy="302" r="1.1"/>
+      <circle cx="171" cy="252" r="1.6"/><circle cx="246" cy="326" r="1"/><circle cx="318" cy="265" r="1.4"/>
+      <circle cx="386" cy="352" r="1.1"/><circle cx="458" cy="294" r="1.5"/><circle cx="535" cy="338" r="1"/>
+      <circle cx="612" cy="282" r="1.4"/><circle cx="684" cy="362" r="1"/><circle cx="856" cy="292" r="1.5"/>
+      <circle cx="928" cy="348" r="1"/><circle cx="1011" cy="278" r="1.3"/><circle cx="1088" cy="330" r="1.6"/>
+      <circle cx="1148" cy="386" r="1"/><circle cx="53" cy="432" r="1.4"/><circle cx="149" cy="393" r="1"/>
+      <circle cx="230" cy="450" r="1.3"/><circle cx="302" cy="405" r="1"/><circle cx="386" cy="463" r="1.2"/>
+      <circle cx="474" cy="414" r="1.5"/><circle cx="560" cy="475" r="1"/><circle cx="645" cy="421" r="1.3"/>
+      <circle cx="890" cy="438" r="1.2"/><circle cx="987" cy="414" r="1"/><circle cx="1076" cy="474" r="1.4"/>
+    </g>
+
+    <g opacity="0.13" filter="url(#blur40)" transform="rotate(-18 600 300)">
+      <ellipse cx="590" cy="290" rx="430" ry="72" fill="#b8c7ff"/>
+    </g>
+
+    <g class="bethlehem-star">
+      <circle cx="760" cy="153" r="86" fill="url(#starGlow)" filter="url(#starBlur)"/>
+      <circle cx="760" cy="153" r="48" fill="url(#starGlow)"/>
+      <path d="M760 84 L770 139 L823 153 L770 164 L760 230 L750 164 L696 153 L750 140 Z" fill="#fff5c7" opacity="0.96"/>
+      <circle cx="760" cy="153" r="7" fill="#fffdf4"/>
+      <path d="M760 220 L760 500" stroke="#f7d986" stroke-width="2" opacity="0.15"/>
+    </g>
+
+    <path d="M0 672 C140 620 265 633 380 665 C502 699 615 652 743 624 C874 595 1000 620 1200 560 L1200 900 L0 900 Z" fill="url(#duneBack)"/>
+    <path d="M0 737 C180 677 338 707 486 743 C630 778 746 716 881 695 C1017 674 1101 705 1200 676 L1200 900 L0 900 Z" fill="url(#duneFront)"/>
+
+    <g opacity="0.98">
+      <use href="#camel" x="0" y="0" width="180" height="150" transform="translate(445 674) scale(0.88)"/>
+      <use href="#camel" x="0" y="0" width="180" height="150" transform="translate(585 682) scale(0.96)"/>
+      <use href="#camel" x="0" y="0" width="180" height="150" transform="translate(735 690) scale(1.04)"/>
+      <g fill="#03050a" stroke="#03050a" stroke-linecap="round">
+        <circle cx="878" cy="651" r="10"/>
+        <path d="M866 664 Q878 654 890 664 L901 719 L856 719 Z"/>
+        <path d="M875 716 L869 751 M887 716 L893 751" stroke-width="8"/>
+        <path d="M891 676 L916 697" stroke-width="6"/>
+        <path d="M913 696 L916 747" stroke-width="4"/>
+        <path d="M838 671 Q855 679 866 685" fill="none" stroke-width="2"/>
+      </g>
+    </g>
+
+    <path d="M0 806 C180 780 350 808 518 822 C699 838 867 810 1200 766 L1200 900 L0 900 Z" fill="#020309"/>
+  </svg>
+</div>
+
 <main class="landing-hero">
   <section class="landing-content" aria-labelledby="event-title">
     <p class="landing-kicker">Seguin's</p>
     <h1 class="landing-title" id="event-title">A Stroll to the Stable</h1>
     <p class="landing-subtitle">A celebration of the Nativity</p>
+    <div class="ornament" aria-hidden="true"></div>
 
     <p class="event-date">November 27 – December 6, 2026</p>
 
@@ -324,7 +435,7 @@
     <p class="special-access">Weekday mornings are reserved for special appointments for nursing homes, older adults, immunocompromised guests, and anyone who would benefit from a quieter visit or additional assistance.</p>
 
     <div class="landing-actions">
-      <a class="landing-btn primary" href="/tour.html">Virtual Tour</a>
+      <a class="landing-btn primary" href="/tour.html">Scroll to the Stable</a>
       <button class="landing-btn secondary" id="submitNativity" type="button">Submit your Nativity</button>
     </div>
   </section>
@@ -356,27 +467,6 @@
   dialog.addEventListener('click', event => {
     if (event.target === dialog && typeof dialog.close === 'function') dialog.close();
   });
-
-  async function loadLandingBackground() {
-    try {
-      const paths = [
-        '/landing-bg/part1.txt',
-        '/landing-bg/part2.txt',
-        '/landing-bg/part3.txt',
-        '/landing-bg/part4.txt'
-      ];
-      const parts = await Promise.all(paths.map(async path => {
-        const response = await fetch(path);
-        if (!response.ok) throw new Error(`Failed to load ${path}`);
-        return response.text();
-      }));
-      document.body.style.backgroundImage = `url("data:image/jpeg;base64,${parts.join('')}")`;
-    } catch (error) {
-      console.error('Could not load landing background image.', error);
-    }
-  }
-
-  loadLandingBackground();
 </script>
 </body>
 </html>
