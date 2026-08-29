@@ -70,12 +70,6 @@ class LandingHoursHandler {
   }
 }
 
-class AdminDashboardToolsHandler {
-  element(element) {
-    element.prepend('<a class="btn btn-outline" href="/admin-tour-media.html">Tour Media</a>', { html: true });
-  }
-}
-
 async function serveTourMedia(request, env, path) {
   const key = path.slice(1);
 
@@ -155,15 +149,10 @@ export default {
               .transform(response);
           }
 
-          const rewriter = new HTMLRewriter()
+          return new HTMLRewriter()
             .on('head', new NavHeadHandler())
-            .on('body', new NavBodyHandler());
-
-          if (path === '/admin-dashboard.html') {
-            rewriter.on('.admin-tools', new AdminDashboardToolsHandler());
-          }
-
-          return rewriter.transform(response);
+            .on('body', new NavBodyHandler())
+            .transform(response);
         }
 
         return response;
