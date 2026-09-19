@@ -128,11 +128,30 @@
   }
 
   .event-date {
-    margin: 0 0 18px;
+    margin: 0 0 8px;
     color: #fff;
     font-size: clamp(1.17rem, 2.5vw, 1.48rem);
     font-weight: 700;
     letter-spacing: 0.01em;
+  }
+
+  .event-location {
+    margin: 0 0 18px;
+    color: #f3e4c3;
+    font-size: 1.02rem;
+    line-height: 1.45;
+  }
+
+  .event-location a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(244, 213, 143, 0.45);
+  }
+
+  .event-location a:hover,
+  .event-location a:focus-visible {
+    color: #fff7df;
+    border-bottom-color: #f4d58f;
   }
 
   .hours-grid {
@@ -420,6 +439,7 @@
     <div class="ornament" aria-hidden="true"></div>
 
     <p class="event-date">November 27 – December 6, 2026</p>
+    <p class="event-location">101 E Nolte St, Seguin, TX 78155 · <a href="https://www.google.com/maps/search/?api=1&query=101%20E%20Nolte%20St%2C%20Seguin%2C%20TX%2078155" target="_blank" rel="noopener noreferrer">Get directions</a></p>
 
     <div class="hours-grid" aria-label="Public event hours">
       <div class="hours-card">
