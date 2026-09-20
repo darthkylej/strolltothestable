@@ -27,7 +27,7 @@
   .submission-link:hover { border-color:var(--border-strong); background:rgba(14,25,44,.92); transform:translateY(-1px); }
   .submission-name { font-weight:700; color:var(--gold-bright); overflow-wrap:anywhere; }
   .submission-meta { color:var(--muted); font-size:14px; margin-top:3px; overflow-wrap:anywhere; }
-  .submission-delete { width:auto !important; min-width:88px; margin:0 !important; align-self:stretch; padding:10px 14px !important; }
+  .submission-action { width:auto !important; min-width:112px; margin:0 !important; align-self:stretch; padding:10px 14px !important; }
   .admin-success { display:none; margin:0 0 16px; padding:12px 14px; border-radius:12px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
   @media (max-width:760px) {
     .admin-header { display:block; }
@@ -35,7 +35,7 @@
     .stats-grid { grid-template-columns:repeat(2,1fr); }
     .submission-row { gap:7px; }
     .submission-link { padding:14px; gap:10px; align-items:flex-start; flex-direction:column; }
-    .submission-delete { min-width:74px; }
+    .submission-action { min-width:96px; }
   }
 </style>
 </head>
@@ -123,7 +123,10 @@ async function load() {
           </div>
           <span class="status-pill status-${n.status}">${statusLabel(n.status)}</span>
         </a>
-        <button class="btn btn-danger submission-delete" data-delete-id="${n.id}">Delete</button>
+        ${currentStatus === 'submitted'
+          ? `<button class="btn btn-secondary submission-action" data-return-id="${n.id}">Mark Returned</button>`
+          : `<button class="btn btn-danger submission-action" data-delete-id="${n.id}">Delete</button>`}
+
       </div>`).join('');
   }catch(err){showError(err.message);}
 }
@@ -137,6 +140,25 @@ document.querySelectorAll('[data-status]').forEach(btn=>btn.addEventListener('cl
   load();
 }));
 document.getElementById('list').addEventListener('click',async e=>{
+  const returnBtn=e.target.closest('[data-return-id]');
+  if(returnBtn){
+    const nativity=knownNativities.get(returnBtn.dataset.returnId);
+    if(!nativity)return;
+    hideError();
+    returnBtn.disabled=true;
+    returnBtn.textContent='Marking…';
+    try{
+      await api(`/api/admin/nativities/${nativity.id}/returned`,{method:'POST'});
+      showSuccess(`${nativity.submission_number} marked returned.`);
+      await load();
+    }catch(err){
+      showError(err.message);
+      returnBtn.disabled=false;
+      returnBtn.textContent='Mark Returned';
+    }
+    return;
+  }
+
   const btn=e.target.closest('[data-delete-id]'); if(!btn)return;
   const nativity=knownNativities.get(btn.dataset.deleteId); if(!nativity)return;
   if(!window.confirm(`Permanently delete ${nativity.submission_number} from ${nativity.owner_name}?\n\nThis removes the submission, its piece records, and its stored photos. This cannot be undone.`))return;
