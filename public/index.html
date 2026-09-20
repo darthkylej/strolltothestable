@@ -295,6 +295,9 @@
   }
 
   .dialog-inner p { margin: 0 0 22px; color: rgba(255, 255, 255, 0.78); }
+  .nativity-schedule { margin: 0 0 22px; padding: 14px 16px; border: 1px solid rgba(255, 230, 174, 0.22); border-radius: 14px; background: rgba(255,255,255,.04); }
+  .nativity-schedule div { margin: 5px 0; color: rgba(255,255,255,.82); font-size: .92rem; line-height: 1.4; }
+  .nativity-schedule strong { color: #f4d58f; }
   .dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .dialog-actions .landing-btn { width: 100%; }
 
@@ -487,7 +490,8 @@
     </form>
     <h2>Submit your Nativity</h2>
     <p>Already have an account, or joining us for the first time?</p>
-    <div class="dialog-actions">
+    <div class="nativity-schedule" id="nativitySchedule" hidden></div>
+    <div class="dialog-actions" id="submitDialogActions">
       <a class="landing-btn primary" href="/login.html">Log In</a>
       <a class="landing-btn secondary" href="/register.html">Register</a>
     </div>
@@ -496,6 +500,33 @@
 
 <script>
   const dialog = document.getElementById('submitDialog');
+
+  function formatRange(start, end) {
+    if (!start || !end) return '';
+    const opts = { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
+    return `${new Date(start).toLocaleString([], opts)} – ${new Date(end).toLocaleString([], opts)}`;
+  }
+
+  async function loadNativitySchedule() {
+    try {
+      const res = await fetch('/api/settings', { cache: 'no-store' });
+      if (!res.ok) return;
+      const s = await res.json();
+      const rows = [];
+      if (s.submissionStart && s.submissionEnd) rows.push(`<div><strong>Submissions:</strong> ${formatRange(s.submissionStart, s.submissionEnd)}</div>`);
+      if (s.dropoffStart && s.dropoffEnd) rows.push(`<div><strong>Drop-off:</strong> ${formatRange(s.dropoffStart, s.dropoffEnd)}</div>`);
+      if (s.pickupStart && s.pickupEnd) rows.push(`<div><strong>Pickup:</strong> ${formatRange(s.pickupStart, s.pickupEnd)}</div>`);
+      const box = document.getElementById('nativitySchedule');
+      if (rows.length) {
+        box.innerHTML = rows.join('');
+        box.hidden = false;
+      }
+      document.getElementById('submitNativity').style.display = s.submissionsOpen ? '' : 'none';
+    } catch {}
+  }
+
+  loadNativitySchedule();
+
   document.getElementById('submitNativity').addEventListener('click', () => {
     if (typeof dialog.showModal === 'function') dialog.showModal();
     else dialog.setAttribute('open', '');
