@@ -24,7 +24,7 @@
   .schedule-group h3 { margin:0 0 6px; color:var(--gold-bright); font-size:1rem; }
   .schedule-help { margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.45; }
   .range-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:10px; align-items:end; }
-  .range-row.submission-range { grid-template-columns:minmax(0,1fr) 150px minmax(0,1fr) 150px; }
+  .range-row.submission-range { grid-template-columns:minmax(0,1fr) 150px; max-width:520px; }
   .range-row .field { margin:0; }
   .date-text { font-variant-numeric:tabular-nums; }
   .build-days-btn { width:auto !important; margin:0 !important; padding:12px 15px !important; white-space:nowrap; }
@@ -112,18 +112,10 @@
     <div class="schedule-grid">
       <div class="schedule-group">
         <h3>1. Online Preregistration</h3>
-        <p class="schedule-help">Set when people may start a new nativity submission online.</p>
+        <p class="schedule-help">Set the deadline for online preregistration.</p>
         <div class="range-row submission-range">
           <div class="field">
-            <label for="submissionStartDate">Opens date</label>
-            <input class="date-text" type="text" id="submissionStartDate" inputmode="numeric" placeholder="MM/DD/YYYY">
-          </div>
-          <div class="field">
-            <label for="submissionStartTime">Time</label>
-            <select id="submissionStartTime"></select>
-          </div>
-          <div class="field">
-            <label for="submissionEndDate">Closes date</label>
+            <label for="submissionEndDate">Preregistration deadline</label>
             <input class="date-text" type="text" id="submissionEndDate" inputmode="numeric" placeholder="MM/DD/YYYY">
           </div>
           <div class="field">
@@ -353,14 +345,10 @@ async function loadSettings() {
     const settings = await api('/api/admin/settings');
     renderSubmissionSetting(settings.submissionsOpen);
 
-    fillTimeSelect(document.getElementById('submissionStartTime'));
     fillTimeSelect(document.getElementById('submissionEndTime'));
 
-    const start = isoToParts(settings.submissionStart);
     const end = isoToParts(settings.submissionEnd);
-    document.getElementById('submissionStartDate').value = start.date;
     document.getElementById('submissionEndDate').value = end.date;
-    fillTimeSelect(document.getElementById('submissionStartTime'), start.time || '00:00');
     fillTimeSelect(document.getElementById('submissionEndTime'), end.time || '23:45');
 
     const dropoffDays = Array.isArray(settings.dropoffDays) ? settings.dropoffDays : [];
@@ -458,11 +446,10 @@ document.getElementById('saveScheduleBtn').addEventListener('click', async () =>
   const btn = document.getElementById('saveScheduleBtn');
   btn.disabled = true;
   try {
-    const submissionStartDate = document.getElementById('submissionStartDate').value.trim();
     const submissionEndDate = document.getElementById('submissionEndDate').value.trim();
     const body = {
-      submissionStart: submissionStartDate ? partsToIso(submissionStartDate, document.getElementById('submissionStartTime').value, 'opening') : '',
-      submissionEnd: submissionEndDate ? partsToIso(submissionEndDate, document.getElementById('submissionEndTime').value, 'closing') : '',
+      submissionStart: '',
+      submissionEnd: submissionEndDate ? partsToIso(submissionEndDate, document.getElementById('submissionEndTime').value, 'deadline') : '',
       dropoffDays: collectDays('dropoff'),
       pickupDays: collectDays('pickup'),
       dropoffStart: '',
