@@ -16,6 +16,15 @@
   .submission-settings p { margin:0; color:var(--muted); line-height:1.45; }
   .setting-control { display:flex; align-items:center; gap:12px; flex:0 0 auto; }
   .setting-status { min-width:62px; color:var(--gold-bright); font-weight:800; text-align:right; }
+  .schedule-settings { padding:20px; margin:0 0 22px; border:1px solid var(--border); border-radius:18px; background:rgba(8,16,31,.72); }
+  .schedule-settings h2 { margin:0 0 5px; font-size:1.14rem; }
+  .schedule-settings > p { margin:0 0 18px; color:var(--muted); line-height:1.45; }
+  .schedule-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px 18px; }
+  .schedule-group { padding:15px; border:1px solid var(--border); border-radius:14px; }
+  .schedule-group h3 { margin:0 0 12px; color:var(--gold-bright); font-size:.98rem; }
+  .schedule-group .field { margin-bottom:10px; }
+  .schedule-group .field:last-child { margin-bottom:0; }
+  .schedule-save { width:auto !important; margin:16px 0 0 !important; }
   .stats-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin:0 0 22px; }
   .stat-card { appearance:none; text-align:left; color:var(--text); background:rgba(8,16,31,.62); border:1px solid var(--border); border-radius:16px; padding:16px; cursor:pointer; font:inherit; transition:.15s ease; }
   .stat-card:hover { transform:translateY(-1px); border-color:var(--border-strong); }
@@ -38,6 +47,7 @@
     .admin-header { display:block; }
     .admin-tools { justify-content:flex-start; margin-top:16px; }
     .submission-settings { align-items:flex-start; }
+    .schedule-grid { grid-template-columns:1fr; }
     .stats-grid { grid-template-columns:repeat(2, 1fr); }
     .submission-row { gap:7px; }
     .submission-link { padding:14px; gap:10px; align-items:flex-start; flex-direction:column; }
@@ -75,6 +85,29 @@
         <span class="track"></span>
       </label>
     </div>
+  </section>
+
+  <section class="schedule-settings" aria-label="Nativity schedule">
+    <h2>Submission, Drop-off &amp; Pickup Schedule</h2>
+    <p>Set the times visitors should use. The submission window automatically controls when new submissions can be started, while the Open/Closed switch above can still close them manually at any time.</p>
+    <div class="schedule-grid">
+      <div class="schedule-group">
+        <h3>Accept Submissions</h3>
+        <div class="field"><label for="submissionStart">Opens</label><input type="datetime-local" id="submissionStart"></div>
+        <div class="field"><label for="submissionEnd">Closes</label><input type="datetime-local" id="submissionEnd"></div>
+      </div>
+      <div class="schedule-group">
+        <h3>Nativity Drop-off</h3>
+        <div class="field"><label for="dropoffStart">Begins</label><input type="datetime-local" id="dropoffStart"></div>
+        <div class="field"><label for="dropoffEnd">Ends</label><input type="datetime-local" id="dropoffEnd"></div>
+      </div>
+      <div class="schedule-group">
+        <h3>Nativity Pickup</h3>
+        <div class="field"><label for="pickupStart">Begins</label><input type="datetime-local" id="pickupStart"></div>
+        <div class="field"><label for="pickupEnd">Ends</label><input type="datetime-local" id="pickupEnd"></div>
+      </div>
+    </div>
+    <button class="btn btn-primary schedule-save" id="saveScheduleBtn">Save Schedule</button>
   </section>
 
   <div class="stats-grid" aria-label="Submission filters">
@@ -143,10 +176,24 @@ function renderSubmissionSetting(open) {
   label.style.color = open ? 'var(--gold-bright)' : '#ffb0a1';
 }
 
+function toLocalInput(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function toIso(value) {
+  return value ? new Date(value).toISOString() : '';
+}
+
 async function loadSettings() {
   try {
-    const { submissionsOpen } = await api('/api/admin/settings');
-    renderSubmissionSetting(submissionsOpen);
+    const settings = await api('/api/admin/settings');
+    renderSubmissionSetting(settings.submissionsOpen);
+    ['submissionStart','submissionEnd','dropoffStart','dropoffEnd','pickupStart','pickupEnd'].forEach((key) => {
+      document.getElementById(key).value = toLocalInput(settings[key]);
+    });
   } catch (err) {
     showError(err.message);
   }
@@ -210,6 +257,25 @@ document.getElementById('submissionsToggle').addEventListener('change', async (e
   } catch (err) {
     showError(err.message);
     await loadSettings();
+  }
+});
+
+document.getElementById('saveScheduleBtn').addEventListener('click', async () => {
+  hideError();
+  const btn = document.getElementById('saveScheduleBtn');
+  btn.disabled = true;
+  try {
+    const body = {};
+    ['submissionStart','submissionEnd','dropoffStart','dropoffEnd','pickupStart','pickupEnd'].forEach((key) => {
+      body[key] = toIso(document.getElementById(key).value);
+    });
+    await api('/api/admin/settings', { method: 'POST', body });
+    showSuccess('Nativity schedule saved.');
+    await loadSettings();
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
   }
 });
 
