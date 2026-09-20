@@ -1,14 +1,20 @@
 // Thin wrapper over the Resend REST API — no SDK needed, matches how
 // Resend is used in your other Cloudflare apps against the same domain.
 
-async function send(env, { to, subject, html }) {
+async function send(env, { to, cc, subject, html }) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from: env.RESEND_FROM, to, subject, html }),
+    body: JSON.stringify({
+      from: env.RESEND_FROM,
+      to,
+      ...(cc ? { cc } : {}),
+      subject,
+      html,
+    }),
   });
   if (!res.ok) {
     const body = await res.text();
@@ -250,6 +256,7 @@ export async function sendClaimTicketEmail(env, { to, name, nativity, pieces, se
 
   await send(env, {
     to,
+    cc: 'submissions@strolltothestable.com',
     subject: `Nativity checked in — claim number ${nativity.submission_number}`,
     html: emailShell({
       eyebrow: 'Stroll to the Stable',
