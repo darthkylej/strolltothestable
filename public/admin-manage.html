@@ -13,7 +13,6 @@
   .admin-entry .name { color:var(--gold-bright); font-weight:700; overflow-wrap:anywhere; }
   .admin-entry .meta { color:var(--muted); font-size:13px; margin-top:3px; }
   .admin-entry .btn { width:auto; margin:0; padding:9px 14px; flex:0 0 auto; }
-  .permanent-badge { display:inline-block; color:var(--gold); border:1px solid var(--border-strong); border-radius:999px; padding:5px 9px; font-size:12px; font-weight:700; }
   .admin-success { display:none; margin:0 0 16px; padding:12px 14px; border-radius:12px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
   @media (max-width:620px) { .manage-header { display:block; } .manage-header .btn { margin-top:14px; } }
 </style>
@@ -75,11 +74,9 @@ async function load() {
       <div class="admin-entry">
         <div>
           <div class="name">${esc(a.email)}</div>
-          <div class="meta">${a.is_permanent ? 'Permanent administrator' : 'Added by ' + esc(a.added_by || 'unknown')}</div>
+          <div class="meta">Added by ${esc(a.added_by || 'unknown')}</div>
         </div>
-        ${a.is_permanent
-          ? '<span class="permanent-badge">Permanent</span>'
-          : `<button class="btn btn-danger" data-remove-admin="${esc(a.email)}">Remove</button>`}
+        <button class="btn btn-danger" data-remove-admin="${esc(a.email)}">Remove</button>
       </div>
     `).join('');
   } catch (err) {
@@ -114,6 +111,7 @@ document.getElementById('list').addEventListener('click', async (e) => {
   if (!btn) return;
   const email = btn.dataset.removeAdmin;
   if (!currentAdmins.has(email)) return;
+  if (currentAdmins.get(email)?.is_permanent) return;
 
   if (!window.confirm(`Remove admin access for ${email}?\n\nThey will no longer be able to sign in as an administrator.`)) return;
 
