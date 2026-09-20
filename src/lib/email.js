@@ -25,13 +25,53 @@ function formatScheduleDate(value) {
   }).format(new Date(value));
 }
 
+function formatLocalScheduleDate(key) {
+  const [year, month, day] = String(key || '').split('-').map(Number);
+  if (!year || !month || !day) return '';
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  }).format(new Date(year, month - 1, day));
+}
+
+function formatLocalTime(value) {
+  if (!value) return '';
+  const [hour, minute] = String(value).split(':').map(Number);
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric', minute: '2-digit',
+  }).format(new Date(2000, 0, 1, hour, minute));
+}
+
+function dailyScheduleEmail(days, legacyStart, legacyEnd) {
+  const available = (Array.isArray(days) ? days : []).filter((d) => d.available !== false);
+  if (available.length) {
+    return `<ul style="margin-top:6px">${available.map((d) =>
+      `<li><b>${escapeHtml(formatLocalScheduleDate(d.date))}:</b> ${escapeHtml(formatLocalTime(d.start))} – ${escapeHtml(formatLocalTime(d.end))}</li>`
+    ).join('')}</ul>`;
+  }
+  if (legacyStart && legacyEnd) {
+    return `<p>${escapeHtml(formatScheduleDate(legacyStart))} – ${escapeHtml(formatScheduleDate(legacyEnd))}</p>`;
+  }
+  return '<p>Dates and times will be announced soon.</p>';
+}
+
 function scheduleHtml(settings) {
   if (!settings) return '';
-  const rows = [];
-  if (settings.submissionStart && settings.submissionEnd) rows.push(`<li><b>Submissions:</b> ${formatScheduleDate(settings.submissionStart)} – ${formatScheduleDate(settings.submissionEnd)}</li>`);
-  if (settings.dropoffStart && settings.dropoffEnd) rows.push(`<li><b>Nativity drop-off:</b> ${formatScheduleDate(settings.dropoffStart)} – ${formatScheduleDate(settings.dropoffEnd)}</li>`);
-  if (settings.pickupStart && settings.pickupEnd) rows.push(`<li><b>Nativity pickup:</b> ${formatScheduleDate(settings.pickupStart)} – ${formatScheduleDate(settings.pickupEnd)}</li>`);
-  return rows.length ? `<h3>Important dates and times</h3><ul>${rows.join('')}</ul>` : '';
+  const registration = settings.submissionStart && settings.submissionEnd
+    ? `<p>Complete your online preregistration between <b>${escapeHtml(formatScheduleDate(settings.submissionStart))}</b> and <b>${escapeHtml(formatScheduleDate(settings.submissionEnd))}</b>.</p>`
+    : '<p>Preregistration dates will be announced soon.</p>';
+
+  return `
+    <div style="margin-top:22px">
+      <h3>How lending your nativity works</h3>
+      <p><b>Step 1: Online Preregistration</b></p>
+      ${registration}
+      <p><b>Step 2: Drop Off Your Nativity</b></p>
+      ${dailyScheduleEmail(settings.dropoffDays, settings.dropoffStart, settings.dropoffEnd)}
+      <p style="margin-top:4px">101 E Nolte St, Seguin, TX 78155</p>
+      <p><b>Step 3: Pick Up Your Nativity</b></p>
+      ${dailyScheduleEmail(settings.pickupDays, settings.pickupStart, settings.pickupEnd)}
+      <p style="margin-top:4px">101 E Nolte St, Seguin, TX 78155</p>
+    </div>`;
 }
 
 export async function sendCredentialsEmail(env, { to, name, username, password, settings }) {
