@@ -529,7 +529,7 @@
     const available = (Array.isArray(days) ? days : []).filter((d) => d.available !== false);
     if (!available.length) return '<p>Dates and times will be announced soon.</p>';
     return available.map((d) => {
-      const date = dateFromKey(d.date).toLocaleDateString([], { weekday:'long', month:'short', day:'numeric' });
+      const date = dateFromKey(d.date).toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' });
       return `<div class="schedule-day"><strong>${date}:</strong> ${formatTime(d.start)} – ${formatTime(d.end)}</div>`;
     }).join('');
   }
