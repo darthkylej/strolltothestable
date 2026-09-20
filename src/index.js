@@ -167,6 +167,7 @@ export default {
       if (path === '/api/login' && method === 'POST') return await auth.login(request, env);
       if (path === '/api/logout' && method === 'POST') return await auth.logout();
       if (path === '/api/forgot-login' && method === 'POST') return await auth.forgotLogin(request, env);
+      if (path === '/api/recover-login' && method === 'POST') return await auth.recoverLogin(request, env);
 
       if (path === '/api/admin/request-otp' && method === 'POST') return await adminAuth.requestOtp(request, env);
       if (path === '/api/admin/verify-otp' && method === 'POST') return await adminAuth.verifyOtp(request, env);
