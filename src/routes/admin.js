@@ -11,6 +11,7 @@ import {
 import {
   getSiteSettings,
   setSubmissionsOpen,
+  updateSiteSettings,
   getAdminNote,
   setAdminNote,
   deleteAdminNote,
@@ -51,15 +52,35 @@ export async function listNativities(request, env, session) {
 export async function getAdminSettings(request, env, session) {
   requireAdmin(session);
   const settings = await getSiteSettings(env);
-  return json({ submissionsOpen: settings.submissionsOpen });
+  return json(settings);
 }
 
 export async function updateAdminSettings(request, env, session) {
   requireAdmin(session);
-  const { submissionsOpen } = await request.json();
-  if (typeof submissionsOpen !== 'boolean') return error('Invalid submission setting.');
-  const settings = await setSubmissionsOpen(env, submissionsOpen, session.email);
-  return json({ ok: true, submissionsOpen: settings.submissionsOpen });
+  const body = await request.json();
+  const allowed = ['submissionStart', 'submissionEnd', 'dropoffStart', 'dropoffEnd', 'pickupStart', 'pickupEnd'];
+  const updates = {};
+
+  if (body.submissionsOpen !== undefined) {
+    if (typeof body.submissionsOpen !== 'boolean') return error('Invalid submission setting.');
+    updates.submissionsOpen = body.submissionsOpen;
+  }
+
+  for (const key of allowed) {
+    if (body[key] !== undefined) {
+      if (typeof body[key] !== 'string') return error('Invalid schedule setting.');
+      updates[key] = body[key];
+    }
+  }
+
+  for (const [startKey, endKey] of [['submissionStart','submissionEnd'], ['dropoffStart','dropoffEnd'], ['pickupStart','pickupEnd']]) {
+    const start = updates[startKey] ?? (await getSiteSettings(env))[startKey];
+    const end = updates[endKey] ?? (await getSiteSettings(env))[endKey];
+    if (start && end && new Date(start) > new Date(end)) return error('A start time cannot be after its end time.');
+  }
+
+  const settings = await updateSiteSettings(env, updates, session.email);
+  return json({ ok: true, ...settings });
 }
 
 export async function getNativity(request, env, session, id) {
