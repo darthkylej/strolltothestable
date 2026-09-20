@@ -13,6 +13,8 @@ export async function getPublicSettings(request, env) {
       dropoffEnd: settings.dropoffEnd,
       pickupStart: settings.pickupStart,
       pickupEnd: settings.pickupEnd,
+      dropoffDays: Array.isArray(settings.dropoffDays) ? settings.dropoffDays : [],
+      pickupDays: Array.isArray(settings.pickupDays) ? settings.pickupDays : [],
     },
     { headers: { 'Cache-Control': 'no-store, max-age=0', Pragma: 'no-cache' } }
   );
