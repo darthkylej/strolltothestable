@@ -551,9 +551,9 @@
       if (!res.ok) return;
       const s = await res.json();
 
-      const registration = s.submissionStart && s.submissionEnd
-        ? `<p>Complete your online preregistration between <strong>${formatDateTime(s.submissionStart)}</strong> and <strong>${formatDateTime(s.submissionEnd)}</strong>.</p>`
-        : '<p>Preregistration dates will be announced soon.</p>';
+      const registration = s.submissionEnd
+        ? `<p>Complete your online preregistration by <strong>${formatDateTime(s.submissionEnd)}</strong>.</p>`
+        : '<p>The preregistration deadline will be announced soon.</p>';
 
       document.getElementById('nativitySchedule').innerHTML =
         stepHtml(1, 'Online Preregistration', registration) +
