@@ -5,6 +5,7 @@ import {
 } from '../lib/auth.js';
 import { sendCredentialsEmail, sendForgotLoginEmail } from '../lib/email.js';
 import { json, error } from '../lib/util.js';
+import { getSiteSettings } from '../lib/siteSettings.js';
 
 export async function register(request, env) {
   const { name, phone, email } = await request.json();
@@ -24,7 +25,8 @@ export async function register(request, env) {
     RETURNING id
   `;
 
-  await sendCredentialsEmail(env, { to: email.trim(), name: name.trim(), username, password });
+  const settings = await getSiteSettings(env);
+  await sendCredentialsEmail(env, { to: email.trim(), name: name.trim(), username, password, settings });
 
   const token = await createSessionToken(env, { kind: 'user', userId: rows[0].id });
   return json({ ok: true, username }, { headers: { 'Set-Cookie': sessionCookieHeader(token) } });
@@ -61,8 +63,9 @@ export async function forgotLogin(request, env) {
     const password = generateShortPassword(5);
     const passwordHash = await hashPassword(password);
     await sql`UPDATE users SET password_hash = ${passwordHash} WHERE id = ${rows[0].id}`;
+    const settings = await getSiteSettings(env);
     await sendForgotLoginEmail(env, {
-      to: email.trim(), name: rows[0].name, username: rows[0].username, password,
+      to: email.trim(), name: rows[0].name, username: rows[0].username, password, settings,
     });
   }
   return json({ ok: true });
