@@ -58,7 +58,8 @@ export async function getAdminSettings(request, env, session) {
 export async function updateAdminSettings(request, env, session) {
   requireAdmin(session);
   const body = await request.json();
-  const allowed = ['submissionStart', 'submissionEnd', 'dropoffStart', 'dropoffEnd', 'pickupStart', 'pickupEnd'];
+  const current = await getSiteSettings(env);
+  const allowedStrings = ['submissionStart', 'submissionEnd', 'dropoffStart', 'dropoffEnd', 'pickupStart', 'pickupEnd'];
   const updates = {};
 
   if (body.submissionsOpen !== undefined) {
@@ -66,17 +67,40 @@ export async function updateAdminSettings(request, env, session) {
     updates.submissionsOpen = body.submissionsOpen;
   }
 
-  for (const key of allowed) {
+  for (const key of allowedStrings) {
     if (body[key] !== undefined) {
       if (typeof body[key] !== 'string') return error('Invalid schedule setting.');
       updates[key] = body[key];
     }
   }
 
-  for (const [startKey, endKey] of [['submissionStart','submissionEnd'], ['dropoffStart','dropoffEnd'], ['pickupStart','pickupEnd']]) {
-    const start = updates[startKey] ?? (await getSiteSettings(env))[startKey];
-    const end = updates[endKey] ?? (await getSiteSettings(env))[endKey];
-    if (start && end && new Date(start) > new Date(end)) return error('A start time cannot be after its end time.');
+  const validDate = /^\d{4}-\d{2}-\d{2}$/;
+  const validTime = /^([01]\d|2[0-3]):[0-5]\d$/;
+  for (const key of ['dropoffDays', 'pickupDays']) {
+    if (body[key] === undefined) continue;
+    if (!Array.isArray(body[key])) return error('Invalid daily schedule.');
+    const normalized = [];
+    for (const item of body[key]) {
+      if (!item || typeof item !== 'object' || !validDate.test(item.date || '')) return error('Invalid schedule date.');
+      const available = item.available !== false;
+      if (available && (!validTime.test(item.start || '') || !validTime.test(item.end || '') || item.start >= item.end)) {
+        return error('Each available day needs a valid start and end time.');
+      }
+      normalized.push({
+        date: item.date,
+        available,
+        start: available ? item.start : '',
+        end: available ? item.end : '',
+      });
+    }
+    normalized.sort((a, b) => a.date.localeCompare(b.date));
+    updates[key] = normalized;
+  }
+
+  const submissionStart = updates.submissionStart ?? current.submissionStart;
+  const submissionEnd = updates.submissionEnd ?? current.submissionEnd;
+  if (submissionStart && submissionEnd && new Date(submissionStart) > new Date(submissionEnd)) {
+    return error('The submission opening time cannot be after the closing time.');
   }
 
   const settings = await updateSiteSettings(env, updates, session.email);
