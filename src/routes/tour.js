@@ -2,7 +2,8 @@ import { db } from '../lib/db.js';
 import { json } from '../lib/util.js';
 import { listTourMediaObjects, serializeTourMedia } from '../lib/tourMedia.js';
 
-// Public: no session required. The collection includes submitted nativities
+// Public: no session required. The collection includes all nativities that
+// have been checked in at least once and are still marked for the public tour,
 // plus standalone artwork, photos, and videos uploaded by admins.
 export async function getTour(request, env) {
   const sql = db(env);
@@ -10,7 +11,7 @@ export async function getTour(request, env) {
     sql`
       SELECT id, submission_number, event_year, COALESCE(display_photo_key, photo_key) AS photo_key, story
       FROM nativities
-      WHERE status = 'submitted' AND include_in_tour = TRUE
+      WHERE status IN ('submitted', 'returned') AND include_in_tour = TRUE
       ORDER BY event_year DESC, id
     `,
     listTourMediaObjects(env),
