@@ -13,6 +13,11 @@
 
   <div class="error-banner" data-error-banner></div>
 
+  <div class="card" id="scheduleCard" style="display:none; margin-bottom:18px">
+    <h2 style="margin-top:0">Important Dates</h2>
+    <div id="scheduleInfo" style="color:var(--wood); line-height:1.6"></div>
+  </div>
+
   <a class="btn btn-primary" id="newSubmissionAction" href="/lend-photo.html" style="display:none">Lend a Nativity</a>
 
   <div id="list" style="margin-top:24px"></div>
@@ -24,6 +29,23 @@
 const CURRENT_YEAR = new Date().getFullYear();
 let submissionsOpen = false;
 
+function formatRange(start, end) {
+  if (!start || !end) return '';
+  const opts = { month:'long', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' };
+  return `${new Date(start).toLocaleString([], opts)} – ${new Date(end).toLocaleString([], opts)}`;
+}
+
+function renderSchedule(settings) {
+  const rows = [];
+  if (settings.submissionStart && settings.submissionEnd) rows.push(`<div><strong>Submit your nativity:</strong> ${formatRange(settings.submissionStart, settings.submissionEnd)}</div>`);
+  if (settings.dropoffStart && settings.dropoffEnd) rows.push(`<div><strong>Drop-off:</strong> ${formatRange(settings.dropoffStart, settings.dropoffEnd)}</div>`);
+  if (settings.pickupStart && settings.pickupEnd) rows.push(`<div><strong>Pickup:</strong> ${formatRange(settings.pickupStart, settings.pickupEnd)}</div>`);
+  if (rows.length) {
+    document.getElementById('scheduleInfo').innerHTML = rows.join('');
+    document.getElementById('scheduleCard').style.display = 'block';
+  }
+}
+
 async function load() {
   try {
     const [submissionData, settings] = await Promise.all([
@@ -32,6 +54,7 @@ async function load() {
     ]);
     const { nativities } = submissionData;
     submissionsOpen = settings.submissionsOpen;
+    renderSchedule(settings);
     document.getElementById('newSubmissionAction').style.display = submissionsOpen ? 'flex' : 'none';
 
     const list = document.getElementById('list');
