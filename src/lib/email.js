@@ -113,33 +113,150 @@ export async function sendAdminOtpEmail(env, { to, code }) {
   });
 }
 
-export async function sendClaimTicketEmail(env, { to, name, nativity, pieces, settings }) {
-  const pieceRows = pieces
-    .map(
-      (p) => `<tr>
-        <td style="padding:4px 8px;border:1px solid #ddd">${p.piece_number}</td>
-        <td style="padding:4px 8px;border:1px solid #ddd">${escapeHtml(p.description)}</td>
-        <td style="padding:4px 8px;border:1px solid #ddd">${escapeHtml(p.condition_notes)}</td>
-      </tr>`
-    )
-    .join('');
+function photoUrl(baseUrl, key) {
+  if (!baseUrl || !key) return '';
+  const safeKey = String(key).split('/').map(encodeURIComponent).join('/');
+  return `${String(baseUrl).replace(/\/$/, '')}/photos/${safeKey}`;
+}
+
+function emailShell({ eyebrow, title, intro, body }) {
+  return `
+    <div style="margin:0;padding:28px 14px;background:#f4f1e8;font-family:Arial,Helvetica,sans-serif;color:#243142">
+      <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #ded8ca;border-radius:16px;overflow:hidden">
+        <div style="padding:28px 30px;background:#12233d;color:#ffffff">
+          <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#e8c878;font-weight:700">${eyebrow}</div>
+          <h1 style="margin:8px 0 0;font-size:27px;line-height:1.2;color:#ffffff">${title}</h1>
+        </div>
+        <div style="padding:28px 30px">
+          ${intro}
+          ${body}
+          <div style="margin-top:28px;padding-top:18px;border-top:1px solid #e7e1d5;color:#6b7280;font-size:13px;line-height:1.5">
+            Questions or special arrangements? Email
+            <a href="mailto:submissions@strolltothestable.com" style="color:#203a5f;font-weight:700">submissions@strolltothestable.com</a>.
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function schedulePanel(title, days, legacyStart, legacyEnd) {
+  const available = (Array.isArray(days) ? days : []).filter((d) => d.available !== false);
+  let rows = '';
+  if (available.length) {
+    rows = available.map((d) => `
+      <tr>
+        <td style="padding:8px 10px;border-bottom:1px solid #ece7dd;font-weight:700;color:#243142">${escapeHtml(formatLocalScheduleDate(d.date))}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #ece7dd;color:#4b5563">${escapeHtml(formatLocalTime(d.start))} – ${escapeHtml(formatLocalTime(d.end))}</td>
+      </tr>`).join('');
+  } else if (legacyStart && legacyEnd) {
+    rows = `<tr><td colspan="2" style="padding:8px 10px;color:#4b5563">${escapeHtml(formatScheduleDate(legacyStart))} – ${escapeHtml(formatScheduleDate(legacyEnd))}</td></tr>`;
+  } else {
+    rows = '<tr><td colspan="2" style="padding:8px 10px;color:#4b5563">Dates and times will be announced soon.</td></tr>';
+  }
+
+  return `
+    <div style="margin-top:22px;border:1px solid #ded8ca;border-radius:12px;overflow:hidden">
+      <div style="padding:12px 14px;background:#f7f3e8;font-weight:800;color:#243142">${escapeHtml(title)}</div>
+      <table role="presentation" style="width:100%;border-collapse:collapse">${rows}</table>
+      <div style="padding:11px 14px;background:#fbfaf7;color:#4b5563;font-size:14px">
+        <b>Location:</b> 101 E Nolte St, Seguin, TX 78155
+      </div>
+    </div>`;
+}
+
+function photoGalleryHtml(baseUrl, nativity, pieces) {
+  const photos = [];
+  if (nativity.photo_key) photos.push({ key: nativity.photo_key, label: 'Nativity photo' });
+  for (const p of pieces || []) {
+    if (p.photo_key) photos.push({ key: p.photo_key, label: `Piece ${p.piece_number}: ${p.description || 'Photo'}` });
+  }
+  if (nativity.display_photo_key && nativity.display_photo_key !== nativity.photo_key) {
+    photos.push({ key: nativity.display_photo_key, label: 'Display photo' });
+  }
+  if (!photos.length) return '';
+
+  return `
+    <div style="margin-top:24px">
+      <h2 style="margin:0 0 12px;font-size:18px;color:#243142">Photos on file</h2>
+      <div>
+        ${photos.map((p) => `
+          <div style="margin:0 0 16px">
+            <img src="${escapeHtml(photoUrl(baseUrl, p.key))}" alt="${escapeHtml(p.label)}" style="display:block;width:100%;max-width:560px;height:auto;border-radius:10px;border:1px solid #ded8ca">
+            <div style="margin-top:5px;color:#6b7280;font-size:12px">${escapeHtml(p.label)}</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+export async function sendPreregistrationEmail(env, { to, name, nativity, pieces, settings }) {
+  const intro = `
+    <p style="margin:0 0 14px;font-size:16px;line-height:1.6">Hi ${escapeHtml(name)},</p>
+    <p style="margin:0 0 14px;font-size:16px;line-height:1.6">Thank you for preregistering your nativity for <b>Stroll to the Stable</b>. We are grateful that you are willing to share it with our community.</p>
+    <div style="margin:18px 0;padding:14px 16px;border-radius:10px;background:#f7f3e8;border:1px solid #e5ddca">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#806c3d;font-weight:700">Submission number</div>
+      <div style="margin-top:4px;font-size:22px;font-weight:800;color:#243142">${escapeHtml(nativity.submission_number)}</div>
+    </div>`;
+
+  const body = `
+    <p style="margin:0;font-size:16px;line-height:1.6">Your online preregistration is complete. The next step is to bring your nativity to us during one of the drop-off times below.</p>
+    ${schedulePanel('Drop-off times', settings?.dropoffDays, settings?.dropoffStart, settings?.dropoffEnd)}
+    <p style="margin:20px 0 0;color:#4b5563;font-size:14px;line-height:1.6">Please keep your submission number handy when you arrive. If your plans change or you need a special drop-off arrangement, contact us and we will do our best to help.</p>`;
+
   await send(env, {
     to,
-    subject: `Nativity checked in — claim ticket ${nativity.submission_number}`,
-    html: `
-      <p>Hi ${escapeHtml(name)},</p>
-      <p>Thank you for lending your nativity for Stroll to the Stable! It's been checked in and verified.</p>
-      <p><b>Claim ticket number: ${nativity.submission_number}</b><br>
-      Keep this email — you'll need this number to pick up your nativity after the event.</p>
-      ${nativity.story ? `<p><i>${escapeHtml(nativity.story)}</i></p>` : ''}
-      ${scheduleHtml(settings)}
-      <table style="border-collapse:collapse;margin-top:12px">
-        <tr><th style="padding:4px 8px;border:1px solid #ddd">#</th>
-            <th style="padding:4px 8px;border:1px solid #ddd">Piece</th>
-            <th style="padding:4px 8px;border:1px solid #ddd">Condition noted</th></tr>
+    subject: `Nativity preregistration received — ${nativity.submission_number}`,
+    html: emailShell({
+      eyebrow: 'Stroll to the Stable',
+      title: 'Thank you for preregistering',
+      intro,
+      body,
+    }),
+  });
+}
+
+export async function sendClaimTicketEmail(env, { to, name, nativity, pieces, settings, baseUrl }) {
+  const pieceRows = pieces.map((p) => `
+    <tr>
+      <td style="padding:8px 10px;border-bottom:1px solid #ece7dd;color:#4b5563">${p.piece_number}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #ece7dd;color:#243142">${escapeHtml(p.description)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #ece7dd;color:#4b5563">${escapeHtml(p.condition_notes)}</td>
+    </tr>`).join('');
+
+  const intro = `
+    <p style="margin:0 0 14px;font-size:16px;line-height:1.6">Hi ${escapeHtml(name)},</p>
+    <p style="margin:0 0 14px;font-size:16px;line-height:1.6">Thank you for lending your nativity to <b>Stroll to the Stable</b>. Your nativity has been checked in, documented, and is now in our care. We truly appreciate your contribution to this event.</p>
+    <div style="margin:18px 0;padding:16px;border-radius:10px;background:#f7f3e8;border:1px solid #e5ddca">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#806c3d;font-weight:700">Claim number</div>
+      <div style="margin-top:4px;font-size:25px;font-weight:800;color:#243142">${escapeHtml(nativity.submission_number)}</div>
+      <div style="margin-top:7px;color:#4b5563;font-size:14px">Keep this email. Please have this number available when you pick up your nativity.</div>
+    </div>`;
+
+  const body = `
+    ${schedulePanel('Pickup times', settings?.pickupDays, settings?.pickupStart, settings?.pickupEnd)}
+    ${nativity.story ? `<div style="margin-top:22px;padding:14px 16px;border-left:4px solid #d7b35e;background:#fbfaf7;color:#4b5563;font-style:italic;line-height:1.6">${escapeHtml(nativity.story)}</div>` : ''}
+    <div style="margin-top:24px">
+      <h2 style="margin:0 0 10px;font-size:18px;color:#243142">Items recorded at check-in</h2>
+      <table role="presentation" style="width:100%;border-collapse:collapse;border:1px solid #ded8ca">
+        <tr style="background:#f7f3e8">
+          <th style="padding:8px 10px;text-align:left;color:#243142">#</th>
+          <th style="padding:8px 10px;text-align:left;color:#243142">Piece</th>
+          <th style="padding:8px 10px;text-align:left;color:#243142">Condition noted</th>
+        </tr>
         ${pieceRows}
       </table>
-    `,
+    </div>
+    ${photoGalleryHtml(baseUrl, nativity, pieces)}
+    <p style="margin:22px 0 0;font-size:15px;line-height:1.6;color:#4b5563">We look forward to sharing your nativity with visitors. Thank you again for helping make Stroll to the Stable possible.</p>`;
+
+  await send(env, {
+    to,
+    subject: `Nativity checked in — claim number ${nativity.submission_number}`,
+    html: emailShell({
+      eyebrow: 'Stroll to the Stable',
+      title: 'Your nativity is checked in',
+      intro,
+      body,
+    }),
   });
 }
 
