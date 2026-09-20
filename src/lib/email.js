@@ -56,9 +56,9 @@ function dailyScheduleEmail(days, legacyStart, legacyEnd) {
 
 function scheduleHtml(settings) {
   if (!settings) return '';
-  const registration = settings.submissionStart && settings.submissionEnd
-    ? `<p>Complete your online preregistration between <b>${escapeHtml(formatScheduleDate(settings.submissionStart))}</b> and <b>${escapeHtml(formatScheduleDate(settings.submissionEnd))}</b>.</p>`
-    : '<p>Preregistration dates will be announced soon.</p>';
+  const registration = settings.submissionEnd
+    ? `<p>Complete your online preregistration by <b>${escapeHtml(formatScheduleDate(settings.submissionEnd))}</b>.</p>`
+    : '<p>The preregistration deadline will be announced soon.</p>';
 
   return `
     <div style="margin-top:22px">
