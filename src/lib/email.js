@@ -43,7 +43,6 @@ export async function sendCredentialsEmail(env, { to, name, username, password, 
       <p>You're registered for Stroll to the Stable nativity check-in. Here's your login:</p>
       <p style="font-size:18px"><b>Username:</b> ${escapeHtml(username)}<br>
       <b>Password:</b> ${escapeHtml(password)}</p>
-      ${scheduleHtml(settings)}
       <p>Keep this email — you'll use these to log back in and see your nativities each year.</p>
       ${scheduleHtml(settings)}
     `,
@@ -59,6 +58,7 @@ export async function sendForgotLoginEmail(env, { to, name, username, password, 
       <p>Here's your login — we generated a new password since you asked to have it resent:</p>
       <p style="font-size:18px"><b>Username:</b> ${escapeHtml(username)}<br>
       <b>Password:</b> ${escapeHtml(password)}</p>
+      ${scheduleHtml(settings)}
     `,
   });
 }
