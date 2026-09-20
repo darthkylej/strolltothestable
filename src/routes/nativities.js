@@ -58,13 +58,7 @@ export async function setTourVisibility(request, env, session, id) {
   requireUser(session);
   const { includeInTour } = await request.json();
   const sql = db(env);
-  const owned = await sql`
-    SELECT n.id, n.photo_key, n.story, n.display_photo_key, n.submission_number,
-           u.name AS owner_name, u.email AS owner_email
-    FROM nativities n
-    JOIN users u ON u.id = n.owner_user_id
-    WHERE n.id = ${id} AND n.owner_user_id = ${session.userId}
-  `;
+  const owned = await sql`SELECT id FROM nativities WHERE id = ${id} AND owner_user_id = ${session.userId}`;
   if (owned.length === 0) return error('Nativity not found.', 404);
   await sql`UPDATE nativities SET include_in_tour = ${!!includeInTour}, updated_at = now() WHERE id = ${id}`;
   return json({ ok: true });
@@ -83,7 +77,13 @@ export async function submitPieces(request, env, session, id) {
   }
 
   const sql = db(env);
-  const owned = await sql`SELECT id FROM nativities WHERE id = ${id} AND owner_user_id = ${session.userId}`;
+  const owned = await sql`
+    SELECT n.id, n.photo_key, n.story, n.display_photo_key, n.submission_number,
+           u.name AS owner_name, u.email AS owner_email
+    FROM nativities n
+    JOIN users u ON u.id = n.owner_user_id
+    WHERE n.id = ${id} AND n.owner_user_id = ${session.userId}
+  `;
   if (owned.length === 0) return error('Nativity not found.', 404);
 
   const eventYear = currentEventYear();
