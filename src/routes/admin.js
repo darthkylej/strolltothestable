@@ -242,7 +242,8 @@ export async function finalize(request, env, session, id) {
   `;
 
   const pieces = await sql`SELECT * FROM nativity_pieces WHERE nativity_id = ${id} ORDER BY piece_number`;
-  await sendClaimTicketEmail(env, { to: nativity.owner_email, name: nativity.owner_name, nativity, pieces });
+  const settings = await getSiteSettings(env);
+  await sendClaimTicketEmail(env, { to: nativity.owner_email, name: nativity.owner_name, nativity, pieces, settings });
 
   return json({ ok: true });
 }
