@@ -6,528 +6,78 @@
 <title>Admin — Stroll to the Stable</title>
 <link rel="stylesheet" href="/style.css">
 <style>
-  .admin-page { max-width: 980px; }
-  .admin-header { display:flex; justify-content:space-between; gap:24px; align-items:flex-start; margin-bottom:26px; }
-  .admin-header p { margin:6px 0 0; color:var(--wood); }
-  .admin-tools { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
-  .admin-tools .btn { width:auto; margin:0; padding:10px 16px; }
-  .submission-settings { display:flex; justify-content:space-between; gap:22px; align-items:center; padding:18px 20px; margin:0 0 20px; border:1px solid var(--border); border-radius:18px; background:rgba(8,16,31,.72); }
-  .submission-settings h2 { margin:0 0 5px; font-size:1.14rem; }
-  .submission-settings p { margin:0; color:var(--muted); line-height:1.45; }
-  .setting-control { display:flex; align-items:center; gap:12px; flex:0 0 auto; }
-  .setting-status { min-width:62px; color:var(--gold-bright); font-weight:800; text-align:right; }
-  .schedule-settings { padding:20px; margin:0 0 22px; border:1px solid var(--border); border-radius:18px; background:rgba(8,16,31,.72); }
-  .schedule-settings h2 { margin:0 0 5px; font-size:1.14rem; }
-  .schedule-settings > p { margin:0 0 18px; color:var(--muted); line-height:1.45; }
-  .schedule-grid { display:grid; grid-template-columns:1fr; gap:14px; }
-  .schedule-group { padding:16px; border:1px solid var(--border); border-radius:14px; background:rgba(255,255,255,.018); }
-  .schedule-group h3 { margin:0 0 6px; color:var(--gold-bright); font-size:1rem; }
-  .schedule-help { margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.45; }
-  .range-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:10px; align-items:end; }
-  .range-row.submission-range { grid-template-columns:minmax(0,1fr) 150px; max-width:520px; }
-  .range-row .field { margin:0; }
-  .date-text { font-variant-numeric:tabular-nums; }
-  .build-days-btn { width:auto !important; margin:0 !important; padding:12px 15px !important; white-space:nowrap; }
-  .daily-schedule { display:grid; gap:8px; margin-top:14px; }
-  .day-row { display:grid; grid-template-columns:minmax(160px,1fr) 120px 28px 120px 100px; gap:9px; align-items:center; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:rgba(5,12,25,.5); }
-  .day-name { color:var(--text); font-weight:700; }
-  .day-date { color:var(--muted); font-size:12px; margin-top:2px; }
-  .day-row select { margin:0; }
-  .day-to { color:var(--muted); text-align:center; font-size:13px; }
-  .availability-toggle { display:flex; align-items:center; gap:7px; color:var(--muted); font-size:12px; justify-content:flex-end; }
-  .availability-toggle input { width:auto; margin:0; }
-  .day-row.unavailable select, .day-row.unavailable .day-to { opacity:.35; pointer-events:none; }
-  .schedule-save { width:auto !important; margin:16px 0 0 !important; }
-
-  .stats-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin:0 0 22px; }
-  .stat-card { appearance:none; text-align:left; color:var(--text); background:rgba(8,16,31,.62); border:1px solid var(--border); border-radius:16px; padding:16px; cursor:pointer; font:inherit; transition:.15s ease; }
-  .stat-card:hover { transform:translateY(-1px); border-color:var(--border-strong); }
-  .stat-card.active { border-color:var(--gold); box-shadow:0 0 0 1px rgba(242,199,110,.18), inset 0 1px 0 rgba(255,255,255,.04); background:rgba(20,28,46,.9); }
-  .stat-number { display:block; font-family:'Fraunces', Georgia, serif; color:var(--gold-bright); font-size:1.8rem; line-height:1; }
-  .stat-label { display:block; margin-top:7px; color:var(--muted); font-size:.82rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
-  .admin-search { display:flex; gap:10px; align-items:center; padding:14px; background:rgba(7,14,27,.56); border:1px solid var(--border); border-radius:18px; margin-bottom:12px; }
-  .admin-search input { margin:0; }
-  .admin-search .btn { width:auto; margin:0; white-space:nowrap; padding:12px 16px; }
-  .result-summary { display:flex; justify-content:space-between; gap:12px; color:var(--muted); font-size:14px; margin:0 2px 12px; }
-  .submission-list { display:grid; gap:10px; }
-  .submission-row { display:flex; align-items:stretch; gap:10px; }
-  .submission-link { flex:1; min-width:0; text-decoration:none; display:flex; justify-content:space-between; gap:18px; align-items:center; padding:17px 18px; border:1px solid var(--border); border-radius:16px; background:rgba(10,19,35,.78); transition:.15s ease; }
-  .submission-link:hover { border-color:var(--border-strong); background:rgba(14,25,44,.92); transform:translateY(-1px); }
-  .submission-name { font-weight:700; color:var(--gold-bright); overflow-wrap:anywhere; }
-  .submission-meta { color:var(--muted); font-size:14px; margin-top:3px; overflow-wrap:anywhere; }
-  .submission-delete { width:auto !important; min-width:88px; margin:0 !important; align-self:stretch; padding:10px 14px !important; }
-  .admin-success { display:none; margin:0 0 16px; padding:12px 14px; border-radius:12px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
-  @media (max-width:760px) {
-    .admin-header { display:block; }
-    .admin-tools { justify-content:flex-start; margin-top:16px; }
-    .submission-settings { align-items:flex-start; }
-    .schedule-grid { grid-template-columns:1fr; }
-    .range-row, .range-row.submission-range { grid-template-columns:1fr; }
-    .day-row { grid-template-columns:1fr 1fr 24px 1fr; }
-    .availability-toggle { grid-column:1 / -1; justify-content:flex-start; }
-
-    .stats-grid { grid-template-columns:repeat(2, 1fr); }
-    .submission-row { gap:7px; }
-    .submission-link { padding:14px; gap:10px; align-items:flex-start; flex-direction:column; }
-    .submission-delete { min-width:74px; }
+  .admin-home { max-width:980px; }
+  .admin-home-header { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:26px; }
+  .admin-home-header p { margin:6px 0 0; color:var(--wood); }
+  .admin-home-header .btn { width:auto; margin:0; }
+  .admin-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+  .admin-card { display:block; text-decoration:none; padding:22px; border:1px solid var(--border); border-radius:18px; background:rgba(8,16,31,.72); transition:.15s ease; }
+  .admin-card:hover { transform:translateY(-2px); border-color:var(--border-strong); background:rgba(14,25,44,.92); }
+  .admin-card h2 { margin:0 0 7px; color:var(--gold-bright); font-size:1.2rem; }
+  .admin-card p { margin:0; color:var(--wood); line-height:1.5; }
+  .admin-card .admin-card-action { display:inline-block; margin-top:15px; color:var(--gold); font-weight:800; }
+  @media (max-width:700px) {
+    .admin-home-header { display:block; }
+    .admin-home-header .btn { margin-top:14px; }
+    .admin-grid { grid-template-columns:1fr; }
   }
 </style>
 </head>
 <body>
-<div class="page wide admin-page">
-  <div class="admin-header">
+<div class="page wide admin-home">
+  <div class="admin-home-header">
     <div>
       <p class="eyebrow">Stroll to the Stable · Admin</p>
-      <h1>Submissions</h1>
-      <p>Search, check in, return, and manage every nativity from one place.</p>
+      <h1>Admin</h1>
+      <p>Choose what you need to work on.</p>
     </div>
-    <div class="admin-tools">
-      <a class="btn btn-outline" href="/admin-tour-media.html">Tour Media</a>
-      <a class="btn btn-outline" href="/admin-manage.html">Manage Admins</a>
-      <button class="btn btn-outline" id="logoutBtn">Log Out</button>
-    </div>
+    <button class="btn btn-outline" id="logoutBtn">Log Out</button>
   </div>
 
-  <div class="error-banner" data-error-banner></div>
-  <div class="admin-success" id="successBanner"></div>
+  <div class="admin-grid">
+    <a class="admin-card" href="/admin-schedule.html">
+      <h2>Set Scheduling</h2>
+      <p>Set the preregistration deadline and the daily drop-off and pickup hours.</p>
+      <span class="admin-card-action">Open Scheduling →</span>
+    </a>
 
-  <section class="submission-settings" aria-label="Nativity submission availability">
-    <div>
-      <h2>Nativity Submissions</h2>
-      <p>When closed, visitors no longer see options to start a new nativity submission. Existing records and Tour Media remain available.</p>
-    </div>
-    <div class="setting-control">
-      <span class="setting-status" id="submissionStatus">Loading…</span>
-      <label class="switch" style="margin:0">
-        <input type="checkbox" id="submissionsToggle" disabled>
-        <span class="track"></span>
-      </label>
-    </div>
-  </section>
+    <a class="admin-card" href="/admin-submissions.html?status=pending">
+      <h2>Check In Nativities</h2>
+      <p>See pending submissions, verify details and waivers, and finalize check-in.</p>
+      <span class="admin-card-action">Open Check-In →</span>
+    </a>
 
-  <section class="schedule-settings" aria-label="Nativity schedule">
-    <h2>Submission, Drop-off &amp; Pickup Schedule</h2>
-    <p>Enter dates as MM/DD/YYYY. Drop-off and pickup ranges create one row for each day so you can set the exact hours someone will be available.</p>
+    <a class="admin-card" href="/admin-submissions.html?status=submitted">
+      <h2>Return Nativities</h2>
+      <p>See checked-in nativities and mark them returned to their owners.</p>
+      <span class="admin-card-action">Open Returns →</span>
+    </a>
 
-    <div class="schedule-grid">
-      <div class="schedule-group">
-        <h3>1. Online Preregistration</h3>
-        <p class="schedule-help">Set the deadline for online preregistration.</p>
-        <div class="range-row submission-range">
-          <div class="field">
-            <label for="submissionEndDate">Preregistration deadline</label>
-            <input class="date-text" type="text" id="submissionEndDate" inputmode="numeric" placeholder="MM/DD/YYYY">
-          </div>
-          <div class="field">
-            <label for="submissionEndTime">Time</label>
-            <select id="submissionEndTime"></select>
-          </div>
-        </div>
-      </div>
+    <a class="admin-card" href="/admin-tour-media.html">
+      <h2>Add Photos for Virtual Tour</h2>
+      <p>Add artwork, photographs, and videos to Scroll to the Stable.</p>
+      <span class="admin-card-action">Open Tour Media →</span>
+    </a>
 
-      <div class="schedule-group">
-        <h3>2. Nativity Drop-off</h3>
-        <p class="schedule-help">Choose the overall date range, then set the available hours for each individual day.</p>
-        <div class="range-row">
-          <div class="field">
-            <label for="dropoffRangeStart">First day</label>
-            <input class="date-text" type="text" id="dropoffRangeStart" inputmode="numeric" placeholder="MM/DD/YYYY">
-          </div>
-          <div class="field">
-            <label for="dropoffRangeEnd">Last day</label>
-            <input class="date-text" type="text" id="dropoffRangeEnd" inputmode="numeric" placeholder="MM/DD/YYYY">
-          </div>
-          <button class="btn btn-outline build-days-btn" type="button" id="buildDropoffDays">Set Daily Times</button>
-        </div>
-        <div class="daily-schedule" id="dropoffDays"></div>
-      </div>
+    <a class="admin-card" href="/admin-submissions.html">
+      <h2>All Nativity Submissions</h2>
+      <p>Search and manage every submission regardless of status.</p>
+      <span class="admin-card-action">View All Submissions →</span>
+    </a>
 
-      <div class="schedule-group">
-        <h3>3. Nativity Pickup</h3>
-        <p class="schedule-help">Choose the overall date range, then set the available hours for each individual day.</p>
-        <div class="range-row">
-          <div class="field">
-            <label for="pickupRangeStart">First day</label>
-            <input class="date-text" type="text" id="pickupRangeStart" inputmode="numeric" placeholder="MM/DD/YYYY">
-          </div>
-          <div class="field">
-            <label for="pickupRangeEnd">Last day</label>
-            <input class="date-text" type="text" id="pickupRangeEnd" inputmode="numeric" placeholder="MM/DD/YYYY">
-          </div>
-          <button class="btn btn-outline build-days-btn" type="button" id="buildPickupDays">Set Daily Times</button>
-        </div>
-        <div class="daily-schedule" id="pickupDays"></div>
-      </div>
-    </div>
-
-    <button class="btn btn-primary schedule-save" id="saveScheduleBtn">Save Schedule</button>
-  </section>
-
-  <div class="stats-grid" aria-label="Submission filters">
-    <button class="stat-card active" data-status="">
-      <span class="stat-number" id="countAll">—</span>
-      <span class="stat-label">All</span>
-    </button>
-    <button class="stat-card" data-status="pending">
-      <span class="stat-number" id="countPending">—</span>
-      <span class="stat-label">Pending</span>
-    </button>
-    <button class="stat-card" data-status="submitted">
-      <span class="stat-number" id="countSubmitted">—</span>
-      <span class="stat-label">Checked In</span>
-    </button>
-    <button class="stat-card" data-status="returned">
-      <span class="stat-number" id="countReturned">—</span>
-      <span class="stat-label">Returned</span>
-    </button>
+    <a class="admin-card" href="/admin-manage.html">
+      <h2>Manage Admins</h2>
+      <p>Add or remove people who can access the administration tools.</p>
+      <span class="admin-card-action">Manage Admins →</span>
+    </a>
   </div>
-
-  <div class="admin-search">
-    <input type="text" id="search" aria-label="Search submissions" placeholder="Search name, phone, email, submission number, or piece description…">
-    <button class="btn btn-outline" id="clearSearchBtn">Clear</button>
-  </div>
-
-  <div class="result-summary">
-    <span id="resultCount">Loading…</span>
-    <span id="activeFilter">Showing all submissions</span>
-  </div>
-
-  <div id="list" class="submission-list"></div>
 </div>
 <script src="/js/app.js"></script>
 <script>
-let currentStatus = '';
-let knownNativities = new Map();
-
-function esc(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
-
-function showSuccess(message) {
-  const el = document.getElementById('successBanner');
-  el.textContent = message;
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 3500);
-}
-
-function statusLabel(status) {
-  if (status === 'submitted') return 'checked in';
-  return status || 'all';
-}
-
-function renderSubmissionSetting(open) {
-  const toggle = document.getElementById('submissionsToggle');
-  toggle.checked = open;
-  toggle.disabled = false;
-  const label = document.getElementById('submissionStatus');
-  label.textContent = open ? 'OPEN' : 'CLOSED';
-  label.style.color = open ? 'var(--gold-bright)' : '#ffb0a1';
-}
-
-const TIME_VALUES = [];
-for (let hour = 0; hour < 24; hour++) {
-  for (const minute of [0, 15, 30, 45]) {
-    const value = `${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`;
-    const d = new Date(2000, 0, 1, hour, minute);
-    TIME_VALUES.push({ value, label: d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) });
-  }
-}
-
-function fillTimeSelect(select, selected = '') {
-  select.innerHTML = TIME_VALUES.map((t) => `<option value="${t.value}" ${t.value === selected ? 'selected' : ''}>${t.label}</option>`).join('');
-}
-
-function parseDateText(value) {
-  const m = String(value || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return null;
-  const month = Number(m[1]), day = Number(m[2]), year = Number(m[3]);
-  const d = new Date(year, month - 1, day);
-  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
-  return d;
-}
-
-function formatDateInput(date) {
-  if (!date) return '';
-  return `${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}/${date.getFullYear()}`;
-}
-
-function dateKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-}
-
-function dateFromKey(key) {
-  const [y,m,d] = String(key).split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function isoToParts(iso) {
-  if (!iso) return { date:'', time:'' };
-  const d = new Date(iso);
-  return {
-    date: formatDateInput(d),
-    time: `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,
-  };
-}
-
-function partsToIso(dateText, timeValue, label) {
-  const d = parseDateText(dateText);
-  if (!d) throw new Error(`Enter a valid ${label} date as MM/DD/YYYY.`);
-  const [hour, minute] = timeValue.split(':').map(Number);
-  d.setHours(hour, minute, 0, 0);
-  return d.toISOString();
-}
-
-function setRangeInputs(prefix, days) {
-  if (!Array.isArray(days) || !days.length) return;
-  document.getElementById(prefix + 'RangeStart').value = formatDateInput(dateFromKey(days[0].date));
-  document.getElementById(prefix + 'RangeEnd').value = formatDateInput(dateFromKey(days[days.length - 1].date));
-}
-
-function dayRowHtml(kind, item) {
-  const d = dateFromKey(item.date);
-  const id = `${kind}-${item.date}`;
-  const available = item.available !== false;
-  const options = (selected) => TIME_VALUES.map((t) => `<option value="${t.value}" ${t.value === selected ? 'selected' : ''}>${t.label}</option>`).join('');
-  return `
-    <div class="day-row ${available ? '' : 'unavailable'}" data-day-row data-date="${item.date}">
-      <div>
-        <div class="day-name">${d.toLocaleDateString([], { weekday:'long' })}</div>
-        <div class="day-date">${d.toLocaleDateString([], { month:'long', day:'numeric', year:'numeric' })}</div>
-      </div>
-      <select data-start aria-label="Start time for ${item.date}">${options(item.start || '09:00')}</select>
-      <span class="day-to">to</span>
-      <select data-end aria-label="End time for ${item.date}">${options(item.end || '17:00')}</select>
-      <label class="availability-toggle">
-        <input type="checkbox" data-available ${available ? 'checked' : ''}>
-        Available
-      </label>
-    </div>`;
-}
-
-function renderDays(kind, days) {
-  document.getElementById(kind + 'Days').innerHTML = (days || []).map((item) => dayRowHtml(kind, item)).join('');
-}
-
-function collectDays(kind) {
-  return [...document.querySelectorAll('#' + kind + 'Days [data-day-row]')].map((row) => ({
-    date: row.dataset.date,
-    available: row.querySelector('[data-available]').checked,
-    start: row.querySelector('[data-start]').value,
-    end: row.querySelector('[data-end]').value,
-  }));
-}
-
-function buildDays(kind) {
-  hideError();
-  const start = parseDateText(document.getElementById(kind + 'RangeStart').value);
-  const end = parseDateText(document.getElementById(kind + 'RangeEnd').value);
-  if (!start || !end) { showError('Enter both dates as MM/DD/YYYY.'); return; }
-  if (start > end) { showError('The first day cannot be after the last day.'); return; }
-  const span = Math.round((end - start) / 86400000);
-  if (span > 31) { showError('Please use a date range of 32 days or fewer.'); return; }
-
-  const existing = new Map(collectDays(kind).map((d) => [d.date, d]));
-  const days = [];
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const key = dateKey(d);
-    days.push(existing.get(key) || { date:key, available:true, start:'09:00', end:'17:00' });
-  }
-  renderDays(kind, days);
-}
-
-async function loadSettings() {
-  try {
-    const settings = await api('/api/admin/settings');
-    renderSubmissionSetting(settings.submissionsOpen);
-
-    fillTimeSelect(document.getElementById('submissionEndTime'));
-
-    const end = isoToParts(settings.submissionEnd);
-    document.getElementById('submissionEndDate').value = end.date;
-    fillTimeSelect(document.getElementById('submissionEndTime'), end.time || '23:45');
-
-    const dropoffDays = Array.isArray(settings.dropoffDays) ? settings.dropoffDays : [];
-    const pickupDays = Array.isArray(settings.pickupDays) ? settings.pickupDays : [];
-    setRangeInputs('dropoff', dropoffDays);
-    setRangeInputs('pickup', pickupDays);
-
-    if (!dropoffDays.length && settings.dropoffStart && settings.dropoffEnd) {
-      document.getElementById('dropoffRangeStart').value = formatDateInput(new Date(settings.dropoffStart));
-      document.getElementById('dropoffRangeEnd').value = formatDateInput(new Date(settings.dropoffEnd));
-    }
-    if (!pickupDays.length && settings.pickupStart && settings.pickupEnd) {
-      document.getElementById('pickupRangeStart').value = formatDateInput(new Date(settings.pickupStart));
-      document.getElementById('pickupRangeEnd').value = formatDateInput(new Date(settings.pickupEnd));
-    }
-
-    renderDays('dropoff', dropoffDays);
-    renderDays('pickup', pickupDays);
-  } catch (err) {
-    showError(err.message);
-  }
-}
-
-async function load() {
-  hideError();
-  const search = document.getElementById('search').value.trim();
-  const qs = new URLSearchParams();
-  if (search) qs.set('search', search);
-  if (currentStatus) qs.set('status', currentStatus);
-
-  try {
-    const { nativities, counts } = await api('/api/admin/nativities?' + qs.toString());
-    knownNativities = new Map(nativities.map((n) => [String(n.id), n]));
-
-    document.getElementById('countAll').textContent = counts.total;
-    document.getElementById('countPending').textContent = counts.pending;
-    document.getElementById('countSubmitted').textContent = counts.submitted;
-    document.getElementById('countReturned').textContent = counts.returned;
-
-    const countText = nativities.length === 1 ? '1 result' : `${nativities.length} results`;
-    document.getElementById('resultCount').textContent = countText;
-    const filterBits = [];
-    if (currentStatus) filterBits.push(statusLabel(currentStatus));
-    if (search) filterBits.push(`matching “${search}”`);
-    document.getElementById('activeFilter').textContent = filterBits.length ? `Showing ${filterBits.join(' · ')}` : 'Showing all submissions';
-
-    const list = document.getElementById('list');
-    if (nativities.length === 0) {
-      list.innerHTML = '<div class="empty-state">No submissions match this view.</div>';
-      return;
-    }
-
-    list.innerHTML = nativities.map((n) => `
-      <div class="submission-row">
-        <a class="submission-link" href="/admin-detail.html?id=${n.id}">
-          <div>
-            <div class="submission-name">${esc(n.owner_name)} <span style="color:var(--muted); font-weight:500">· ${esc(n.submission_number)}</span></div>
-            <div class="submission-meta">${esc(n.owner_phone)} · ${esc(n.owner_email)} · ${esc(n.event_year)}</div>
-          </div>
-          <span class="status-pill status-${n.status}">${statusLabel(n.status)}</span>
-        </a>
-        <button class="btn btn-danger submission-delete" data-delete-id="${n.id}" title="Permanently delete ${esc(n.submission_number)}">Delete</button>
-      </div>
-    `).join('');
-  } catch (err) {
-    showError(err.message);
-  }
-}
-
-document.getElementById('submissionsToggle').addEventListener('change', async (event) => {
-  hideError();
-  const toggle = event.target;
-  const desired = toggle.checked;
-  toggle.disabled = true;
-  try {
-    const result = await api('/api/admin/settings', { method: 'POST', body: { submissionsOpen: desired } });
-    renderSubmissionSetting(result.submissionsOpen);
-    showSuccess(result.submissionsOpen ? 'Nativity submissions are open.' : 'Nativity submissions are closed.');
-  } catch (err) {
-    showError(err.message);
-    await loadSettings();
-  }
-});
-
-document.getElementById('buildDropoffDays').addEventListener('click', () => buildDays('dropoff'));
-document.getElementById('buildPickupDays').addEventListener('click', () => buildDays('pickup'));
-
-document.querySelector('.schedule-settings').addEventListener('change', (e) => {
-  if (!e.target.matches('[data-available]')) return;
-  e.target.closest('[data-day-row]').classList.toggle('unavailable', !e.target.checked);
-});
-
-document.getElementById('saveScheduleBtn').addEventListener('click', async () => {
-  hideError();
-  const btn = document.getElementById('saveScheduleBtn');
-  btn.disabled = true;
-  try {
-    const submissionEndDate = document.getElementById('submissionEndDate').value.trim();
-    const body = {
-      submissionStart: '',
-      submissionEnd: submissionEndDate ? partsToIso(submissionEndDate, document.getElementById('submissionEndTime').value, 'deadline') : '',
-      dropoffDays: collectDays('dropoff'),
-      pickupDays: collectDays('pickup'),
-      dropoffStart: '',
-      dropoffEnd: '',
-      pickupStart: '',
-      pickupEnd: '',
-    };
-
-    for (const group of [body.dropoffDays, body.pickupDays]) {
-      for (const day of group) {
-        if (day.available && day.start >= day.end) throw new Error('Each available day must end after it starts.');
-      }
-    }
-
-    await api('/api/admin/settings', { method: 'POST', body });
-    showSuccess('Nativity schedule saved.');
-    await loadSettings();
-  } catch (err) {
-    showError(err.message);
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-document.getElementById('search').addEventListener('input', debounce(load, 300));
-document.getElementById('clearSearchBtn').addEventListener('click', () => {
-  document.getElementById('search').value = '';
-  load();
-});
-
-document.querySelectorAll('[data-status]').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    currentStatus = btn.dataset.status;
-    document.querySelectorAll('[data-status]').forEach((b) => b.classList.toggle('active', b === btn));
-    load();
-  });
-});
-
-document.getElementById('list').addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-delete-id]');
-  if (!btn) return;
-  const nativity = knownNativities.get(btn.dataset.deleteId);
-  if (!nativity) return;
-
-  const confirmed = window.confirm(
-    `Permanently delete ${nativity.submission_number} from ${nativity.owner_name}?\n\nThis removes the submission, its piece records, and its stored photos. This cannot be undone.`
-  );
-  if (!confirmed) return;
-
-  hideError();
-  btn.disabled = true;
-  btn.textContent = 'Deleting…';
-  try {
-    await api(`/api/admin/nativities/${nativity.id}`, { method: 'DELETE' });
-    showSuccess(`${nativity.submission_number} was deleted.`);
-    await load();
-  } catch (err) {
-    showError(err.message);
-    btn.disabled = false;
-    btn.textContent = 'Delete';
-  }
-});
-
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-  try {
-    await api('/api/logout', { method: 'POST' });
-  } finally {
-    window.location.href = '/index.html';
-  }
+  try { await api('/api/logout', { method:'POST' }); }
+  finally { window.location.href='/index.html'; }
 });
-
-function debounce(fn, ms) {
-  let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-}
-
-loadSettings();
-load();
 </script>
 </body>
 </html>
