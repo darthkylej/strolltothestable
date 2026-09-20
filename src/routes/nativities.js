@@ -1,7 +1,7 @@
 import { db } from '../lib/db.js';
 import { nextSubmissionNumber } from '../lib/auth.js';
 import { json, error, requireUser } from '../lib/util.js';
-import { getSiteSettings } from '../lib/siteSettings.js';
+import { getSiteSettings, submissionsAreOpen } from '../lib/siteSettings.js';
 
 function currentEventYear() {
   return new Date().getFullYear();
@@ -9,7 +9,7 @@ function currentEventYear() {
 
 async function requireSubmissionsOpen(env) {
   const settings = await getSiteSettings(env);
-  if (!settings.submissionsOpen) {
+  if (!submissionsAreOpen(settings)) {
     throw error('Nativity submissions are currently closed.', 403);
   }
 }
