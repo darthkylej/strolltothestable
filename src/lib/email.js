@@ -16,7 +16,25 @@ async function send(env, { to, subject, html }) {
   }
 }
 
-export async function sendCredentialsEmail(env, { to, name, username, password }) {
+function formatScheduleDate(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    month: 'long', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+  }).format(new Date(value));
+}
+
+function scheduleHtml(settings) {
+  if (!settings) return '';
+  const rows = [];
+  if (settings.submissionStart && settings.submissionEnd) rows.push(`<li><b>Submissions:</b> ${formatScheduleDate(settings.submissionStart)} – ${formatScheduleDate(settings.submissionEnd)}</li>`);
+  if (settings.dropoffStart && settings.dropoffEnd) rows.push(`<li><b>Nativity drop-off:</b> ${formatScheduleDate(settings.dropoffStart)} – ${formatScheduleDate(settings.dropoffEnd)}</li>`);
+  if (settings.pickupStart && settings.pickupEnd) rows.push(`<li><b>Nativity pickup:</b> ${formatScheduleDate(settings.pickupStart)} – ${formatScheduleDate(settings.pickupEnd)}</li>`);
+  return rows.length ? `<h3>Important dates and times</h3><ul>${rows.join('')}</ul>` : '';
+}
+
+export async function sendCredentialsEmail(env, { to, name, username, password, settings }) {
   await send(env, {
     to,
     subject: 'Your Stroll to the Stable login',
@@ -25,12 +43,14 @@ export async function sendCredentialsEmail(env, { to, name, username, password }
       <p>You're registered for Stroll to the Stable nativity check-in. Here's your login:</p>
       <p style="font-size:18px"><b>Username:</b> ${escapeHtml(username)}<br>
       <b>Password:</b> ${escapeHtml(password)}</p>
+      ${scheduleHtml(settings)}
       <p>Keep this email — you'll use these to log back in and see your nativities each year.</p>
+      ${scheduleHtml(settings)}
     `,
   });
 }
 
-export async function sendForgotLoginEmail(env, { to, name, username, password }) {
+export async function sendForgotLoginEmail(env, { to, name, username, password, settings }) {
   await send(env, {
     to,
     subject: 'Your Stroll to the Stable login (reset)',
@@ -51,7 +71,7 @@ export async function sendAdminOtpEmail(env, { to, code }) {
   });
 }
 
-export async function sendClaimTicketEmail(env, { to, name, nativity, pieces }) {
+export async function sendClaimTicketEmail(env, { to, name, nativity, pieces, settings }) {
   const pieceRows = pieces
     .map(
       (p) => `<tr>
@@ -70,6 +90,7 @@ export async function sendClaimTicketEmail(env, { to, name, nativity, pieces }) 
       <p><b>Claim ticket number: ${nativity.submission_number}</b><br>
       Keep this email — you'll need this number to pick up your nativity after the event.</p>
       ${nativity.story ? `<p><i>${escapeHtml(nativity.story)}</i></p>` : ''}
+      ${scheduleHtml(settings)}
       <table style="border-collapse:collapse;margin-top:12px">
         <tr><th style="padding:4px 8px;border:1px solid #ddd">#</th>
             <th style="padding:4px 8px;border:1px solid #ddd">Piece</th>
