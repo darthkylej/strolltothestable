@@ -32,7 +32,6 @@ export async function getSiteSettings(env) {
 export function submissionsAreOpen(settings, now = new Date()) {
   if (!settings.submissionsOpen) return false;
   const time = now.getTime();
-  if (settings.submissionStart && time < new Date(settings.submissionStart).getTime()) return false;
   if (settings.submissionEnd && time > new Date(settings.submissionEnd).getTime()) return false;
   return true;
 }
