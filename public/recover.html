@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recover Login — Stroll to the Stable</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">Stroll to the Stable</p>
+  <h1>Signing You In</h1>
+  <p id="status" style="color:var(--wood); margin-bottom:20px">Checking your secure login link…</p>
+  <div class="error-banner" data-error-banner></div>
+  <p id="backLink" style="display:none; text-align:center; margin-top:18px"><a class="link" href="/forgot.html">Request a new login link</a></p>
+</div>
+<script src="/js/app.js"></script>
+<script>
+(async () => {
+  const token = new URLSearchParams(window.location.search).get('token');
+  if (!token) {
+    showError('This recovery link is invalid or has expired.');
+    document.getElementById('status').style.display = 'none';
+    document.getElementById('backLink').style.display = 'block';
+    return;
+  }
+
+  try {
+    await api('/api/recover-login', { method: 'POST', body: { token } });
+    document.getElementById('status').textContent = 'Success. Opening your account…';
+    window.location.replace('/dashboard.html');
+  } catch (err) {
+    document.getElementById('status').style.display = 'none';
+    showError(err.message || 'This recovery link is invalid or has expired.');
+    document.getElementById('backLink').style.display = 'block';
+  }
+})();
+</script>
+</body>
+</html>
