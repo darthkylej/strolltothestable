@@ -1,7 +1,7 @@
 import { db } from '../lib/db.js';
 import {
   hashPassword, verifyPassword, nextUsername, generateShortPassword,
-  createSessionToken, sessionCookieHeader,
+  createSessionToken, verifySessionToken, sessionCookieHeader,
 } from '../lib/auth.js';
 import { sendCredentialsEmail, sendForgotLoginEmail } from '../lib/email.js';
 import { json, error } from '../lib/util.js';
@@ -56,17 +56,57 @@ export async function forgotLogin(request, env) {
   if (!email?.trim()) return error('Enter the email you registered with.');
 
   const sql = db(env);
-  const rows = await sql`SELECT id, name, username FROM users WHERE email = ${email.trim()}`;
+  const rows = await sql`
+    SELECT id, name, username
+    FROM users
+    WHERE lower(email) = lower(${email.trim()})
+    ORDER BY id
+    LIMIT 1
+  `;
+
   // Always return ok, whether or not we found an account — don't leak
   // which emails are registered.
   if (rows.length > 0) {
-    const password = generateShortPassword(5);
-    const passwordHash = await hashPassword(password);
-    await sql`UPDATE users SET password_hash = ${passwordHash} WHERE id = ${rows[0].id}`;
+    const recoveryToken = await createSessionToken(
+      env,
+      { kind: 'recovery', userId: rows[0].id },
+      30 * 60 * 1000
+    );
+    const recoveryUrl = `${new URL(request.url).origin}/recover.html?token=${encodeURIComponent(recoveryToken)}`;
     const settings = await getSiteSettings(env);
     await sendForgotLoginEmail(env, {
-      to: email.trim(), name: rows[0].name, username: rows[0].username, password, settings,
+      to: email.trim(),
+      name: rows[0].name,
+      username: rows[0].username,
+      recoveryUrl,
+      settings,
     });
   }
   return json({ ok: true });
+}
+
+export async function recoverLogin(request, env) {
+  const { token } = await request.json();
+  if (!token) return error('This recovery link is invalid or has expired.', 401);
+
+  let payload;
+  try {
+    payload = await verifySessionToken(env, token);
+  } catch {
+    payload = null;
+  }
+
+  if (!payload || payload.kind !== 'recovery' || !payload.userId) {
+    return error('This recovery link is invalid or has expired.', 401);
+  }
+
+  const sql = db(env);
+  const rows = await sql`SELECT id FROM users WHERE id = ${payload.userId}`;
+  if (rows.length === 0) return error('This recovery link is invalid or has expired.', 401);
+
+  const sessionToken = await createSessionToken(env, { kind: 'user', userId: rows[0].id });
+  return json(
+    { ok: true },
+    { headers: { 'Set-Cookie': sessionCookieHeader(sessionToken) } }
+  );
 }
