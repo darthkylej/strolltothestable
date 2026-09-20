@@ -9,6 +9,8 @@ const DEFAULT_SETTINGS = {
   dropoffEnd: '',
   pickupStart: '',
   pickupEnd: '',
+  dropoffDays: [],
+  pickupDays: [],
 };
 
 export async function getSiteSettings(env) {
