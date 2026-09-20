@@ -74,7 +74,7 @@ async function load() {
       <div class="admin-entry">
         <div>
           <div class="name">${esc(a.email)}</div>
-          <div class="meta">Added by ${esc(a.added_by || 'unknown')}</div>
+          <div class="meta">Added by ${esc(a.is_permanent ? a.email : (a.added_by || 'unknown'))}</div>
         </div>
         <button class="btn btn-danger" data-remove-admin="${esc(a.email)}">Remove</button>
       </div>
