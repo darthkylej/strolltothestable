@@ -3,6 +3,12 @@ const ADMIN_NOTE_PREFIX = '_admin-notes/';
 
 const DEFAULT_SETTINGS = {
   submissionsOpen: true,
+  submissionStart: '',
+  submissionEnd: '',
+  dropoffStart: '',
+  dropoffEnd: '',
+  pickupStart: '',
+  pickupEnd: '',
 };
 
 export async function getSiteSettings(env) {
@@ -21,10 +27,20 @@ export async function getSiteSettings(env) {
   }
 }
 
-export async function setSubmissionsOpen(env, submissionsOpen, updatedBy = '') {
+export function submissionsAreOpen(settings, now = new Date()) {
+  if (!settings.submissionsOpen) return false;
+  const time = now.getTime();
+  if (settings.submissionStart && time < new Date(settings.submissionStart).getTime()) return false;
+  if (settings.submissionEnd && time > new Date(settings.submissionEnd).getTime()) return false;
+  return true;
+}
+
+export async function updateSiteSettings(env, updates, updatedBy = '') {
+  const current = await getSiteSettings(env);
   const settings = {
-    ...(await getSiteSettings(env)),
-    submissionsOpen: !!submissionsOpen,
+    ...current,
+    ...updates,
+    submissionsOpen: updates.submissionsOpen === undefined ? current.submissionsOpen : !!updates.submissionsOpen,
     updatedAt: new Date().toISOString(),
     updatedBy,
   };
@@ -32,8 +48,11 @@ export async function setSubmissionsOpen(env, submissionsOpen, updatedBy = '') {
   await env.PHOTOS.put(SETTINGS_KEY, JSON.stringify(settings), {
     httpMetadata: { contentType: 'application/json' },
   });
-
   return settings;
+}
+
+export async function setSubmissionsOpen(env, submissionsOpen, updatedBy = '') {
+  return updateSiteSettings(env, { submissionsOpen }, updatedBy);
 }
 
 export async function getAdminNote(env, nativityId) {
