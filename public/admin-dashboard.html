@@ -367,6 +367,16 @@ async function loadSettings() {
     const pickupDays = Array.isArray(settings.pickupDays) ? settings.pickupDays : [];
     setRangeInputs('dropoff', dropoffDays);
     setRangeInputs('pickup', pickupDays);
+
+    if (!dropoffDays.length && settings.dropoffStart && settings.dropoffEnd) {
+      document.getElementById('dropoffRangeStart').value = formatDateInput(new Date(settings.dropoffStart));
+      document.getElementById('dropoffRangeEnd').value = formatDateInput(new Date(settings.dropoffEnd));
+    }
+    if (!pickupDays.length && settings.pickupStart && settings.pickupEnd) {
+      document.getElementById('pickupRangeStart').value = formatDateInput(new Date(settings.pickupStart));
+      document.getElementById('pickupRangeEnd').value = formatDateInput(new Date(settings.pickupEnd));
+    }
+
     renderDays('dropoff', dropoffDays);
     renderDays('pickup', pickupDays);
   } catch (err) {
