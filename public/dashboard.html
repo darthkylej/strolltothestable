@@ -75,9 +75,9 @@ function stepHtml(number, title, body, location = false) {
 }
 
 function renderSchedule(settings) {
-  const registration = settings.submissionStart && settings.submissionEnd
-    ? `<p>Complete your online preregistration between <strong>${formatDateTime(settings.submissionStart)}</strong> and <strong>${formatDateTime(settings.submissionEnd)}</strong>.</p>`
-    : '<p>Preregistration dates will be announced soon.</p>';
+  const registration = settings.submissionEnd
+    ? `<p>Complete your online preregistration by <strong>${formatDateTime(settings.submissionEnd)}</strong>.</p>`
+    : '<p>The preregistration deadline will be announced soon.</p>';
 
   document.getElementById('scheduleInfo').innerHTML =
     stepHtml(1, 'Online Preregistration', registration) +
