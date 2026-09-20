@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My Nativities — Stroll to the Stable</title>
 <link rel="stylesheet" href="/style.css">
+<style>
+  .process-guide { display:grid; gap:10px; margin-top:12px; }
+  .process-step { display:grid; grid-template-columns:34px 1fr; gap:10px; padding:12px; border:1px solid var(--border); border-radius:12px; background:rgba(255,255,255,.025); }
+  .process-num { width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:var(--gold); color:#10172a; font-weight:800; }
+  .process-step h3 { margin:1px 0 5px; font-size:1rem; color:var(--gold-bright); }
+  .process-step p { margin:0; color:var(--wood); line-height:1.45; }
+  .process-day { margin-top:4px; color:var(--wood); line-height:1.45; }
+  .process-location { margin-top:5px; color:var(--muted); font-size:13px; }
+</style>
 </head>
 <body>
 <div class="page">
@@ -14,8 +23,8 @@
   <div class="error-banner" data-error-banner></div>
 
   <div class="card" id="scheduleCard" style="display:none; margin-bottom:18px">
-    <h2 style="margin-top:0">Important Dates</h2>
-    <div id="scheduleInfo" style="color:var(--wood); line-height:1.6"></div>
+    <h2 style="margin-top:0">How It Works</h2>
+    <div class="process-guide" id="scheduleInfo"></div>
   </div>
 
   <a class="btn btn-primary" id="newSubmissionAction" href="/lend-photo.html" style="display:none">Lend a Nativity</a>
@@ -29,21 +38,52 @@
 const CURRENT_YEAR = new Date().getFullYear();
 let submissionsOpen = false;
 
-function formatRange(start, end) {
-  if (!start || !end) return '';
-  const opts = { month:'long', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' };
-  return `${new Date(start).toLocaleString([], opts)} – ${new Date(end).toLocaleString([], opts)}`;
+function formatDateTime(value) {
+  if (!value) return '';
+  return new Date(value).toLocaleString([], { month:'long', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+}
+
+function dateFromKey(key) {
+  const [y,m,d] = String(key).split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function formatTime(value) {
+  if (!value) return '';
+  const [h,m] = value.split(':').map(Number);
+  return new Date(2000,0,1,h,m).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
+}
+
+function dailyScheduleHtml(days) {
+  const available = (Array.isArray(days) ? days : []).filter((d) => d.available !== false);
+  if (!available.length) return '<p>Dates and times will be announced soon.</p>';
+  return available.map((d) => {
+    const date = dateFromKey(d.date).toLocaleDateString([], { weekday:'long', month:'long', day:'numeric' });
+    return `<div class="process-day"><strong>${date}:</strong> ${formatTime(d.start)} – ${formatTime(d.end)}</div>`;
+  }).join('');
+}
+
+function stepHtml(number, title, body, location = false) {
+  return `<div class="process-step">
+    <div class="process-num">${number}</div>
+    <div>
+      <h3>${title}</h3>
+      ${body}
+      ${location ? '<div class="process-location">101 E Nolte St, Seguin, TX 78155</div>' : ''}
+    </div>
+  </div>`;
 }
 
 function renderSchedule(settings) {
-  const rows = [];
-  if (settings.submissionStart && settings.submissionEnd) rows.push(`<div><strong>Submit your nativity:</strong> ${formatRange(settings.submissionStart, settings.submissionEnd)}</div>`);
-  if (settings.dropoffStart && settings.dropoffEnd) rows.push(`<div><strong>Drop-off:</strong> ${formatRange(settings.dropoffStart, settings.dropoffEnd)}</div>`);
-  if (settings.pickupStart && settings.pickupEnd) rows.push(`<div><strong>Pickup:</strong> ${formatRange(settings.pickupStart, settings.pickupEnd)}</div>`);
-  if (rows.length) {
-    document.getElementById('scheduleInfo').innerHTML = rows.join('');
-    document.getElementById('scheduleCard').style.display = 'block';
-  }
+  const registration = settings.submissionStart && settings.submissionEnd
+    ? `<p>Complete your online preregistration between <strong>${formatDateTime(settings.submissionStart)}</strong> and <strong>${formatDateTime(settings.submissionEnd)}</strong>.</p>`
+    : '<p>Preregistration dates will be announced soon.</p>';
+
+  document.getElementById('scheduleInfo').innerHTML =
+    stepHtml(1, 'Online Preregistration', registration) +
+    stepHtml(2, 'Drop Off Your Nativity', dailyScheduleHtml(settings.dropoffDays), true) +
+    stepHtml(3, 'Pick Up Your Nativity', dailyScheduleHtml(settings.pickupDays), true);
+  document.getElementById('scheduleCard').style.display = 'block';
 }
 
 async function load() {
