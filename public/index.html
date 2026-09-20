@@ -46,17 +46,8 @@
     pointer-events: none;
   }
 
-  .scene-stars {
-    animation: starDrift 18s ease-in-out infinite alternate;
-    will-change: opacity;
-  }
-
-  .bethlehem-star {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: starPulse 4.5s ease-in-out infinite;
-    will-change: opacity, transform;
-  }
+  .scene-stars { animation: starDrift 18s ease-in-out infinite alternate; }
+  .bethlehem-star { transform-box: fill-box; transform-origin: center; animation: starPulse 4.5s ease-in-out infinite; }
 
   @keyframes starDrift {
     from { opacity: 0.72; }
@@ -87,10 +78,7 @@
     box-shadow:
       0 34px 100px rgba(0, 0, 0, 0.42),
       inset 0 1px 0 rgba(255, 247, 221, 0.07);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     contain: paint;
-    transform: translateZ(0);
   }
 
   .landing-kicker {
