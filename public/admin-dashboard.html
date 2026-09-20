@@ -19,12 +19,26 @@
   .schedule-settings { padding:20px; margin:0 0 22px; border:1px solid var(--border); border-radius:18px; background:rgba(8,16,31,.72); }
   .schedule-settings h2 { margin:0 0 5px; font-size:1.14rem; }
   .schedule-settings > p { margin:0 0 18px; color:var(--muted); line-height:1.45; }
-  .schedule-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px 18px; }
-  .schedule-group { padding:15px; border:1px solid var(--border); border-radius:14px; }
-  .schedule-group h3 { margin:0 0 12px; color:var(--gold-bright); font-size:.98rem; }
-  .schedule-group .field { margin-bottom:10px; }
-  .schedule-group .field:last-child { margin-bottom:0; }
+  .schedule-grid { display:grid; grid-template-columns:1fr; gap:14px; }
+  .schedule-group { padding:16px; border:1px solid var(--border); border-radius:14px; background:rgba(255,255,255,.018); }
+  .schedule-group h3 { margin:0 0 6px; color:var(--gold-bright); font-size:1rem; }
+  .schedule-help { margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.45; }
+  .range-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:10px; align-items:end; }
+  .range-row.submission-range { grid-template-columns:minmax(0,1fr) 150px minmax(0,1fr) 150px; }
+  .range-row .field { margin:0; }
+  .date-text { font-variant-numeric:tabular-nums; }
+  .build-days-btn { width:auto !important; margin:0 !important; padding:12px 15px !important; white-space:nowrap; }
+  .daily-schedule { display:grid; gap:8px; margin-top:14px; }
+  .day-row { display:grid; grid-template-columns:minmax(160px,1fr) 120px 28px 120px 100px; gap:9px; align-items:center; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:rgba(5,12,25,.5); }
+  .day-name { color:var(--text); font-weight:700; }
+  .day-date { color:var(--muted); font-size:12px; margin-top:2px; }
+  .day-row select { margin:0; }
+  .day-to { color:var(--muted); text-align:center; font-size:13px; }
+  .availability-toggle { display:flex; align-items:center; gap:7px; color:var(--muted); font-size:12px; justify-content:flex-end; }
+  .availability-toggle input { width:auto; margin:0; }
+  .day-row.unavailable select, .day-row.unavailable .day-to { opacity:.35; pointer-events:none; }
   .schedule-save { width:auto !important; margin:16px 0 0 !important; }
+
   .stats-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin:0 0 22px; }
   .stat-card { appearance:none; text-align:left; color:var(--text); background:rgba(8,16,31,.62); border:1px solid var(--border); border-radius:16px; padding:16px; cursor:pointer; font:inherit; transition:.15s ease; }
   .stat-card:hover { transform:translateY(-1px); border-color:var(--border-strong); }
@@ -48,6 +62,10 @@
     .admin-tools { justify-content:flex-start; margin-top:16px; }
     .submission-settings { align-items:flex-start; }
     .schedule-grid { grid-template-columns:1fr; }
+    .range-row, .range-row.submission-range { grid-template-columns:1fr; }
+    .day-row { grid-template-columns:1fr 1fr 24px 1fr; }
+    .availability-toggle { grid-column:1 / -1; justify-content:flex-start; }
+
     .stats-grid { grid-template-columns:repeat(2, 1fr); }
     .submission-row { gap:7px; }
     .submission-link { padding:14px; gap:10px; align-items:flex-start; flex-direction:column; }
@@ -89,24 +107,67 @@
 
   <section class="schedule-settings" aria-label="Nativity schedule">
     <h2>Submission, Drop-off &amp; Pickup Schedule</h2>
-    <p>Set the times visitors should use. The submission window automatically controls when new submissions can be started, while the Open/Closed switch above can still close them manually at any time.</p>
+    <p>Enter dates as MM/DD/YYYY. Drop-off and pickup ranges create one row for each day so you can set the exact hours someone will be available.</p>
+
     <div class="schedule-grid">
       <div class="schedule-group">
-        <h3>Accept Submissions</h3>
-        <div class="field"><label for="submissionStart">Opens</label><input type="datetime-local" id="submissionStart"></div>
-        <div class="field"><label for="submissionEnd">Closes</label><input type="datetime-local" id="submissionEnd"></div>
+        <h3>1. Online Preregistration</h3>
+        <p class="schedule-help">Set when people may start a new nativity submission online.</p>
+        <div class="range-row submission-range">
+          <div class="field">
+            <label for="submissionStartDate">Opens date</label>
+            <input class="date-text" type="text" id="submissionStartDate" inputmode="numeric" placeholder="MM/DD/YYYY">
+          </div>
+          <div class="field">
+            <label for="submissionStartTime">Time</label>
+            <select id="submissionStartTime"></select>
+          </div>
+          <div class="field">
+            <label for="submissionEndDate">Closes date</label>
+            <input class="date-text" type="text" id="submissionEndDate" inputmode="numeric" placeholder="MM/DD/YYYY">
+          </div>
+          <div class="field">
+            <label for="submissionEndTime">Time</label>
+            <select id="submissionEndTime"></select>
+          </div>
+        </div>
       </div>
+
       <div class="schedule-group">
-        <h3>Nativity Drop-off</h3>
-        <div class="field"><label for="dropoffStart">Begins</label><input type="datetime-local" id="dropoffStart"></div>
-        <div class="field"><label for="dropoffEnd">Ends</label><input type="datetime-local" id="dropoffEnd"></div>
+        <h3>2. Nativity Drop-off</h3>
+        <p class="schedule-help">Choose the overall date range, then set the available hours for each individual day.</p>
+        <div class="range-row">
+          <div class="field">
+            <label for="dropoffRangeStart">First day</label>
+            <input class="date-text" type="text" id="dropoffRangeStart" inputmode="numeric" placeholder="MM/DD/YYYY">
+          </div>
+          <div class="field">
+            <label for="dropoffRangeEnd">Last day</label>
+            <input class="date-text" type="text" id="dropoffRangeEnd" inputmode="numeric" placeholder="MM/DD/YYYY">
+          </div>
+          <button class="btn btn-outline build-days-btn" type="button" id="buildDropoffDays">Set Daily Times</button>
+        </div>
+        <div class="daily-schedule" id="dropoffDays"></div>
       </div>
+
       <div class="schedule-group">
-        <h3>Nativity Pickup</h3>
-        <div class="field"><label for="pickupStart">Begins</label><input type="datetime-local" id="pickupStart"></div>
-        <div class="field"><label for="pickupEnd">Ends</label><input type="datetime-local" id="pickupEnd"></div>
+        <h3>3. Nativity Pickup</h3>
+        <p class="schedule-help">Choose the overall date range, then set the available hours for each individual day.</p>
+        <div class="range-row">
+          <div class="field">
+            <label for="pickupRangeStart">First day</label>
+            <input class="date-text" type="text" id="pickupRangeStart" inputmode="numeric" placeholder="MM/DD/YYYY">
+          </div>
+          <div class="field">
+            <label for="pickupRangeEnd">Last day</label>
+            <input class="date-text" type="text" id="pickupRangeEnd" inputmode="numeric" placeholder="MM/DD/YYYY">
+          </div>
+          <button class="btn btn-outline build-days-btn" type="button" id="buildPickupDays">Set Daily Times</button>
+        </div>
+        <div class="daily-schedule" id="pickupDays"></div>
       </div>
     </div>
+
     <button class="btn btn-primary schedule-save" id="saveScheduleBtn">Save Schedule</button>
   </section>
 
@@ -176,24 +237,138 @@ function renderSubmissionSetting(open) {
   label.style.color = open ? 'var(--gold-bright)' : '#ffb0a1';
 }
 
-function toLocalInput(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
+const TIME_VALUES = [];
+for (let hour = 0; hour < 24; hour++) {
+  for (const minute of [0, 15, 30, 45]) {
+    const value = `${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`;
+    const d = new Date(2000, 0, 1, hour, minute);
+    TIME_VALUES.push({ value, label: d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) });
+  }
 }
 
-function toIso(value) {
-  return value ? new Date(value).toISOString() : '';
+function fillTimeSelect(select, selected = '') {
+  select.innerHTML = TIME_VALUES.map((t) => `<option value="${t.value}" ${t.value === selected ? 'selected' : ''}>${t.label}</option>`).join('');
+}
+
+function parseDateText(value) {
+  const m = String(value || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const month = Number(m[1]), day = Number(m[2]), year = Number(m[3]);
+  const d = new Date(year, month - 1, day);
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+  return d;
+}
+
+function formatDateInput(date) {
+  if (!date) return '';
+  return `${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}/${date.getFullYear()}`;
+}
+
+function dateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+
+function dateFromKey(key) {
+  const [y,m,d] = String(key).split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function isoToParts(iso) {
+  if (!iso) return { date:'', time:'' };
+  const d = new Date(iso);
+  return {
+    date: formatDateInput(d),
+    time: `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,
+  };
+}
+
+function partsToIso(dateText, timeValue, label) {
+  const d = parseDateText(dateText);
+  if (!d) throw new Error(`Enter a valid ${label} date as MM/DD/YYYY.`);
+  const [hour, minute] = timeValue.split(':').map(Number);
+  d.setHours(hour, minute, 0, 0);
+  return d.toISOString();
+}
+
+function setRangeInputs(prefix, days) {
+  if (!Array.isArray(days) || !days.length) return;
+  document.getElementById(prefix + 'RangeStart').value = formatDateInput(dateFromKey(days[0].date));
+  document.getElementById(prefix + 'RangeEnd').value = formatDateInput(dateFromKey(days[days.length - 1].date));
+}
+
+function dayRowHtml(kind, item) {
+  const d = dateFromKey(item.date);
+  const id = `${kind}-${item.date}`;
+  const available = item.available !== false;
+  const options = (selected) => TIME_VALUES.map((t) => `<option value="${t.value}" ${t.value === selected ? 'selected' : ''}>${t.label}</option>`).join('');
+  return `
+    <div class="day-row ${available ? '' : 'unavailable'}" data-day-row data-date="${item.date}">
+      <div>
+        <div class="day-name">${d.toLocaleDateString([], { weekday:'long' })}</div>
+        <div class="day-date">${d.toLocaleDateString([], { month:'long', day:'numeric', year:'numeric' })}</div>
+      </div>
+      <select data-start aria-label="Start time for ${item.date}">${options(item.start || '09:00')}</select>
+      <span class="day-to">to</span>
+      <select data-end aria-label="End time for ${item.date}">${options(item.end || '17:00')}</select>
+      <label class="availability-toggle">
+        <input type="checkbox" data-available ${available ? 'checked' : ''}>
+        Available
+      </label>
+    </div>`;
+}
+
+function renderDays(kind, days) {
+  document.getElementById(kind + 'Days').innerHTML = (days || []).map((item) => dayRowHtml(kind, item)).join('');
+}
+
+function collectDays(kind) {
+  return [...document.querySelectorAll('#' + kind + 'Days [data-day-row]')].map((row) => ({
+    date: row.dataset.date,
+    available: row.querySelector('[data-available]').checked,
+    start: row.querySelector('[data-start]').value,
+    end: row.querySelector('[data-end]').value,
+  }));
+}
+
+function buildDays(kind) {
+  hideError();
+  const start = parseDateText(document.getElementById(kind + 'RangeStart').value);
+  const end = parseDateText(document.getElementById(kind + 'RangeEnd').value);
+  if (!start || !end) { showError('Enter both dates as MM/DD/YYYY.'); return; }
+  if (start > end) { showError('The first day cannot be after the last day.'); return; }
+  const span = Math.round((end - start) / 86400000);
+  if (span > 31) { showError('Please use a date range of 32 days or fewer.'); return; }
+
+  const existing = new Map(collectDays(kind).map((d) => [d.date, d]));
+  const days = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const key = dateKey(d);
+    days.push(existing.get(key) || { date:key, available:true, start:'09:00', end:'17:00' });
+  }
+  renderDays(kind, days);
 }
 
 async function loadSettings() {
   try {
     const settings = await api('/api/admin/settings');
     renderSubmissionSetting(settings.submissionsOpen);
-    ['submissionStart','submissionEnd','dropoffStart','dropoffEnd','pickupStart','pickupEnd'].forEach((key) => {
-      document.getElementById(key).value = toLocalInput(settings[key]);
-    });
+
+    fillTimeSelect(document.getElementById('submissionStartTime'));
+    fillTimeSelect(document.getElementById('submissionEndTime'));
+
+    const start = isoToParts(settings.submissionStart);
+    const end = isoToParts(settings.submissionEnd);
+    document.getElementById('submissionStartDate').value = start.date;
+    document.getElementById('submissionEndDate').value = end.date;
+    fillTimeSelect(document.getElementById('submissionStartTime'), start.time || '00:00');
+    fillTimeSelect(document.getElementById('submissionEndTime'), end.time || '23:45');
+
+    const dropoffDays = Array.isArray(settings.dropoffDays) ? settings.dropoffDays : [];
+    const pickupDays = Array.isArray(settings.pickupDays) ? settings.pickupDays : [];
+    setRangeInputs('dropoff', dropoffDays);
+    setRangeInputs('pickup', pickupDays);
+    renderDays('dropoff', dropoffDays);
+    renderDays('pickup', pickupDays);
   } catch (err) {
     showError(err.message);
   }
@@ -260,15 +435,38 @@ document.getElementById('submissionsToggle').addEventListener('change', async (e
   }
 });
 
+document.getElementById('buildDropoffDays').addEventListener('click', () => buildDays('dropoff'));
+document.getElementById('buildPickupDays').addEventListener('click', () => buildDays('pickup'));
+
+document.querySelector('.schedule-settings').addEventListener('change', (e) => {
+  if (!e.target.matches('[data-available]')) return;
+  e.target.closest('[data-day-row]').classList.toggle('unavailable', !e.target.checked);
+});
+
 document.getElementById('saveScheduleBtn').addEventListener('click', async () => {
   hideError();
   const btn = document.getElementById('saveScheduleBtn');
   btn.disabled = true;
   try {
-    const body = {};
-    ['submissionStart','submissionEnd','dropoffStart','dropoffEnd','pickupStart','pickupEnd'].forEach((key) => {
-      body[key] = toIso(document.getElementById(key).value);
-    });
+    const submissionStartDate = document.getElementById('submissionStartDate').value.trim();
+    const submissionEndDate = document.getElementById('submissionEndDate').value.trim();
+    const body = {
+      submissionStart: submissionStartDate ? partsToIso(submissionStartDate, document.getElementById('submissionStartTime').value, 'opening') : '',
+      submissionEnd: submissionEndDate ? partsToIso(submissionEndDate, document.getElementById('submissionEndTime').value, 'closing') : '',
+      dropoffDays: collectDays('dropoff'),
+      pickupDays: collectDays('pickup'),
+      dropoffStart: '',
+      dropoffEnd: '',
+      pickupStart: '',
+      pickupEnd: '',
+    };
+
+    for (const group of [body.dropoffDays, body.pickupDays]) {
+      for (const day of group) {
+        if (day.available && day.start >= day.end) throw new Error('Each available day must end after it starts.');
+      }
+    }
+
     await api('/api/admin/settings', { method: 'POST', body });
     showSuccess('Nativity schedule saved.');
     await loadSettings();
