@@ -50,7 +50,7 @@
 <div class="page wide admin-detail-page">
   <div class="detail-topbar">
     <div>
-      <a class="detail-back" href="/admin-dashboard.html">← All submissions</a>
+      <a class="detail-back" id="backToSubmissions" href="/admin-submissions.html">← Back to submissions</a>
       <p class="eyebrow">Stroll to the Stable · Admin</p>
       <h1 id="title">Loading…</h1>
       <div class="detail-status"><span class="status-pill" id="statusPill"></span></div>
@@ -188,7 +188,11 @@
 </div>
 <script src="/js/app.js"></script>
 <script>
-const id = new URLSearchParams(window.location.search).get('id');
+const params = new URLSearchParams(window.location.search);
+const id = params.get('id');
+const fromStatus = params.get('from') || '';
+const backLink = document.getElementById('backToSubmissions');
+backLink.href = fromStatus ? '/admin-submissions.html?status=' + encodeURIComponent(fromStatus) : '/admin-submissions.html';
 let current = null;
 let currentPieces = [];
 
