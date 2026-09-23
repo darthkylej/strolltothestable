@@ -6,6 +6,17 @@
 <title>Scroll to the Stable — Stroll to the Stable</title>
 <link rel="stylesheet" href="/style.css">
 <style>
+  body.tour-page {
+    background:
+      linear-gradient(rgba(3,7,21,.72), rgba(3,7,21,.82)),
+      var(--tour-background-image, none),
+      radial-gradient(circle at 50% 0%, rgba(95,124,190,.20), transparent 26%),
+      linear-gradient(180deg, #07111f 0%, #0d1830 38%, #111426 100%);
+    background-size: cover, cover, auto, auto;
+    background-position: center center, center center, center top, center top;
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+    background-attachment: fixed, fixed, fixed, fixed;
+  }
   .tour-card { overflow:hidden; }
   .tour-media { width:100%; display:block; border-radius:12px; margin-bottom:14px; background:#02050d; }
   video.tour-media { max-height:70vh; }
@@ -14,7 +25,7 @@
   .tour-story { color:var(--wood); font-style:italic; margin:0; }
 </style>
 </head>
-<body>
+<body class="tour-page">
 <div class="page wide">
   <p class="eyebrow">Virtual Tour</p>
   <h1>Scroll to the Stable</h1>
@@ -32,7 +43,18 @@
 <script>
 async function load() {
   try {
-    const { tour } = await api('/api/tour?v=3');
+    const [tourData, settings] = await Promise.all([
+      api('/api/tour?v=3'),
+      api('/api/settings'),
+    ]);
+
+    if (settings.landingBackgroundUrl) {
+      document.body.style.setProperty('--tour-background-image', `url("${settings.landingBackgroundUrl}")`);
+    } else {
+      document.body.style.removeProperty('--tour-background-image');
+    }
+
+    const { tour } = tourData;
     const gallery = document.getElementById('gallery');
     if (tour.length === 0) {
       gallery.innerHTML = '<div class="empty-state">The collection will appear here as nativities, artwork, and videos are added.</div>';
