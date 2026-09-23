@@ -51,9 +51,10 @@
   }
 
   .landing-scene.custom-background {
-    background-position: center center;
-    background-repeat: no-repeat;
-    background-size: cover;
+    background-position: center center !important;
+    background-repeat: no-repeat !important;
+    background-size: cover !important;
+    background-attachment: fixed;
   }
 
   .landing-scene.custom-background svg {
@@ -564,6 +565,9 @@
       const scene = document.querySelector('.landing-scene');
       if (s.landingBackgroundUrl) {
         scene.style.backgroundImage = `url("${s.landingBackgroundUrl}")`;
+        scene.style.backgroundRepeat = 'no-repeat';
+        scene.style.backgroundSize = 'cover';
+        scene.style.backgroundPosition = 'center center';
         scene.classList.add('custom-background');
       } else {
         scene.style.backgroundImage = '';
