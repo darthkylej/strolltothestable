@@ -362,6 +362,62 @@ function decodeMetadataHeader(value, maxLength) {
   }
 }
 
+const LANDING_BACKGROUND_KEY = 'site-assets/landing-background';
+
+export async function uploadLandingBackground(request, env, session) {
+  requireAdmin(session);
+  const contentType = request.headers.get('Content-Type') || '';
+  if (!contentType.startsWith('image/')) return error('Choose an image file.', 415);
+
+  const contentLength = Number(request.headers.get('Content-Length') || 0);
+  if (contentLength > 20 * 1024 * 1024) {
+    return error('The background image must be 20 MB or smaller.', 413);
+  }
+
+  const bytes = await request.arrayBuffer();
+  if (!bytes.byteLength) return error('Choose an image file.');
+  if (bytes.byteLength > 20 * 1024 * 1024) {
+    return error('The background image must be 20 MB or smaller.', 413);
+  }
+
+  await env.PHOTOS.put(LANDING_BACKGROUND_KEY, bytes, {
+    httpMetadata: {
+      contentType,
+      cacheControl: 'public, max-age=3600',
+    },
+    customMetadata: {
+      uploadedBy: session.email,
+      uploadedAt: new Date().toISOString(),
+    },
+  });
+
+  const settings = await updateSiteSettings(
+    env,
+    { landingBackgroundKey: LANDING_BACKGROUND_KEY },
+    session.email
+  );
+
+  return json({
+    ok: true,
+    landingBackgroundUrl: `/site-background?v=${encodeURIComponent(settings.updatedAt || Date.now())}`,
+  });
+}
+
+export async function deleteLandingBackground(request, env, session) {
+  requireAdmin(session);
+  const settings = await getSiteSettings(env);
+  const key = settings.landingBackgroundKey || LANDING_BACKGROUND_KEY;
+
+  try {
+    await env.PHOTOS.delete(key);
+  } catch (err) {
+    console.error('Could not delete landing background object:', err);
+  }
+
+  await updateSiteSettings(env, { landingBackgroundKey: '' }, session.email);
+  return json({ ok: true });
+}
+
 export async function listTourMedia(request, env, session) {
   requireAdmin(session);
   const objects = await listTourMediaObjects(env);
