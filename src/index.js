@@ -119,6 +119,18 @@ export default {
     const method = request.method;
 
     try {
+      if ((method === 'GET' || method === 'HEAD') && path === '/site-background') {
+        const obj = method === 'HEAD'
+          ? await env.PHOTOS.head('site-assets/landing-background')
+          : await env.PHOTOS.get('site-assets/landing-background');
+        if (!obj) return new Response('Not found', { status: 404 });
+        const headers = new Headers();
+        obj.writeHttpMetadata(headers);
+        headers.set('Cache-Control', 'public, max-age=3600');
+        headers.set('etag', obj.httpEtag);
+        return new Response(method === 'HEAD' ? null : obj.body, { status: 200, headers });
+      }
+
       if ((method === 'GET' || method === 'HEAD') && path.startsWith('/tour-media/')) {
         return await serveTourMedia(request, env, path);
       }
@@ -197,6 +209,8 @@ export default {
       if (path === '/api/admin/nativities' && method === 'GET') return await admin.listNativities(request, env, session);
       if (path === '/api/admin/admins' && method === 'GET') return await admin.listAdmins(request, env, session);
       if (path === '/api/admin/admins' && method === 'POST') return await admin.addAdmin(request, env, session);
+      if (path === '/api/admin/landing-background' && method === 'POST') return await admin.uploadLandingBackground(request, env, session);
+      if (path === '/api/admin/landing-background' && method === 'DELETE') return await admin.deleteLandingBackground(request, env, session);
       if (path === '/api/admin/tour-media' && method === 'GET') return await admin.listTourMedia(request, env, session);
       if (path === '/api/admin/tour-media' && method === 'POST') return await admin.uploadTourMedia(request, env, session);
       if (path === '/api/admin/tour-media' && method === 'DELETE') return await admin.deleteTourMedia(request, env, session);
