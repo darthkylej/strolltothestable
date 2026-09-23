@@ -50,6 +50,16 @@
     pointer-events: none;
   }
 
+  .landing-scene.custom-background {
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+
+  .landing-scene.custom-background svg {
+    display: none;
+  }
+
   .scene-stars { animation: starDrift 18s ease-in-out infinite alternate; }
   .bethlehem-star { transform-box: fill-box; transform-origin: center; }
 
@@ -550,6 +560,15 @@
       const res = await fetch('/api/settings', { cache: 'no-store' });
       if (!res.ok) return;
       const s = await res.json();
+
+      const scene = document.querySelector('.landing-scene');
+      if (s.landingBackgroundUrl) {
+        scene.style.backgroundImage = `url("${s.landingBackgroundUrl}")`;
+        scene.classList.add('custom-background');
+      } else {
+        scene.style.backgroundImage = '';
+        scene.classList.remove('custom-background');
+      }
 
       const registration = s.submissionEnd
         ? `<p>Complete your online preregistration by <strong>${formatDateTime(s.submissionEnd)}</strong>.</p>`
