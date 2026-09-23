@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site Background — Stroll to the Stable Admin</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .background-page { max-width:900px; }
+  .background-header { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; margin-bottom:22px; }
+  .background-header p { margin:6px 0 0; color:var(--wood); }
+  .background-header .btn { width:auto; margin:0; }
+  .background-card { padding:20px; border:1px solid var(--border); border-radius:18px; background:rgba(8,16,31,.72); }
+  .background-preview { width:100%; aspect-ratio:16/9; margin:16px 0; border-radius:14px; border:1px solid var(--border); overflow:hidden; background:#030715; display:flex; align-items:center; justify-content:center; }
+  .background-preview img { width:100%; height:100%; object-fit:cover; display:none; }
+  .background-preview span { color:var(--muted); text-align:center; padding:20px; }
+  .background-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  .background-actions .btn { width:auto; margin:0; }
+  .success-banner { display:none; margin-bottom:16px; padding:12px 14px; border-radius:12px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
+  @media (max-width:650px) {
+    .background-header { display:block; }
+    .background-header .btn { margin-top:14px; }
+    .background-actions .btn { width:100%; }
+  }
+</style>
+</head>
+<body>
+<div class="page wide background-page">
+  <div class="background-header">
+    <div>
+      <p class="eyebrow">Stroll to the Stable · Admin</p>
+      <h1>Site Background</h1>
+      <p>Change the image behind the main public landing page whenever you want.</p>
+    </div>
+    <a class="btn btn-outline" href="/admin-dashboard.html">← Admin Home</a>
+  </div>
+
+  <div class="error-banner" data-error-banner></div>
+  <div class="success-banner" id="successBanner"></div>
+
+  <section class="background-card">
+    <h2 style="margin-top:0">Landing Page Background</h2>
+    <p style="color:var(--wood)">Upload a JPG, PNG, WebP, or other browser-supported image. A wide landscape image works best. If no custom image is stored, the site automatically uses the current built-in Bethlehem night scene.</p>
+
+    <div class="background-preview">
+      <img id="preview" alt="Current custom landing page background">
+      <span id="fallbackMessage">Using the built-in Bethlehem background.</span>
+    </div>
+
+    <div class="field">
+      <label for="backgroundFile">Choose a new background image</label>
+      <input id="backgroundFile" type="file" accept="image/*">
+      <div class="hint">Maximum file size: 20 MB. Uploading a new image replaces the previous one.</div>
+    </div>
+
+    <div class="background-actions">
+      <button class="btn btn-primary" id="uploadBtn" type="button">Upload Background</button>
+      <button class="btn btn-danger" id="deleteBtn" type="button" style="display:none">Remove Custom Background</button>
+      <a class="btn btn-outline" href="/" target="_blank" rel="noopener">Preview Site</a>
+    </div>
+  </section>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+let hasCustomBackground = false;
+
+function showSuccess(message) {
+  const el = document.getElementById('successBanner');
+  el.textContent = message;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+function renderBackground(url) {
+  hasCustomBackground = !!url;
+  const img = document.getElementById('preview');
+  const fallback = document.getElementById('fallbackMessage');
+  const deleteBtn = document.getElementById('deleteBtn');
+
+  if (url) {
+    img.src = url;
+    img.style.display = 'block';
+    fallback.style.display = 'none';
+    deleteBtn.style.display = '';
+  } else {
+    img.removeAttribute('src');
+    img.style.display = 'none';
+    fallback.style.display = 'block';
+    deleteBtn.style.display = 'none';
+  }
+}
+
+async function loadBackground() {
+  try {
+    const settings = await api('/api/admin/settings');
+    renderBackground(settings.landingBackgroundKey ? '/site-background?v=' + Date.now() : '');
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+document.getElementById('backgroundFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 20 * 1024 * 1024) {
+    showError('The background image must be 20 MB or smaller.');
+    e.target.value = '';
+    return;
+  }
+  const img = document.getElementById('preview');
+  img.src = URL.createObjectURL(file);
+  img.style.display = 'block';
+  document.getElementById('fallbackMessage').style.display = 'none';
+});
+
+document.getElementById('uploadBtn').addEventListener('click', async () => {
+  hideError();
+  const file = document.getElementById('backgroundFile').files[0];
+  if (!file) { showError('Choose an image first.'); return; }
+
+  const btn = document.getElementById('uploadBtn');
+  btn.disabled = true;
+  btn.textContent = 'Uploading…';
+
+  try {
+    const response = await fetch('/api/admin/landing-background', {
+      method: 'POST',
+      headers: { 'Content-Type': file.type || 'image/jpeg' },
+      body: file,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Upload failed.');
+
+    document.getElementById('backgroundFile').value = '';
+    renderBackground(data.landingBackgroundUrl || ('/site-background?v=' + Date.now()));
+    showSuccess('The new landing page background is live.');
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Upload Background';
+  }
+});
+
+document.getElementById('deleteBtn').addEventListener('click', async () => {
+  if (!window.confirm('Remove the custom background and restore the built-in Bethlehem scene?')) return;
+  hideError();
+
+  const btn = document.getElementById('deleteBtn');
+  btn.disabled = true;
+  btn.textContent = 'Removing…';
+  try {
+    await api('/api/admin/landing-background', { method: 'DELETE' });
+    renderBackground('');
+    showSuccess('Custom background removed. The built-in Bethlehem scene is active again.');
+  } catch (err) {
+    showError(err.message);
+    btn.disabled = false;
+    btn.textContent = 'Remove Custom Background';
+  }
+});
+
+loadBackground();
+</script>
+</body>
+</html>
