@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Messages — Stroll to the Stable Admin</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .messages-page { max-width:1180px; }
+  .messages-header { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:20px; }
+  .messages-header p { margin:6px 0 0; color:var(--wood); }
+  .messages-header .btn { width:auto; margin:0; }
+  .summary-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+  .summary-btn { appearance:none; border:1px solid var(--border); border-radius:14px; background:rgba(8,16,31,.68); color:var(--text); padding:14px; text-align:left; cursor:pointer; font:inherit; }
+  .summary-btn.active { border-color:var(--gold); background:rgba(20,28,46,.92); }
+  .summary-count { display:block; color:var(--gold-bright); font-family:'Fraunces',Georgia,serif; font-size:1.7rem; line-height:1; }
+  .summary-label { display:block; margin-top:6px; color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
+  .message-search { display:flex; gap:10px; margin-bottom:14px; padding:12px; border:1px solid var(--border); border-radius:14px; background:rgba(7,14,27,.55); }
+  .message-search input { margin:0; }
+  .message-search .btn { width:auto; margin:0; }
+  .message-layout { display:grid; grid-template-columns:minmax(300px,.9fr) minmax(0,1.6fr); gap:14px; align-items:start; }
+  .thread-list { border:1px solid var(--border); border-radius:16px; overflow:hidden; background:rgba(7,14,27,.58); }
+  .thread-row { display:block; width:100%; border:0; border-bottom:1px solid var(--border); padding:15px; text-align:left; background:transparent; color:var(--text); cursor:pointer; font:inherit; }
+  .thread-row:last-child { border-bottom:0; }
+  .thread-row:hover, .thread-row.active { background:rgba(255,255,255,.045); }
+  .thread-row.active { box-shadow:inset 3px 0 0 var(--gold); }
+  .thread-top { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+  .thread-email { color:var(--gold-bright); font-weight:750; overflow-wrap:anywhere; }
+  .thread-time { color:var(--muted); font-size:11px; white-space:nowrap; }
+  .thread-subject { margin-top:4px; font-weight:650; }
+  .thread-preview { margin-top:5px; color:var(--muted); font-size:13px; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .thread-meta { margin-top:7px; display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
+  .address-pill, .status-chip { display:inline-block; border-radius:999px; padding:3px 7px; font-size:10px; font-weight:800; letter-spacing:.03em; }
+  .address-pill { color:#d8e6ff; background:rgba(82,124,190,.18); }
+  .status-chip.pending { color:#ffe4a8; background:rgba(193,137,36,.18); }
+  .status-chip.answered { color:#c8f1d2; background:rgba(49,139,78,.20); }
+  .status-chip.closed { color:#d3d4da; background:rgba(120,120,135,.16); }
+  .conversation { min-height:560px; border:1px solid var(--border); border-radius:16px; background:rgba(8,16,31,.70); overflow:hidden; }
+  .conversation-empty { min-height:560px; display:flex; align-items:center; justify-content:center; color:var(--muted); text-align:center; padding:30px; }
+  .conversation-head { padding:18px 20px; border-bottom:1px solid var(--border); background:rgba(4,10,22,.45); }
+  .conversation-head h2 { margin:0 0 5px; color:var(--gold-bright); font-size:1.2rem; }
+  .conversation-head p { margin:0; color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
+  .conversation-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .conversation-actions .btn { width:auto; margin:0; padding:8px 11px; font-size:12px; }
+  .messages { padding:18px; display:grid; gap:14px; max-height:560px; overflow:auto; }
+  .bubble { max-width:88%; padding:13px 15px; border-radius:14px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .bubble.inbound { justify-self:start; background:rgba(255,255,255,.07); border:1px solid var(--border); }
+  .bubble.outbound { justify-self:end; background:rgba(61,92,142,.28); border:1px solid rgba(119,154,210,.28); }
+  .bubble-meta { margin-top:7px; color:var(--muted); font-size:11px; }
+  .reply-box { padding:16px 18px 18px; border-top:1px solid var(--border); background:rgba(4,10,22,.42); }
+  .reply-box textarea { margin:0 0 10px; min-height:120px; }
+  .reply-actions { display:flex; justify-content:space-between; gap:10px; align-items:center; }
+  .reply-actions .btn { width:auto; margin:0; }
+  .reply-from { color:var(--muted); font-size:12px; }
+  .message-success { display:none; margin-bottom:14px; padding:11px 13px; border-radius:10px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
+  @media (max-width:850px) {
+    .messages-header { display:block; }
+    .messages-header .btn { margin-top:14px; }
+    .summary-row { grid-template-columns:repeat(2,1fr); }
+    .message-layout { grid-template-columns:1fr; }
+    .conversation, .conversation-empty { min-height:0; }
+    .messages { max-height:none; }
+  }
+</style>
+</head>
+<body>
+<div class="page wide messages-page">
+  <div class="messages-header">
+    <div>
+      <p class="eyebrow">Stroll to the Stable · Admin</p>
+      <h1>Messages</h1>
+      <p>See incoming questions, reply as Stroll to the Stable, and keep the whole conversation together.</p>
+    </div>
+    <a class="btn btn-outline" href="/admin-dashboard.html">← Admin Home</a>
+  </div>
+
+  <div class="error-banner" data-error-banner></div>
+  <div class="message-success" id="successBanner"></div>
+
+  <div class="summary-row">
+    <button class="summary-btn active" data-filter="pending"><span class="summary-count" id="countPending">—</span><span class="summary-label">Needs Reply</span></button>
+    <button class="summary-btn" data-filter="answered"><span class="summary-count" id="countAnswered">—</span><span class="summary-label">Answered</span></button>
+    <button class="summary-btn" data-filter="closed"><span class="summary-count" id="countClosed">—</span><span class="summary-label">Closed</span></button>
+    <button class="summary-btn" data-filter="all"><span class="summary-count" id="countAll">—</span><span class="summary-label">All</span></button>
+  </div>
+
+  <div class="message-search">
+    <input id="search" type="search" placeholder="Search sender, subject, address, or message text…">
+    <button class="btn btn-outline" id="clearSearch">Clear</button>
+  </div>
+
+  <div class="message-layout">
+    <div class="thread-list" id="threadList">
+      <div class="empty-state">Loading messages…</div>
+    </div>
+    <section class="conversation" id="conversation">
+      <div class="conversation-empty">Select a message to see the conversation.</div>
+    </section>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+let currentFilter = 'pending';
+let currentThreadId = new URLSearchParams(window.location.search).get('id') || '';
+let threadMap = new Map();
+
+async function messageApi(path, options = {}) {
+  const response = await fetch(path, {
+    method: options.method || 'GET',
+    headers: options.body ? { 'Content-Type':'application/json' } : undefined,
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  if (response.status === 401) {
+    const next = window.location.pathname + window.location.search;
+    window.location.href = '/admin-login.html?next=' + encodeURIComponent(next);
+    throw new Error('Admin login required');
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Something went wrong.');
+  return data;
+}
+
+function esc(value) {
+  return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+}
+
+function formatWhen(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  return sameDay
+    ? d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })
+    : d.toLocaleDateString([], { month:'short', day:'numeric', year:d.getFullYear() === now.getFullYear() ? undefined : 'numeric' });
+}
+
+function shortAddress(address) {
+  return String(address || '').split('@')[0];
+}
+
+function showSuccess(message) {
+  const el = document.getElementById('successBanner');
+  el.textContent = message;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+function setCounts(counts) {
+  document.getElementById('countPending').textContent = counts.pending;
+  document.getElementById('countAnswered').textContent = counts.answered;
+  document.getElementById('countClosed').textContent = counts.closed;
+  document.getElementById('countAll').textContent = counts.total;
+}
+
+function renderThreadList(threads) {
+  threadMap = new Map(threads.map(t => [String(t.id), t]));
+  const list = document.getElementById('threadList');
+  if (!threads.length) {
+    const label = currentFilter === 'pending'
+      ? 'No messages are waiting for a reply.'
+      : 'No messages match this view.';
+    list.innerHTML = '<div class="empty-state">' + label + '</div>';
+    return;
+  }
+
+  list.innerHTML = threads.map(t => `
+    <button class="thread-row ${String(t.id) === String(currentThreadId) ? 'active' : ''}" data-thread-id="${t.id}">
+      <div class="thread-top">
+        <span class="thread-email">${esc(t.contact_email)}</span>
+        <span class="thread-time">${esc(formatWhen(t.last_message_at))}</span>
+      </div>
+      <div class="thread-subject">${esc(t.subject || 'No subject')}</div>
+      <div class="thread-preview">${esc(t.preview || '')}</div>
+      <div class="thread-meta">
+        <span class="address-pill">${esc(shortAddress(t.source_address))}</span>
+        <span class="status-chip ${esc(t.status)}">${t.status === 'pending' ? 'Needs reply' : esc(t.status)}</span>
+        <span style="color:var(--muted);font-size:11px">${t.message_count} message${Number(t.message_count) === 1 ? '' : 's'}</span>
+      </div>
+    </button>`).join('');
+}
+
+async function loadThreads({ keepSelection = true } = {}) {
+  hideError();
+  const search = document.getElementById('search').value.trim();
+  const qs = new URLSearchParams({ status: currentFilter });
+  if (search) qs.set('search', search);
+
+  try {
+    const data = await messageApi('/api/admin/messages?' + qs.toString());
+    setCounts(data.counts);
+    renderThreadList(data.threads);
+
+    if (keepSelection && currentThreadId) {
+      await loadThread(currentThreadId);
+    } else if (!currentThreadId && data.threads.length && currentFilter === 'pending') {
+      currentThreadId = String(data.threads[0].id);
+      updateUrl();
+      renderThreadList(data.threads);
+      await loadThread(currentThreadId);
+    } else if (!data.threads.length) {
+      document.getElementById('conversation').innerHTML = '<div class="conversation-empty">Nothing to show here right now.</div>';
+    }
+  } catch (err) {
+    if (err.message !== 'Admin login required') showError(err.message);
+  }
+}
+
+async function loadThread(id) {
+  try {
+    const { thread, messages } = await messageApi('/api/admin/messages/' + id);
+    currentThreadId = String(thread.id);
+    updateUrl();
+    document.querySelectorAll('.thread-row').forEach(row => row.classList.toggle('active', row.dataset.threadId === currentThreadId));
+
+    const conversation = document.getElementById('conversation');
+    conversation.innerHTML = `
+      <div class="conversation-head">
+        <h2>${esc(thread.subject || 'No subject')}</h2>
+        <p><b>${esc(thread.contact_email)}</b> → ${esc(thread.source_address)} · ${esc(thread.thread_code)}</p>
+        <div class="conversation-actions">
+          ${thread.status !== 'pending' ? '<button class="btn btn-outline" data-status-action="pending">Mark Needs Reply</button>' : ''}
+          ${thread.status !== 'closed' ? '<button class="btn btn-outline" data-status-action="closed">Close Conversation</button>' : '<button class="btn btn-outline" data-status-action="answered">Reopen</button>'}
+        </div>
+      </div>
+      <div class="messages" id="messageThread">
+        ${messages.map(m => `
+          <div class="bubble ${m.direction}">
+            ${esc(m.body_text)}
+            <div class="bubble-meta">${m.direction === 'inbound'
+              ? esc(m.sender_email)
+              : 'Sent by ' + esc(m.admin_email || 'admin')} · ${esc(new Date(m.created_at).toLocaleString())}</div>
+          </div>`).join('')}
+      </div>
+      <div class="reply-box">
+        <textarea id="replyText" placeholder="Type your reply…"></textarea>
+        <div class="reply-actions">
+          <span class="reply-from">Reply will be sent from <b>${esc(thread.source_address)}</b></span>
+          <button class="btn btn-primary" id="sendReplyBtn">Send Reply</button>
+        </div>
+      </div>`;
+
+    const messageThread = document.getElementById('messageThread');
+    messageThread.scrollTop = messageThread.scrollHeight;
+
+    document.getElementById('sendReplyBtn').addEventListener('click', sendReply);
+    conversation.querySelectorAll('[data-status-action]').forEach(btn => btn.addEventListener('click', () => setStatus(btn.dataset.statusAction)));
+  } catch (err) {
+    if (err.message !== 'Admin login required') showError(err.message);
+  }
+}
+
+async function sendReply() {
+  hideError();
+  const text = document.getElementById('replyText').value.trim();
+  if (!text) { showError('Type a reply first.'); return; }
+
+  const btn = document.getElementById('sendReplyBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  try {
+    await messageApi('/api/admin/messages/' + currentThreadId + '/reply', { method:'POST', body:{ message:text } });
+    showSuccess('Reply sent from Stroll to the Stable.');
+    currentFilter = 'answered';
+    syncFilterButtons();
+    await loadThreads({ keepSelection:true });
+  } catch (err) {
+    if (err.message !== 'Admin login required') showError(err.message);
+    btn.disabled = false;
+    btn.textContent = 'Send Reply';
+  }
+}
+
+async function setStatus(status) {
+  hideError();
+  try {
+    await messageApi('/api/admin/messages/' + currentThreadId + '/status', { method:'POST', body:{ status } });
+    showSuccess(status === 'closed' ? 'Conversation closed.' : 'Conversation status updated.');
+    if (status !== currentFilter && currentFilter !== 'all') {
+      currentFilter = status;
+      syncFilterButtons();
+    }
+    await loadThreads({ keepSelection:true });
+  } catch (err) {
+    if (err.message !== 'Admin login required') showError(err.message);
+  }
+}
+
+function updateUrl() {
+  const url = new URL(window.location.href);
+  if (currentThreadId) url.searchParams.set('id', currentThreadId);
+  else url.searchParams.delete('id');
+  history.replaceState(null, '', url);
+}
+
+function syncFilterButtons() {
+  document.querySelectorAll('[data-filter]').forEach(btn => btn.classList.toggle('active', btn.dataset.filter === currentFilter));
+}
+
+document.getElementById('threadList').addEventListener('click', e => {
+  const row = e.target.closest('[data-thread-id]');
+  if (!row) return;
+  loadThread(row.dataset.threadId);
+});
+
+document.querySelectorAll('[data-filter]').forEach(btn => btn.addEventListener('click', () => {
+  currentFilter = btn.dataset.filter;
+  currentThreadId = '';
+  updateUrl();
+  syncFilterButtons();
+  loadThreads({ keepSelection:false });
+}));
+
+document.getElementById('search').addEventListener('input', debounce(() => loadThreads({ keepSelection:false }), 300));
+document.getElementById('clearSearch').addEventListener('click', () => {
+  document.getElementById('search').value = '';
+  loadThreads({ keepSelection:false });
+});
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+loadThreads();
+</script>
+</body>
+</html>
