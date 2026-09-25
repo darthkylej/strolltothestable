@@ -217,6 +217,8 @@ export default {
       if (path === '/api/admin/tour-media' && method === 'DELETE') return await admin.deleteTourMedia(request, env, session);
 
       if (path === '/api/admin/messages' && method === 'GET') return await messages.listThreads(request, env, session);
+      if (path === '/api/admin/message-notifications' && method === 'GET') return await admin.getMessageNotificationSettings(request, env, session);
+      if (path === '/api/admin/message-notifications' && method === 'POST') return await admin.updateMessageNotificationSettings(request, env, session);
 
       if ((m = path.match(/^\/api\/admin\/messages\/(\d+)$/)) && method === 'GET') {
         return await messages.getThread(request, env, session, m[1]);
