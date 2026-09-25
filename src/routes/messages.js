@@ -51,9 +51,13 @@ export async function ensureMessageSchema(env) {
       sender_email TEXT NOT NULL,
       admin_email TEXT,
       body_text TEXT NOT NULL,
+      message_id TEXT,
+      references_header TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `;
+  await sql`ALTER TABLE message_items ADD COLUMN IF NOT EXISTS message_id TEXT`;
+  await sql`ALTER TABLE message_items ADD COLUMN IF NOT EXISTS references_header TEXT`;
   await sql`CREATE INDEX IF NOT EXISTS idx_message_threads_status ON message_threads (status)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_message_threads_contact ON message_threads (lower(contact_email))`;
   await sql`CREATE INDEX IF NOT EXISTS idx_message_threads_last_message ON message_threads (last_message_at DESC)`;
@@ -121,6 +125,16 @@ export async function handleIncomingEmail(message, env) {
   await ensureMessageSchema(env);
   const parsed = await new PostalMime().parse(message.raw);
   const subject = String(parsed.subject || message.headers?.get?.('subject') || '').trim() || 'No subject';
+  const messageId = String(
+    message.headers?.get?.('Message-ID')
+      || message.headers?.get?.('message-id')
+      || ''
+  ).trim();
+  const referencesHeader = String(
+    message.headers?.get?.('References')
+      || message.headers?.get?.('references')
+      || ''
+  ).trim();
   const rawText = parsed.text || stripHtml(parsed.html);
   const bodyText = cleanReplyText(rawText) || String(rawText || '').trim() || '(No message text)';
   const existingCode = getThreadCode(subject);
@@ -164,8 +178,22 @@ export async function handleIncomingEmail(message, env) {
   }
 
   await sql`
-    INSERT INTO message_items (thread_id, direction, sender_email, body_text)
-    VALUES (${thread.id}, 'inbound', ${sender}, ${bodyText})
+    INSERT INTO message_items (
+      thread_id,
+      direction,
+      sender_email,
+      body_text,
+      message_id,
+      references_header
+    )
+    VALUES (
+      ${thread.id},
+      'inbound',
+      ${sender},
+      ${bodyText},
+      ${messageId || null},
+      ${referencesHeader || null}
+    )
   `;
   await sql`
     UPDATE message_threads
@@ -272,7 +300,7 @@ export async function getThread(request, env, session, id) {
   if (!rows.length) return error('Message conversation not found.', 404);
 
   const items = await sql`
-    SELECT id, direction, sender_email, admin_email, body_text, created_at
+    SELECT id, direction, sender_email, admin_email, body_text, message_id, references_header, created_at
     FROM message_items
     WHERE thread_id = ${id}
     ORDER BY created_at, id
@@ -293,12 +321,23 @@ export async function replyToThread(request, env, session, id) {
   if (!rows.length) return error('Message conversation not found.', 404);
   const thread = rows[0];
 
+  const history = await sql`
+    SELECT direction, sender_email, admin_email, body_text, message_id, references_header, created_at
+    FROM message_items
+    WHERE thread_id = ${id}
+    ORDER BY created_at, id
+  `;
+  const latestInbound = [...history].reverse().find(item => item.direction === 'inbound');
+
   await sendMessageCenterReply(env, {
     to: thread.contact_email,
     fromAddress: thread.source_address,
     subject: thread.subject,
     bodyText,
     threadCode: thread.thread_code,
+    inReplyTo: latestInbound?.message_id || '',
+    references: latestInbound?.references_header || '',
+    history,
   });
 
   await sql`
