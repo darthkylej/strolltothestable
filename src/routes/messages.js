@@ -96,18 +96,35 @@ function stripHtml(html) {
 
 function cleanReplyText(text) {
   let value = String(text || '').replace(/\r\n/g, '\n').trim();
+  if (!value) return '';
+
   const markers = [
-    /\nOn .+wrote:\s*\n/i,
-    /\nFrom:\s.+\nSent:\s.+\nTo:\s.+\nSubject:\s.+\n/i,
-    /\n-{2,}\s*Original Message\s*-{2,}\n/i,
+    /(?:^|\n)On .+?wrote:\s*(?:\n|$)/i,
+    /(?:^|\n)From:\s.+(?:\n|$)[\s\S]*?Subject:\s.+(?:\n|$)/i,
+    /(?:^|\n)-{2,}\s*Original Message\s*-{2,}(?:\n|$)/i,
+    /(?:^|\n)_{5,}(?:\n|$)/,
+    /(?:^|\n)Sent with Proton Mail(?:\n|$)/i,
   ];
+
   let cut = value.length;
   for (const re of markers) {
     const match = re.exec(value);
     if (match && match.index < cut) cut = match.index;
   }
+
   value = value.slice(0, cut).trim();
-  return value;
+
+  // Gmail, Proton Mail, Outlook and many mobile clients prefix quoted
+  // history lines with ">". Once a quoted block begins, keep only the
+  // newly typed reply above it.
+  const lines = value.split('\n');
+  const cleaned = [];
+  for (const line of lines) {
+    if (/^\s*>/.test(line)) break;
+    cleaned.push(line);
+  }
+
+  return cleaned.join('\n').trim();
 }
 
 export async function handleIncomingEmail(message, env) {
