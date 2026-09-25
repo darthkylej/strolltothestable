@@ -35,6 +35,10 @@
 <script src="/js/app.js"></script>
 <script>
 let pendingEmail = '';
+const requestedNext = new URLSearchParams(window.location.search).get('next') || '/admin-dashboard.html';
+const safeNext = requestedNext.startsWith('/') && !requestedNext.startsWith('//')
+  ? requestedNext
+  : '/admin-dashboard.html';
 
 // If this browser still has a valid admin session, do not make the admin
 // repeat the email-code login flow. A deliberate logout clears the session
@@ -47,7 +51,7 @@ let pendingEmail = '';
       credentials: 'same-origin',
     });
     if (response.ok) {
-      window.location.replace('/admin-dashboard.html');
+      window.location.replace(safeNext);
     }
   } catch (_) {
     // If the session check itself fails, leave the normal login form usable.
@@ -75,7 +79,7 @@ document.getElementById('codeForm').addEventListener('submit', async (e) => {
       method: 'POST',
       body: { email: pendingEmail, code: document.getElementById('code').value },
     });
-    window.location.href = '/admin-dashboard.html';
+    window.location.href = safeNext;
   } catch (err) {
     showError(err.message);
   }
