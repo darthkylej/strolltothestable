@@ -227,6 +227,9 @@ export default {
       if ((m = path.match(/^\/api\/admin\/messages\/(\d+)$/)) && method === 'GET') {
         return await messages.getThread(request, env, session, m[1]);
       }
+      if ((m = path.match(/^\/api\/admin\/messages\/(\d+)$/)) && method === 'DELETE') {
+        return await messages.deleteThread(request, env, session, m[1]);
+      }
       if ((m = path.match(/^\/api\/admin\/messages\/(\d+)\/reply$/)) && method === 'POST') {
         return await messages.replyToThread(request, env, session, m[1]);
       }
