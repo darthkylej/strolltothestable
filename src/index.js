@@ -120,6 +120,10 @@ export default {
     const method = request.method;
 
     try {
+      if (path === '/admin-email-login' && method === 'GET') {
+        return await adminAuth.emailLogin(request, env);
+      }
+
       if ((method === 'GET' || method === 'HEAD') && path === '/site-background') {
         const obj = method === 'HEAD'
           ? await env.PHOTOS.head('site-assets/landing-background')
