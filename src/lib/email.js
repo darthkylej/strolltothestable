@@ -367,7 +367,6 @@ export async function sendMessageCenterReply(env, {
   threadCode,
   inReplyTo,
   references,
-  history = [],
 }) {
   const cleanSubject = String(subject || 'Your Stroll to the Stable message')
     .replace(/\s*\[STTS-[A-Z0-9]+\]\s*$/i, '')
@@ -375,33 +374,6 @@ export async function sendMessageCenterReply(env, {
     .trim();
 
   const htmlBody = escapeHtml(bodyText || '').replace(/\n/g, '<br>');
-  const recentHistory = Array.isArray(history) ? history.slice(-10) : [];
-
-  const historyText = recentHistory.length
-    ? '\n\n--- Conversation history ---\n' + recentHistory.map((item) => {
-        const speaker = item.direction === 'inbound' ? item.sender_email : 'Stroll to the Stable';
-        return `${speaker}:\n${item.body_text}`;
-      }).join('\n\n')
-    : '';
-
-  const historyHtml = recentHistory.length
-    ? `
-      <div style="margin-top:28px;padding-top:18px;border-top:1px solid #e7e1d5">
-        <div style="margin-bottom:12px;color:#6b7280;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Conversation history</div>
-        ${recentHistory.map((item) => {
-          const isQuestioner = item.direction === 'inbound';
-          const speaker = isQuestioner ? item.sender_email : 'Stroll to the Stable';
-          const bubbleBackground = isQuestioner ? '#f2eee5' : '#e7f0fb';
-          const bubbleBorder = isQuestioner ? '#ddd5c6' : '#c7d9ef';
-          const speakerColor = isQuestioner ? '#7a6041' : '#315d8f';
-          return `
-            <div style="margin:0 0 10px;padding:10px 12px;background:${bubbleBackground};border:1px solid ${bubbleBorder};border-radius:9px">
-              <div style="margin-bottom:4px;color:${speakerColor};font-size:12px;font-weight:700">${escapeHtml(speaker)}</div>
-              <div style="color:#374151;line-height:1.5">${escapeHtml(item.body_text || '').replace(/\n/g, '<br>')}</div>
-            </div>`;
-        }).join('')}
-      </div>`
-    : '';
 
   const replyHeaders = {};
   const normalizedReplyTo = normalizeMessageId(inReplyTo);
@@ -418,7 +390,7 @@ export async function sendMessageCenterReply(env, {
     from: { email: fromAddress, name: 'Stroll to the Stable' },
     replyTo: fromAddress,
     subject: `Re: ${cleanSubject}`,
-    text: (bodyText || '') + historyText,
+    text: bodyText || '',
     html: `
       <div style="margin:0;padding:26px 14px;background:#f4f1e8;font-family:Arial,Helvetica,sans-serif;color:#243142">
         <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #ded8ca;border-radius:16px;overflow:hidden">
@@ -427,7 +399,6 @@ export async function sendMessageCenterReply(env, {
           </div>
           <div style="padding:26px 28px;font-size:16px;line-height:1.65">
             ${htmlBody}
-            ${historyHtml}
             <div style="margin-top:26px;padding-top:16px;border-top:1px solid #e7e1d5;color:#6b7280;font-size:13px">Stroll to the Stable · Seguin, Texas</div>
           </div>
         </div>
