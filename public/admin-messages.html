@@ -13,7 +13,7 @@
     margin:0 auto;
     padding:10px 0 0;
     display:grid;
-    grid-template-rows:auto auto auto minmax(0,1fr);
+    grid-template-rows:auto auto minmax(0,1fr);
     gap:7px;
   }
   .messages-header { display:flex; justify-content:space-between; gap:12px; align-items:center; margin:0; }
@@ -22,7 +22,7 @@
   .messages-header p:not(.eyebrow) { margin:2px 0 0; color:var(--wood); font-size:12px; }
   .messages-header .btn { width:auto; margin:0; padding:7px 10px; font-size:12px; }
 
-  .summary-row { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin:0; }
+  .summary-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:0; }
   .summary-btn {
     appearance:none;
     border:1px solid var(--border);
@@ -39,10 +39,6 @@
   }
   .summary-count { color:var(--gold-bright); font-family:'Fraunces',Georgia,serif; font-size:1rem; line-height:1; }
   .summary-label { color:var(--muted); font-size:.66rem; text-transform:uppercase; letter-spacing:.035em; font-weight:700; }
-
-  .message-search { display:flex; gap:6px; margin:0; padding:5px; border:1px solid var(--border); border-radius:8px; background:rgba(7,14,27,.5); }
-  .message-search input { margin:0; min-height:32px; padding:6px 8px; font-size:13px; }
-  .message-search .btn { width:auto; margin:0; padding:6px 9px; font-size:11px; }
 
   .message-layout {
     display:grid;
@@ -146,7 +142,7 @@
   .delete-conversation:hover { color:var(--barn-red); }
 
   @media (max-width:850px) {
-    .messages-page { width:calc(100vw - 14px); height:auto; min-height:calc(100vh - 70px); grid-template-rows:auto auto auto auto; }
+    .messages-page { width:calc(100vw - 14px); height:auto; min-height:calc(100vh - 70px); grid-template-rows:auto auto auto; }
     .messages-header { align-items:flex-start; }
     .messages-header p:not(.eyebrow) { display:none; }
     .summary-row { grid-template-columns:repeat(2,1fr); }
@@ -174,13 +170,7 @@
   <div class="summary-row">
     <div class="summary-btn"><span class="summary-count" id="countPending">—</span><span class="summary-label">Needs Reply</span></div>
     <div class="summary-btn"><span class="summary-count" id="countAnswered">—</span><span class="summary-label">Answered</span></div>
-    <div class="summary-btn"><span class="summary-count" id="countClosed">—</span><span class="summary-label">Closed</span></div>
     <div class="summary-btn"><span class="summary-count" id="countAll">—</span><span class="summary-label">All</span></div>
-  </div>
-
-  <div class="message-search">
-    <input id="search" type="search" placeholder="Search sender, subject, address, or message text…">
-    <button class="btn btn-outline" id="clearSearch">Clear</button>
   </div>
 
   <div class="message-layout">
@@ -243,7 +233,6 @@ function showSuccess(message) {
 function setCounts(counts) {
   document.getElementById('countPending').textContent = counts.pending;
   document.getElementById('countAnswered').textContent = counts.answered;
-  document.getElementById('countClosed').textContent = counts.closed;
   document.getElementById('countAll').textContent = counts.total;
 }
 
@@ -251,10 +240,7 @@ function renderThreadList(threads) {
   threadMap = new Map(threads.map(t => [String(t.id), t]));
   const list = document.getElementById('threadList');
   if (!threads.length) {
-    const label = document.getElementById('search').value.trim()
-      ? 'No conversations match your search.'
-      : 'No conversations yet.';
-    list.innerHTML = '<div class="empty-state">' + label + '</div>';
+    list.innerHTML = '<div class="empty-state">No conversations yet.</div>';
     return;
   }
 
@@ -272,9 +258,7 @@ function renderThreadList(threads) {
 
 async function loadThreads({ keepSelection = true } = {}) {
   hideError();
-  const search = document.getElementById('search').value.trim();
   const qs = new URLSearchParams({ status: currentFilter });
-  if (search) qs.set('search', search);
 
   try {
     const data = await messageApi('/api/admin/messages?' + qs.toString());
@@ -310,7 +294,6 @@ async function loadThread(id) {
         <p><b>${esc(thread.contact_email)}</b> → ${esc(thread.source_address)} · ${esc(thread.thread_code)}</p>
         <div class="conversation-actions">
           ${thread.status !== 'pending' ? '<button class="btn btn-outline" data-status-action="pending">Mark Needs Reply</button>' : ''}
-          ${thread.status !== 'closed' ? '<button class="btn btn-outline" data-status-action="closed">Close Conversation</button>' : '<button class="btn btn-outline" data-status-action="answered">Reopen</button>'}
           <button class="delete-conversation" id="deleteConversationBtn" type="button">Delete conversation</button>
         </div>
       </div>
@@ -390,7 +373,7 @@ async function setStatus(status) {
   hideError();
   try {
     await messageApi('/api/admin/messages/' + currentThreadId + '/status', { method:'POST', body:{ status } });
-    showSuccess(status === 'closed' ? 'Conversation closed.' : 'Conversation status updated.');
+    showSuccess('Conversation status updated.');
     await loadThreads({ keepSelection:true });
   } catch (err) {
     if (err.message !== 'Admin login required') showError(err.message);
@@ -408,12 +391,6 @@ document.getElementById('threadList').addEventListener('click', e => {
   const row = e.target.closest('[data-thread-id]');
   if (!row) return;
   loadThread(row.dataset.threadId);
-});
-
-document.getElementById('search').addEventListener('input', debounce(() => loadThreads({ keepSelection:false }), 300));
-document.getElementById('clearSearch').addEventListener('click', () => {
-  document.getElementById('search').value = '';
-  loadThreads({ keepSelection:false });
 });
 
 function debounce(fn, ms) {
