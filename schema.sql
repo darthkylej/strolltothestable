@@ -114,3 +114,34 @@ FROM nativities n
 JOIN users u ON u.id = n.owner_user_id
 LEFT JOIN nativity_pieces p ON p.nativity_id = n.id
 GROUP BY n.id, u.name, u.phone, u.email;
+
+
+-- ── Shared Message Center ──────────────────────────────────────────────
+-- Incoming email to info@, appointments@, and submissions@ is stored here
+-- so admins can collaborate without exposing their personal email addresses.
+CREATE TABLE message_threads (
+    id               BIGSERIAL PRIMARY KEY,
+    thread_code      TEXT UNIQUE NOT NULL,
+    contact_email    TEXT NOT NULL,
+    source_address   TEXT NOT NULL,
+    subject          TEXT NOT NULL DEFAULT '',
+    status           TEXT NOT NULL DEFAULT 'pending'
+                       CHECK (status IN ('pending', 'answered', 'closed')),
+    last_message_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_message_threads_status ON message_threads (status);
+CREATE INDEX idx_message_threads_contact ON message_threads (lower(contact_email));
+CREATE INDEX idx_message_threads_last_message ON message_threads (last_message_at DESC);
+
+CREATE TABLE message_items (
+    id               BIGSERIAL PRIMARY KEY,
+    thread_id        BIGINT NOT NULL REFERENCES message_threads(id) ON DELETE CASCADE,
+    direction        TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+    sender_email     TEXT NOT NULL,
+    admin_email      TEXT,
+    body_text        TEXT NOT NULL,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_message_items_thread ON message_items (thread_id, created_at);
