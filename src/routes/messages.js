@@ -62,6 +62,7 @@ export async function ensureMessageSchema(env) {
   await sql`CREATE INDEX IF NOT EXISTS idx_message_threads_contact ON message_threads (lower(contact_email))`;
   await sql`CREATE INDEX IF NOT EXISTS idx_message_threads_last_message ON message_threads (last_message_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_message_items_thread ON message_items (thread_id, created_at)`;
+  await sql`UPDATE message_threads SET status = 'answered' WHERE status = 'closed'`;
 }
 
 function makeThreadCode() {
@@ -130,6 +131,11 @@ export async function handleIncomingEmail(message, env) {
       || message.headers?.get?.('message-id')
       || ''
   ).trim();
+  const inReplyTo = String(
+    message.headers?.get?.('In-Reply-To')
+      || message.headers?.get?.('in-reply-to')
+      || ''
+  ).trim();
   const referencesHeader = String(
     message.headers?.get?.('References')
       || message.headers?.get?.('references')
@@ -145,6 +151,36 @@ export async function handleIncomingEmail(message, env) {
     const rows = await sql`
       SELECT * FROM message_threads
       WHERE thread_code = ${existingCode}
+      LIMIT 1
+    `;
+    if (rows.length) thread = rows[0];
+  }
+
+  if (!thread && (inReplyTo || referencesHeader)) {
+    const headerIds = [inReplyTo, ...referencesHeader.split(/\s+/)]
+      .map(v => String(v || '').trim())
+      .filter(Boolean);
+    if (headerIds.length) {
+      const rows = await sql`
+        SELECT DISTINCT t.*
+        FROM message_threads t
+        JOIN message_items m ON m.thread_id = t.id
+        WHERE m.message_id = ANY(${headerIds})
+        ORDER BY t.updated_at DESC
+        LIMIT 1
+      `;
+      if (rows.length) thread = rows[0];
+    }
+  }
+
+  if (!thread) {
+    const normalizedSubject = subject.replace(/^Re:\s*/i, '').trim();
+    const rows = await sql`
+      SELECT *
+      FROM message_threads
+      WHERE lower(contact_email) = lower(${sender})
+        AND lower(regexp_replace(subject, '^Re:\\s*', '', 'i')) = lower(${normalizedSubject})
+      ORDER BY updated_at DESC
       LIMIT 1
     `;
     if (rows.length) thread = rows[0];
@@ -284,8 +320,7 @@ export async function listThreads(request, env, session) {
     SELECT
       COUNT(*)::int AS total,
       COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
-      COUNT(*) FILTER (WHERE status = 'answered')::int AS answered,
-      COUNT(*) FILTER (WHERE status = 'closed')::int AS closed
+      COUNT(*) FILTER (WHERE status = 'answered')::int AS answered
     FROM message_threads
   `;
 
@@ -401,7 +436,7 @@ export async function updateThreadStatus(request, env, session, id) {
   requireAdmin(session);
   await ensureMessageSchema(env);
   const { status } = await request.json();
-  if (!['pending', 'answered', 'closed'].includes(status)) return error('Invalid message status.');
+  if (!['pending', 'answered'].includes(status)) return error('Invalid message status.');
 
   const sql = db(env);
   const rows = await sql`
