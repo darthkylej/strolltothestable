@@ -479,13 +479,12 @@ export async function getMessageNotificationSettings(request, env, session) {
   ]);
 
   const adminEmails = admins.map(a => a.email);
-  const configured = settings.messageNotifications || {};
+  const configured = settings.messageNotifications;
   const notifications = {};
 
   for (const address of MESSAGE_NOTIFICATION_ADDRESSES) {
-    const current = Array.isArray(configured[address]) ? configured[address] : [];
-    notifications[address] = current.length
-      ? current.filter(email => adminEmails.includes(email))
+    notifications[address] = configured && Array.isArray(configured[address])
+      ? configured[address].filter(email => adminEmails.includes(email))
       : [...adminEmails];
   }
 
