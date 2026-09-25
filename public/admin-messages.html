@@ -6,53 +6,55 @@
 <title>Messages — Stroll to the Stable Admin</title>
 <link rel="stylesheet" href="/style.css">
 <style>
-  .messages-page { max-width:1180px; }
-  .messages-header { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:20px; }
+  .messages-page { max-width:1480px; width:min(1480px, calc(100vw - 28px)); }
+  .messages-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:14px; }
   .messages-header p { margin:6px 0 0; color:var(--wood); }
   .messages-header .btn { width:auto; margin:0; }
-  .summary-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
-  .summary-btn { appearance:none; border:1px solid var(--border); border-radius:14px; background:rgba(8,16,31,.68); color:var(--text); padding:14px; text-align:left; cursor:pointer; font:inherit; }
+  .summary-row { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:10px; }
+  .summary-btn { appearance:none; border:1px solid var(--border); border-radius:12px; background:rgba(8,16,31,.68); color:var(--text); padding:10px 12px; text-align:left; cursor:pointer; font:inherit; display:flex; align-items:center; gap:9px; }
   .summary-btn.active { border-color:var(--gold); background:rgba(20,28,46,.92); }
-  .summary-count { display:block; color:var(--gold-bright); font-family:'Fraunces',Georgia,serif; font-size:1.7rem; line-height:1; }
-  .summary-label { display:block; margin-top:6px; color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
-  .message-search { display:flex; gap:10px; margin-bottom:14px; padding:12px; border:1px solid var(--border); border-radius:14px; background:rgba(7,14,27,.55); }
+  .summary-count { display:block; color:var(--gold-bright); font-family:'Fraunces',Georgia,serif; font-size:1.35rem; line-height:1; }
+  .summary-label { display:block; margin-top:0; color:var(--muted); font-size:.74rem; text-transform:uppercase; letter-spacing:.04em; font-weight:700; }
+  .message-search { display:flex; gap:8px; margin-bottom:10px; padding:8px; border:1px solid var(--border); border-radius:12px; background:rgba(7,14,27,.55); }
   .message-search input { margin:0; }
   .message-search .btn { width:auto; margin:0; }
-  .message-layout { display:grid; grid-template-columns:minmax(300px,.9fr) minmax(0,1.6fr); gap:14px; align-items:start; }
-  .thread-list { border:1px solid var(--border); border-radius:16px; overflow:hidden; background:rgba(7,14,27,.58); }
-  .thread-row { display:block; width:100%; border:0; border-bottom:1px solid var(--border); padding:15px; text-align:left; background:transparent; color:var(--text); cursor:pointer; font:inherit; }
+  .message-layout { display:grid; grid-template-columns:minmax(390px,.95fr) minmax(0,1.75fr); gap:10px; align-items:start; }
+  .thread-list { border:1px solid var(--border); border-radius:14px; overflow:hidden; background:rgba(7,14,27,.58); max-height:72vh; overflow-y:auto; }
+  .thread-row { display:block; width:100%; border:0; border-bottom:1px solid var(--border); padding:9px 11px; text-align:left; background:transparent; color:var(--text); cursor:pointer; font:inherit; }
   .thread-row:last-child { border-bottom:0; }
   .thread-row:hover, .thread-row.active { background:rgba(255,255,255,.045); }
   .thread-row.active { box-shadow:inset 3px 0 0 var(--gold); }
   .thread-top { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
-  .thread-email { color:var(--gold-bright); font-weight:750; overflow-wrap:anywhere; }
+  .thread-email { color:var(--gold-bright); font-weight:750; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
   .thread-time { color:var(--muted); font-size:11px; white-space:nowrap; }
-  .thread-subject { margin-top:4px; font-weight:650; }
-  .thread-preview { margin-top:5px; color:var(--muted); font-size:13px; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  .thread-meta { margin-top:7px; display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
-  .address-pill, .status-chip { display:inline-block; border-radius:999px; padding:3px 7px; font-size:10px; font-weight:800; letter-spacing:.03em; }
+  .thread-subject { margin-top:2px; font-weight:650; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .thread-preview { margin-top:2px; color:var(--muted); font-size:12px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .thread-meta { margin-top:5px; display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
+  .address-pill, .status-chip { display:inline-block; border-radius:999px; padding:2px 6px; font-size:9px; font-weight:800; letter-spacing:.03em; }
   .address-pill { color:#d8e6ff; background:rgba(82,124,190,.18); }
   .status-chip.pending { color:#ffe4a8; background:rgba(193,137,36,.18); }
   .status-chip.answered { color:#c8f1d2; background:rgba(49,139,78,.20); }
   .status-chip.closed { color:#d3d4da; background:rgba(120,120,135,.16); }
-  .conversation { min-height:560px; border:1px solid var(--border); border-radius:16px; background:rgba(8,16,31,.70); overflow:hidden; }
-  .conversation-empty { min-height:560px; display:flex; align-items:center; justify-content:center; color:var(--muted); text-align:center; padding:30px; }
-  .conversation-head { padding:18px 20px; border-bottom:1px solid var(--border); background:rgba(4,10,22,.45); }
+  .conversation { min-height:500px; border:1px solid var(--border); border-radius:14px; background:rgba(8,16,31,.70); overflow:hidden; }
+  .conversation-empty { min-height:500px; display:flex; align-items:center; justify-content:center; color:var(--muted); text-align:center; padding:24px; }
+  .conversation-head { padding:13px 15px; border-bottom:1px solid var(--border); background:rgba(4,10,22,.45); }
   .conversation-head h2 { margin:0 0 5px; color:var(--gold-bright); font-size:1.2rem; }
   .conversation-head p { margin:0; color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
-  .conversation-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-  .conversation-actions .btn { width:auto; margin:0; padding:8px 11px; font-size:12px; }
-  .messages { padding:18px; display:grid; gap:14px; max-height:560px; overflow:auto; }
-  .bubble { max-width:88%; padding:13px 15px; border-radius:14px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .conversation-actions { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+  .conversation-actions .btn { width:auto; margin:0; padding:6px 9px; font-size:11px; }
+  .messages { padding:13px; display:grid; gap:9px; max-height:58vh; overflow:auto; }
+  .bubble { max-width:90%; padding:10px 12px; border-radius:12px; line-height:1.42; font-size:14px; white-space:pre-wrap; overflow-wrap:anywhere; }
   .bubble.inbound { justify-self:start; background:rgba(255,255,255,.07); border:1px solid var(--border); }
   .bubble.outbound { justify-self:end; background:rgba(61,92,142,.28); border:1px solid rgba(119,154,210,.28); }
   .bubble-meta { margin-top:7px; color:var(--muted); font-size:11px; }
-  .reply-box { padding:16px 18px 18px; border-top:1px solid var(--border); background:rgba(4,10,22,.42); }
-  .reply-box textarea { margin:0 0 10px; min-height:120px; }
+  .reply-box { padding:12px 14px 14px; border-top:1px solid var(--border); background:rgba(4,10,22,.42); }
+  .reply-box textarea { margin:0 0 8px; min-height:88px; }
   .reply-actions { display:flex; justify-content:space-between; gap:10px; align-items:center; }
   .reply-actions .btn { width:auto; margin:0; }
   .reply-from { color:var(--muted); font-size:12px; }
-  .message-success { display:none; margin-bottom:14px; padding:11px 13px; border-radius:10px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
+  .message-success { display:none; margin-bottom:10px; padding:10px 12px; border-radius:10px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
+  .delete-conversation { margin-left:auto; border:0; background:transparent; color:rgba(255,158,139,.58); padding:5px 2px; font:inherit; font-size:11px; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+  .delete-conversation:hover { color:var(--barn-red); }
   @media (max-width:850px) {
     .messages-header { display:block; }
     .messages-header .btn { margin-top:14px; }
@@ -221,6 +223,7 @@ async function loadThread(id) {
         <div class="conversation-actions">
           ${thread.status !== 'pending' ? '<button class="btn btn-outline" data-status-action="pending">Mark Needs Reply</button>' : ''}
           ${thread.status !== 'closed' ? '<button class="btn btn-outline" data-status-action="closed">Close Conversation</button>' : '<button class="btn btn-outline" data-status-action="answered">Reopen</button>'}
+          <button class="delete-conversation" id="deleteConversationBtn" type="button">Delete conversation</button>
         </div>
       </div>
       <div class="messages" id="messageThread">
@@ -244,9 +247,38 @@ async function loadThread(id) {
     messageThread.scrollTop = messageThread.scrollHeight;
 
     document.getElementById('sendReplyBtn').addEventListener('click', sendReply);
+    document.getElementById('deleteConversationBtn').addEventListener('click', deleteConversation);
     conversation.querySelectorAll('[data-status-action]').forEach(btn => btn.addEventListener('click', () => setStatus(btn.dataset.statusAction)));
   } catch (err) {
     if (err.message !== 'Admin login required') showError(err.message);
+  }
+}
+
+async function deleteConversation() {
+  const thread = threadMap.get(String(currentThreadId));
+  const label = thread?.subject || 'this conversation';
+  if (!window.confirm(`Delete “${label}”?\n\nThis permanently removes the conversation and its message history.`)) return;
+
+  hideError();
+  const btn = document.getElementById('deleteConversationBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+  }
+
+  try {
+    await messageApi('/api/admin/messages/' + currentThreadId, { method:'DELETE' });
+    currentThreadId = '';
+    updateUrl();
+    document.getElementById('conversation').innerHTML = '<div class="conversation-empty">Select a message to see the conversation.</div>';
+    showSuccess('Conversation deleted.');
+    await loadThreads({ keepSelection:false });
+  } catch (err) {
+    if (err.message !== 'Admin login required') showError(err.message);
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Delete conversation';
+    }
   }
 }
 
