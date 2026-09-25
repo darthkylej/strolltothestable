@@ -1,6 +1,7 @@
 import PostalMime from 'postal-mime';
 import { db } from '../lib/db.js';
 import { json, error, requireAdmin } from '../lib/util.js';
+import { getSiteSettings } from '../lib/siteSettings.js';
 import {
   sendMessageNotification,
   sendMessageCenterReply,
@@ -160,7 +161,13 @@ export async function handleIncomingEmail(message, env) {
   `;
 
   const admins = await sql`SELECT email FROM admins ORDER BY created_at`;
-  const recipients = admins.map(a => a.email).filter(Boolean).slice(0, 50);
+  const adminEmails = admins.map(a => a.email).filter(Boolean);
+  const settings = await getSiteSettings(env);
+  const configured = settings.messageNotifications || {};
+  const selected = Array.isArray(configured[sourceAddress]) ? configured[sourceAddress] : [];
+  const recipients = (selected.length ? selected : adminEmails)
+    .filter(email => adminEmails.includes(email))
+    .slice(0, 50);
   try {
     await sendMessageNotification(env, {
       to: recipients,
@@ -285,13 +292,17 @@ export async function replyToThread(request, env, session, id) {
     WHERE id = ${id}
   `;
 
-  const otherAdmins = await sql`
-    SELECT email
-    FROM admins
-    WHERE lower(email) <> lower(${session.email})
-    ORDER BY created_at
-  `;
-  const recipients = otherAdmins.map(a => a.email).filter(Boolean).slice(0, 50);
+  const allAdmins = await sql`SELECT email FROM admins ORDER BY created_at`;
+  const adminEmails = allAdmins.map(a => a.email).filter(Boolean);
+  const settings = await getSiteSettings(env);
+  const configured = settings.messageNotifications || {};
+  const selected = Array.isArray(configured[thread.source_address])
+    ? configured[thread.source_address]
+    : [];
+  const recipients = (selected.length ? selected : adminEmails)
+    .filter(email => email.toLowerCase() !== session.email.toLowerCase())
+    .filter(email => adminEmails.includes(email))
+    .slice(0, 50);
   try {
     await sendMessageAnsweredNotification(env, {
       to: recipients,
