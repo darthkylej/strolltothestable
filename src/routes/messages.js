@@ -2,11 +2,24 @@ import PostalMime from 'postal-mime';
 import { db } from '../lib/db.js';
 import { json, error, requireAdmin } from '../lib/util.js';
 import { getSiteSettings } from '../lib/siteSettings.js';
+import { createSessionToken } from '../lib/auth.js';
 import {
   sendMessageNotification,
   sendMessageCenterReply,
   sendMessageAnsweredNotification,
 } from '../lib/email.js';
+
+const ADMIN_EMAIL_LINK_TTL_MS = 24 * 60 * 60 * 1000;
+
+async function adminMessageLink(env, adminEmail, threadId) {
+  const next = `/admin-messages.html?id=${encodeURIComponent(threadId)}`;
+  const token = await createSessionToken(
+    env,
+    { kind: 'admin-email-link', email: adminEmail },
+    ADMIN_EMAIL_LINK_TTL_MS
+  );
+  return `https://strolltothestable.com/admin-email-login?token=${encodeURIComponent(token)}&next=${encodeURIComponent(next)}`;
+}
 
 const VALID_ADDRESSES = new Set([
   'info@strolltothestable.com',
@@ -170,18 +183,22 @@ export async function handleIncomingEmail(message, env) {
   const recipients = selected
     .filter(email => adminEmails.includes(email))
     .slice(0, 50);
-  try {
-    await sendMessageNotification(env, {
-      to: recipients,
-      contactEmail: sender,
-      sourceAddress,
-      subject: thread.subject || subject,
-      bodyText,
-      threadId: thread.id,
-      threadCode: thread.thread_code,
-    });
-  } catch (err) {
-    console.error('Message stored but admin notification email failed:', err);
+  for (const recipient of recipients) {
+    try {
+      const messageCenterUrl = await adminMessageLink(env, recipient, thread.id);
+      await sendMessageNotification(env, {
+        to: [recipient],
+        contactEmail: sender,
+        sourceAddress,
+        subject: thread.subject || subject,
+        bodyText,
+        threadId: thread.id,
+        threadCode: thread.thread_code,
+        messageCenterUrl,
+      });
+    } catch (err) {
+      console.error(`Message stored but notification email failed for ${recipient}:`, err);
+    }
   }
 }
 
@@ -305,18 +322,22 @@ export async function replyToThread(request, env, session, id) {
     .filter(email => email.toLowerCase() !== session.email.toLowerCase())
     .filter(email => adminEmails.includes(email))
     .slice(0, 50);
-  try {
-    await sendMessageAnsweredNotification(env, {
-      to: recipients,
-      adminEmail: session.email,
-      contactEmail: thread.contact_email,
-      sourceAddress: thread.source_address,
-      bodyText,
-      threadId: thread.id,
-      threadCode: thread.thread_code,
-    });
-  } catch (err) {
-    console.error('Reply sent but admin answer notification failed:', err);
+  for (const recipient of recipients) {
+    try {
+      const messageCenterUrl = await adminMessageLink(env, recipient, thread.id);
+      await sendMessageAnsweredNotification(env, {
+        to: [recipient],
+        adminEmail: session.email,
+        contactEmail: thread.contact_email,
+        sourceAddress: thread.source_address,
+        bodyText,
+        threadId: thread.id,
+        threadCode: thread.thread_code,
+        messageCenterUrl,
+      });
+    } catch (err) {
+      console.error(`Reply sent but answer notification failed for ${recipient}:`, err);
+    }
   }
 
   return json({ ok: true });
