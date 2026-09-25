@@ -16,8 +16,18 @@ run_worker_first = true
 binding = "PHOTOS"
 bucket_name = "nativity-photos"
 
+# Cloudflare Email Sending binding. Outbound transactional mail is sent
+# from the Stroll to the Stable domain through Email Service.
+[[send_email]]
+name = "EMAIL"
+allowed_sender_addresses = [
+  "submissions@strolltothestable.com",
+  "appointments@strolltothestable.com",
+  "info@strolltothestable.com"
+]
+
 # Secrets (set with `wrangler secret put <NAME>`, never committed here):
 #   DATABASE_URL      — Neon connection string (use the pooled one)
 #   SESSION_SECRET     — random 32+ byte string, signs session cookies
-#   RESEND_API_KEY     — same Resend account/domain as your other apps
-#   RESEND_FROM        — e.g. "Stroll to the Stable <noreply@yourdomain.org>"
+# Email is sent natively through the EMAIL binding above, so Resend
+# credentials are no longer required by the application.
