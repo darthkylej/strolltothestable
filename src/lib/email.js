@@ -3,10 +3,10 @@ const DEFAULT_FROM = {
   name: 'Stroll to the Stable',
 };
 
-async function send(env, { to, cc, from = DEFAULT_FROM, replyTo = DEFAULT_FROM.email, subject, html, text }) {
+async function send(env, { to, cc, from = DEFAULT_FROM, replyTo = DEFAULT_FROM.email, subject, html, text, headers }) {
   if (!env.EMAIL) throw new Error('Cloudflare Email Sending is not configured.');
 
-  await env.EMAIL.send({
+  return env.EMAIL.send({
     from,
     to,
     ...(cc ? { cc } : {}),
@@ -14,6 +14,7 @@ async function send(env, { to, cc, from = DEFAULT_FROM, replyTo = DEFAULT_FROM.e
     subject,
     html,
     ...(text ? { text } : {}),
+    ...(headers ? { headers } : {}),
   });
 }
 
@@ -347,18 +348,59 @@ export async function sendMessageCenterReply(env, {
   subject,
   bodyText,
   threadCode,
+  inReplyTo,
+  references,
+  history = [],
 }) {
   const cleanSubject = String(subject || 'Your Stroll to the Stable message')
     .replace(/\s*\[STTS-[A-Z0-9]+\]\s*$/i, '')
+    .replace(/^Re:\s*/i, '')
     .trim();
 
   const htmlBody = escapeHtml(bodyText || '').replace(/\n/g, '<br>');
-  await send(env, {
+  const recentHistory = Array.isArray(history) ? history.slice(-10) : [];
+
+  const historyText = recentHistory.length
+    ? '\n\n--- Conversation history ---\n' + recentHistory.map((item) => {
+        const speaker = item.direction === 'inbound' ? item.sender_email : 'Stroll to the Stable';
+        return `${speaker}:\n${item.body_text}`;
+      }).join('\n\n')
+    : '';
+
+  const historyHtml = recentHistory.length
+    ? `
+      <div style="margin-top:28px;padding-top:18px;border-top:1px solid #e7e1d5">
+        <div style="margin-bottom:12px;color:#6b7280;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Conversation history</div>
+        ${recentHistory.map((item) => {
+          const speaker = item.direction === 'inbound' ? item.sender_email : 'Stroll to the Stable';
+          return `
+            <div style="margin:0 0 14px;padding:12px 14px;background:#f8f5ed;border-radius:8px">
+              <div style="margin-bottom:5px;color:#6b7280;font-size:12px;font-weight:700">${escapeHtml(speaker)}</div>
+              <div style="color:#374151;line-height:1.55">${escapeHtml(item.body_text || '').replace(/\n/g, '<br>')}</div>
+            </div>`;
+        }).join('')}
+      </div>`
+    : '';
+
+  const replyHeaders = {};
+  if (inReplyTo) replyHeaders['In-Reply-To'] = inReplyTo;
+  const referenceChain = String(references || '').trim();
+  if (referenceChain || inReplyTo) {
+    const combined = [referenceChain, inReplyTo]
+      .filter(Boolean)
+      .join(' ')
+      .split(/\s+/)
+      .filter((value, index, array) => array.indexOf(value) === index)
+      .join(' ');
+    if (combined) replyHeaders.References = combined;
+  }
+
+  return send(env, {
     to,
     from: { email: fromAddress, name: 'Stroll to the Stable' },
     replyTo: fromAddress,
     subject: `Re: ${cleanSubject} [${threadCode}]`,
-    text: bodyText || '',
+    text: (bodyText || '') + historyText,
     html: `
       <div style="margin:0;padding:26px 14px;background:#f4f1e8;font-family:Arial,Helvetica,sans-serif;color:#243142">
         <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #ded8ca;border-radius:16px;overflow:hidden">
@@ -367,10 +409,12 @@ export async function sendMessageCenterReply(env, {
           </div>
           <div style="padding:26px 28px;font-size:16px;line-height:1.65">
             ${htmlBody}
+            ${historyHtml}
             <div style="margin-top:26px;padding-top:16px;border-top:1px solid #e7e1d5;color:#6b7280;font-size:13px">Stroll to the Stable · Seguin, Texas</div>
           </div>
         </div>
       </div>`,
+    headers: Object.keys(replyHeaders).length ? replyHeaders : undefined,
   });
 }
 
