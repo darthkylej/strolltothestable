@@ -382,6 +382,21 @@ export async function replyToThread(request, env, session, id) {
   return json({ ok: true });
 }
 
+export async function deleteThread(request, env, session, id) {
+  requireAdmin(session);
+  await ensureMessageSchema(env);
+  const sql = db(env);
+
+  const rows = await sql`
+    DELETE FROM message_threads
+    WHERE id = ${id}
+    RETURNING id
+  `;
+
+  if (!rows.length) return error('Message conversation not found.', 404);
+  return json({ ok: true });
+}
+
 export async function updateThreadStatus(request, env, session, id) {
   requireAdmin(session);
   await ensureMessageSchema(env);
