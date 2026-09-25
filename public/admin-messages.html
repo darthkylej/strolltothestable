@@ -8,19 +8,30 @@
 <style>
   .messages-page {
     max-width:none;
-    width:calc(100vw - 20px);
+    width:calc(100vw - 40px);
     height:calc(100vh - 76px);
     margin:0 auto;
-    padding:10px 0 0;
+    padding:14px 10px 0;
     display:grid;
     grid-template-rows:auto auto minmax(0,1fr);
     gap:7px;
   }
-  .messages-header { display:flex; justify-content:space-between; gap:12px; align-items:center; margin:0; }
-  .messages-header h1 { margin:0; font-size:1.55rem; }
-  .messages-header .eyebrow { margin:0 0 2px; }
-  .messages-header p:not(.eyebrow) { margin:2px 0 0; color:var(--wood); font-size:12px; }
-  .messages-header .btn { width:auto; margin:0; padding:7px 10px; font-size:12px; }
+  .messages-header { display:flex; justify-content:space-between; gap:18px; align-items:center; margin:0; padding:0 4px 2px; }
+  .messages-header h1 { margin:0; font-size:1.55rem; line-height:1.12; }
+  .messages-header .eyebrow { margin:0 0 4px; }
+  .messages-header p:not(.eyebrow) { margin:4px 0 0; color:var(--wood); font-size:12px; line-height:1.35; }
+  .messages-header .btn {
+    width:auto;
+    margin:0;
+    padding:8px 13px;
+    min-height:36px;
+    font-size:12px;
+    line-height:1;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    white-space:nowrap;
+  }
 
   .summary-row {
     display:flex;
@@ -135,13 +146,28 @@
   .reply-actions .btn { width:auto; margin:0; padding:7px 11px; font-size:12px; }
   .reply-from { color:var(--muted); font-size:10px; }
 
-  .message-success { display:none; margin:0; padding:7px 9px; border-radius:8px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); font-size:12px; }
+  .message-success {
+    display:none;
+    position:fixed;
+    top:84px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:20;
+    margin:0;
+    padding:7px 10px;
+    border-radius:8px;
+    color:#d7f7df;
+    background:rgba(34,115,65,.96);
+    border:1px solid rgba(115,214,142,.34);
+    font-size:12px;
+    box-shadow:0 8px 22px rgba(0,0,0,.28);
+  }
   .delete-conversation { margin-left:auto; border:0; background:transparent; color:rgba(255,158,139,.55); padding:3px 1px; font:inherit; font-size:10px; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
   .delete-conversation:hover { color:var(--barn-red); }
 
   @media (max-width:850px) {
-    .messages-page { width:calc(100vw - 14px); height:auto; min-height:calc(100vh - 70px); grid-template-rows:auto auto auto; }
-    .messages-header { align-items:flex-start; }
+    .messages-page { width:calc(100vw - 18px); height:auto; min-height:calc(100vh - 70px); padding:12px 6px 0; grid-template-rows:auto auto auto; }
+    .messages-header { align-items:flex-start; padding:0 2px 2px; }
     .messages-header p:not(.eyebrow) { display:none; }
     .summary-row { flex-wrap:wrap; }
     .message-layout { grid-template-columns:1fr; height:auto; }
