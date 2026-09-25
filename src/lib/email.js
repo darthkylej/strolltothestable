@@ -301,6 +301,44 @@ export async function sendMessageNotification(env, {
   });
 }
 
+export async function sendMessageAnsweredNotification(env, {
+  to,
+  adminEmail,
+  contactEmail,
+  sourceAddress,
+  bodyText,
+  threadId,
+  threadCode,
+}) {
+  if (!Array.isArray(to) || to.length === 0) return;
+
+  const messageCenterUrl = `https://strolltothestable.com/admin-messages.html?id=${encodeURIComponent(threadId)}`;
+  const safeBody = escapeHtml(bodyText || '').replace(/\n/g, '<br>');
+
+  await send(env, {
+    to,
+    from: { email: sourceAddress, name: 'Stroll to the Stable' },
+    replyTo: sourceAddress,
+    subject: `Message answered [${threadCode}]`,
+    text: `${adminEmail} replied to ${contactEmail}:\n\n${bodyText || ''}\n\nView the conversation: ${messageCenterUrl}`,
+    html: `
+      <div style="margin:0;padding:26px 14px;background:#f4f1e8;font-family:Arial,Helvetica,sans-serif;color:#243142">
+        <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #ded8ca;border-radius:16px;overflow:hidden">
+          <div style="padding:22px 28px;background:#12233d;color:#fff">
+            <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#e8c878;font-weight:700">Stroll to the Stable</div>
+            <h1 style="margin:7px 0 0;font-size:22px">A message was answered</h1>
+          </div>
+          <div style="padding:26px 28px">
+            <p style="margin:0 0 15px;line-height:1.6"><b>${escapeHtml(adminEmail)}</b> replied to <b>${escapeHtml(contactEmail)}</b> from ${escapeHtml(sourceAddress)}:</p>
+            <div style="padding:16px 18px;background:#f8f5ed;border:1px solid #e5ddca;border-radius:10px;line-height:1.65">${safeBody}</div>
+            <p style="margin:18px 0;color:#6b7280;font-size:13px">Conversation code: ${escapeHtml(threadCode)}</p>
+            <a href="${messageCenterUrl}" style="display:inline-block;padding:12px 18px;background:#203a5f;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">View Conversation</a>
+          </div>
+        </div>
+      </div>`,
+  });
+}
+
 export async function sendMessageCenterReply(env, {
   to,
   fromAddress,
