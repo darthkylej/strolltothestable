@@ -14,6 +14,16 @@
   .admin-entry .meta { color:var(--muted); font-size:13px; margin-top:3px; }
   .admin-entry .btn { width:auto; margin:0; padding:9px 14px; flex:0 0 auto; }
   .admin-success { display:none; margin:0 0 16px; padding:12px 14px; border-radius:12px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
+  .alert-matrix-wrap { overflow-x:auto; margin-top:14px; }
+  .alert-matrix { width:100%; border-collapse:collapse; min-width:620px; }
+  .alert-matrix th, .alert-matrix td { padding:12px 10px; border-bottom:1px solid var(--border); text-align:center; }
+  .alert-matrix th:first-child, .alert-matrix td:first-child { text-align:left; }
+  .alert-matrix th { color:var(--gold-bright); font-size:13px; }
+  .alert-matrix td:first-child { color:var(--text); font-weight:650; overflow-wrap:anywhere; }
+  .alert-matrix input[type="checkbox"] { width:20px; height:20px; margin:0; accent-color:var(--gold); }
+  .notification-help { color:var(--muted); font-size:13px; line-height:1.5; margin:5px 0 0; }
+  .notification-actions { display:flex; gap:10px; align-items:center; margin-top:14px; }
+  .notification-actions .btn { width:auto; margin:0; }
   @media (max-width:620px) { .manage-header { display:block; } .manage-header .btn { margin-top:14px; } }
 </style>
 </head>
@@ -41,6 +51,29 @@
   </div>
 
   <div class="card">
+    <h2>Message Notifications</h2>
+    <p class="notification-help">Choose which admins receive email alerts for each Stroll address. This only controls notifications; all admins can still open and reply to every conversation in the Message Center.</p>
+    <div class="alert-matrix-wrap">
+      <table class="alert-matrix">
+        <thead>
+          <tr>
+            <th>Admin</th>
+            <th>info@</th>
+            <th>appointments@</th>
+            <th>submissions@</th>
+          </tr>
+        </thead>
+        <tbody id="notificationMatrix">
+          <tr><td colspan="4" style="text-align:center;color:var(--muted)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="notification-actions">
+      <button class="btn btn-primary" id="saveNotificationsBtn">Save Notification Settings</button>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Current Admins</h2>
     <div id="list" style="margin-top:8px"></div>
   </div>
@@ -48,6 +81,12 @@
 <script src="/js/app.js"></script>
 <script>
 let currentAdmins = new Map();
+let notificationSettings = {};
+const messageAddresses = [
+  'info@strolltothestable.com',
+  'appointments@strolltothestable.com',
+  'submissions@strolltothestable.com',
+];
 
 function esc(value) {
   return String(value ?? '')
@@ -68,8 +107,13 @@ function showSuccess(message) {
 async function load() {
   hideError();
   try {
-    const { admins } = await api('/api/admin/admins');
+    const [{ admins }, notificationData] = await Promise.all([
+      api('/api/admin/admins'),
+      api('/api/admin/message-notifications'),
+    ]);
     currentAdmins = new Map(admins.map((a) => [a.email, a]));
+    notificationSettings = notificationData.notifications || {};
+    renderNotificationMatrix(admins.map(a => a.email));
     document.getElementById('list').innerHTML = admins.map((a) => `
       <div class="admin-entry">
         <div>
@@ -83,6 +127,51 @@ async function load() {
     showError(err.message);
   }
 }
+
+function renderNotificationMatrix(adminEmails) {
+  const body = document.getElementById('notificationMatrix');
+  if (!adminEmails.length) {
+    body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No admins available.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = adminEmails.map((email) => `
+    <tr>
+      <td>${esc(email)}</td>
+      ${messageAddresses.map((address) => {
+        const checked = Array.isArray(notificationSettings[address]) && notificationSettings[address].includes(email);
+        return `<td><input type="checkbox" data-notify-email="${esc(email)}" data-notify-address="${esc(address)}" ${checked ? 'checked' : ''} aria-label="${esc(email)} alerts for ${esc(address)}"></td>`;
+      }).join('')}
+    </tr>
+  `).join('');
+}
+
+document.getElementById('saveNotificationsBtn').addEventListener('click', async () => {
+  hideError();
+  const btn = document.getElementById('saveNotificationsBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const notifications = {};
+  for (const address of messageAddresses) {
+    notifications[address] = [...document.querySelectorAll(`[data-notify-address="${address}"]:checked`)]
+      .map((box) => box.dataset.notifyEmail);
+  }
+
+  try {
+    const result = await api('/api/admin/message-notifications', {
+      method: 'POST',
+      body: { notifications },
+    });
+    notificationSettings = result.notifications || notifications;
+    showSuccess('Message notification settings saved.');
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Notification Settings';
+  }
+});
 
 document.getElementById('addBtn').addEventListener('click', async () => {
   hideError();
