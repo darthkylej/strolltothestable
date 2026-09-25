@@ -1,5 +1,11 @@
 import { db } from '../lib/db.js';
-import { generateOtp, hashOtp, createSessionToken, sessionCookieHeader } from '../lib/auth.js';
+import {
+  generateOtp,
+  hashOtp,
+  createSessionToken,
+  verifySessionToken,
+  sessionCookieHeader,
+} from '../lib/auth.js';
 import { sendAdminOtpEmail } from '../lib/email.js';
 import { json, error } from '../lib/util.js';
 
@@ -44,4 +50,59 @@ export async function verifyOtp(request, env) {
 
   const token = await createSessionToken(env, { kind: 'admin', email: normalized });
   return json({ ok: true }, { headers: { 'Set-Cookie': sessionCookieHeader(token) } });
+}
+
+
+export async function emailLogin(request, env) {
+  const url = new URL(request.url);
+  const token = url.searchParams.get('token') || '';
+  const requestedNext = url.searchParams.get('next') || '/admin-messages.html';
+  const safeNext = requestedNext.startsWith('/') && !requestedNext.startsWith('//')
+    ? requestedNext
+    : '/admin-messages.html';
+  const fallback = '/admin-login.html?next=' + encodeURIComponent(safeNext);
+
+  let payload = null;
+  try {
+    payload = await verifySessionToken(env, token);
+  } catch {
+    payload = null;
+  }
+
+  if (!payload || payload.kind !== 'admin-email-link' || !payload.email) {
+    return new Response(null, {
+      status: 302,
+      headers: { Location: fallback },
+    });
+  }
+
+  const normalized = String(payload.email).trim().toLowerCase();
+  const sql = db(env);
+  const admins = await sql`
+    SELECT email
+    FROM admins
+    WHERE lower(email) = ${normalized}
+    LIMIT 1
+  `;
+
+  if (admins.length === 0) {
+    return new Response(null, {
+      status: 302,
+      headers: { Location: fallback },
+    });
+  }
+
+  const sessionToken = await createSessionToken(env, {
+    kind: 'admin',
+    email: normalized,
+  });
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: safeNext,
+      'Set-Cookie': sessionCookieHeader(sessionToken),
+      'Cache-Control': 'no-store',
+    },
+  });
 }
