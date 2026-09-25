@@ -1,25 +1,19 @@
-// Thin wrapper over the Resend REST API — no SDK needed, matches how
-// Resend is used in your other Cloudflare apps against the same domain.
+const DEFAULT_FROM = {
+  email: 'submissions@strolltothestable.com',
+  name: 'Stroll to the Stable',
+};
 
 async function send(env, { to, cc, subject, html }) {
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: env.RESEND_FROM,
-      to,
-      ...(cc ? { cc } : {}),
-      subject,
-      html,
-    }),
+  if (!env.EMAIL) throw new Error('Cloudflare Email Sending is not configured.');
+
+  await env.EMAIL.send({
+    from: DEFAULT_FROM,
+    to,
+    ...(cc ? { cc } : {}),
+    replyTo: 'submissions@strolltothestable.com',
+    subject,
+    html,
   });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Resend error ${res.status}: ${body}`);
-  }
 }
 
 function formatScheduleDate(value) {
