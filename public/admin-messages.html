@@ -317,7 +317,9 @@ async function loadThread(id) {
         <h2>${esc(thread.subject || 'No subject')}</h2>
         <p><b>${esc(thread.contact_email)}</b> → ${esc(thread.source_address)} · ${esc(thread.thread_code)}</p>
         <div class="conversation-actions">
-          ${thread.status !== 'pending' ? '<button class="btn btn-outline" data-status-action="pending">Mark Needs Reply</button>' : ''}
+          ${thread.status === 'pending'
+            ? '<button class="btn btn-outline" data-status-action="answered">No Reply Needed</button>'
+            : '<button class="btn btn-outline" data-status-action="pending">Mark Needs Reply</button>'}
           <button class="delete-conversation" id="deleteConversationBtn" type="button">Delete conversation</button>
         </div>
       </div>
@@ -397,7 +399,7 @@ async function setStatus(status) {
   hideError();
   try {
     await messageApi('/api/admin/messages/' + currentThreadId + '/status', { method:'POST', body:{ status } });
-    showSuccess('Conversation status updated.');
+    showSuccess(status === 'answered' ? 'Marked as not needing a reply.' : 'Marked as needing a reply.');
     await loadThreads({ keepSelection:true });
   } catch (err) {
     if (err.message !== 'Admin login required') showError(err.message);
