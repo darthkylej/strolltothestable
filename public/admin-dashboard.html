@@ -10,13 +10,13 @@
   .admin-home-header { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:26px; }
   .admin-home-header p { margin:6px 0 0; color:var(--wood); }
   .admin-home-header .btn { width:auto; margin:0; }
-  .admin-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
-  .admin-card { display:block; text-decoration:none; padding:22px; border:1px solid var(--border); border-radius:18px; background:rgba(8,16,31,.72); transition:.15s ease; }
+  .admin-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+  .admin-card { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:72px; text-decoration:none; padding:14px 16px; border:1px solid var(--border); border-radius:14px; background:rgba(8,16,31,.72); transition:.15s ease; }
   .admin-card:hover { transform:translateY(-2px); border-color:var(--border-strong); background:rgba(14,25,44,.92); }
-  .admin-card h2 { margin:0 0 7px; color:var(--gold-bright); font-size:1.2rem; }
-  .admin-card p { margin:0; color:var(--wood); line-height:1.5; }
-  .admin-card .admin-card-action { display:inline-block; margin-top:15px; color:var(--gold); font-weight:800; }
-  .admin-card-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+  .admin-card h2 { margin:0; color:var(--gold-bright); font-size:1.05rem; }
+  .admin-card p,
+  .admin-card .admin-card-action { display:none; }
+  .admin-card-head { display:flex; justify-content:space-between; gap:10px; align-items:center; width:100%; }
   .pending-badge { display:none; min-width:30px; height:30px; align-items:center; justify-content:center; padding:0 9px; border-radius:999px; background:#f2c76e; color:#10172a; font-weight:900; font-size:13px; }
   @media (max-width:700px) {
     .admin-home-header { display:block; }
