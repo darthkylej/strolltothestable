@@ -1,7 +1,11 @@
 import PostalMime from 'postal-mime';
 import { db } from '../lib/db.js';
 import { json, error, requireAdmin } from '../lib/util.js';
-import { sendMessageNotification, sendMessageCenterReply } from '../lib/email.js';
+import {
+  sendMessageNotification,
+  sendMessageCenterReply,
+  sendMessageAnsweredNotification,
+} from '../lib/email.js';
 
 const VALID_ADDRESSES = new Set([
   'info@strolltothestable.com',
@@ -280,6 +284,27 @@ export async function replyToThread(request, env, session, id) {
     SET status = 'answered', last_message_at = now(), updated_at = now()
     WHERE id = ${id}
   `;
+
+  const otherAdmins = await sql`
+    SELECT email
+    FROM admins
+    WHERE lower(email) <> lower(${session.email})
+    ORDER BY created_at
+  `;
+  const recipients = otherAdmins.map(a => a.email).filter(Boolean).slice(0, 50);
+  try {
+    await sendMessageAnsweredNotification(env, {
+      to: recipients,
+      adminEmail: session.email,
+      contactEmail: thread.contact_email,
+      sourceAddress: thread.source_address,
+      bodyText,
+      threadId: thread.id,
+      threadCode: thread.thread_code,
+    });
+  } catch (err) {
+    console.error('Reply sent but admin answer notification failed:', err);
+  }
 
   return json({ ok: true });
 }
