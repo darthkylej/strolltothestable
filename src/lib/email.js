@@ -372,11 +372,15 @@ export async function sendMessageCenterReply(env, {
       <div style="margin-top:28px;padding-top:18px;border-top:1px solid #e7e1d5">
         <div style="margin-bottom:12px;color:#6b7280;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Conversation history</div>
         ${recentHistory.map((item) => {
-          const speaker = item.direction === 'inbound' ? item.sender_email : 'Stroll to the Stable';
+          const isQuestioner = item.direction === 'inbound';
+          const speaker = isQuestioner ? item.sender_email : 'Stroll to the Stable';
+          const bubbleBackground = isQuestioner ? '#f2eee5' : '#e7f0fb';
+          const bubbleBorder = isQuestioner ? '#ddd5c6' : '#c7d9ef';
+          const speakerColor = isQuestioner ? '#7a6041' : '#315d8f';
           return `
-            <div style="margin:0 0 14px;padding:12px 14px;background:#f8f5ed;border-radius:8px">
-              <div style="margin-bottom:5px;color:#6b7280;font-size:12px;font-weight:700">${escapeHtml(speaker)}</div>
-              <div style="color:#374151;line-height:1.55">${escapeHtml(item.body_text || '').replace(/\n/g, '<br>')}</div>
+            <div style="margin:0 0 10px;padding:10px 12px;background:${bubbleBackground};border:1px solid ${bubbleBorder};border-radius:9px">
+              <div style="margin-bottom:4px;color:${speakerColor};font-size:12px;font-weight:700">${escapeHtml(speaker)}</div>
+              <div style="color:#374151;line-height:1.5">${escapeHtml(item.body_text || '').replace(/\n/g, '<br>')}</div>
             </div>`;
         }).join('')}
       </div>`
@@ -399,7 +403,7 @@ export async function sendMessageCenterReply(env, {
     to,
     from: { email: fromAddress, name: 'Stroll to the Stable' },
     replyTo: fromAddress,
-    subject: `Re: ${cleanSubject} [${threadCode}]`,
+    subject: `Re: ${cleanSubject}`,
     text: (bodyText || '') + historyText,
     html: `
       <div style="margin:0;padding:26px 14px;background:#f4f1e8;font-family:Arial,Helvetica,sans-serif;color:#243142">
