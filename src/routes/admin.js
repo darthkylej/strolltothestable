@@ -464,6 +464,62 @@ export async function deleteTourMedia(request, env, session) {
   return json({ ok: true });
 }
 
+const MESSAGE_NOTIFICATION_ADDRESSES = [
+  'info@strolltothestable.com',
+  'appointments@strolltothestable.com',
+  'submissions@strolltothestable.com',
+];
+
+export async function getMessageNotificationSettings(request, env, session) {
+  requireAdmin(session);
+  const sql = db(env);
+  const [settings, admins] = await Promise.all([
+    getSiteSettings(env),
+    sql`SELECT email FROM admins ORDER BY created_at`,
+  ]);
+
+  const adminEmails = admins.map(a => a.email);
+  const configured = settings.messageNotifications || {};
+  const notifications = {};
+
+  for (const address of MESSAGE_NOTIFICATION_ADDRESSES) {
+    const current = Array.isArray(configured[address]) ? configured[address] : [];
+    notifications[address] = current.length
+      ? current.filter(email => adminEmails.includes(email))
+      : [...adminEmails];
+  }
+
+  return json({ admins: adminEmails, notifications });
+}
+
+export async function updateMessageNotificationSettings(request, env, session) {
+  requireAdmin(session);
+  const body = await request.json();
+  const sql = db(env);
+  const admins = await sql`SELECT email FROM admins ORDER BY created_at`;
+  const validAdmins = new Set(admins.map(a => a.email));
+  const notifications = {};
+
+  for (const address of MESSAGE_NOTIFICATION_ADDRESSES) {
+    const requested = Array.isArray(body.notifications?.[address])
+      ? body.notifications[address]
+      : [];
+    notifications[address] = [...new Set(
+      requested
+        .map(v => String(v || '').trim().toLowerCase())
+        .filter(email => validAdmins.has(email))
+    )];
+  }
+
+  const settings = await updateSiteSettings(
+    env,
+    { messageNotifications: notifications },
+    session.email
+  );
+
+  return json({ ok: true, notifications: settings.messageNotifications });
+}
+
 export async function listAdmins(request, env, session) {
   requireAdmin(session);
   const sql = db(env);
