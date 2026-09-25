@@ -12,11 +12,7 @@ const DEFAULT_SETTINGS = {
   dropoffDays: [],
   pickupDays: [],
   landingBackgroundKey: '',
-  messageNotifications: {
-    'info@strolltothestable.com': [],
-    'appointments@strolltothestable.com': [],
-    'submissions@strolltothestable.com': [],
-  },
+  messageNotifications: null,
 };
 
 export async function getSiteSettings(env) {
