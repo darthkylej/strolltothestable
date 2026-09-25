@@ -95,36 +95,44 @@ function stripHtml(html) {
 }
 
 function cleanReplyText(text) {
-  let value = String(text || '').replace(/\r\n/g, '\n').trim();
+  const value = String(text || '').replace(/\r\n/g, '\n').trim();
   if (!value) return '';
 
-  const markers = [
-    /(?:^|\n)On .+?wrote:\s*(?:\n|$)/i,
-    /(?:^|\n)From:\s.+(?:\n|$)[\s\S]*?Subject:\s.+(?:\n|$)/i,
-    /(?:^|\n)-{2,}\s*Original Message\s*-{2,}(?:\n|$)/i,
-    /(?:^|\n)_{5,}(?:\n|$)/,
-    /(?:^|\n)Sent with Proton Mail(?:\n|$)/i,
-  ];
-
-  let cut = value.length;
-  for (const re of markers) {
-    const match = re.exec(value);
-    if (match && match.index < cut) cut = match.index;
-  }
-
-  value = value.slice(0, cut).trim();
-
-  // Gmail, Proton Mail, Outlook and many mobile clients prefix quoted
-  // history lines with ">". Once a quoted block begins, keep only the
-  // newly typed reply above it.
   const lines = value.split('\n');
-  const cleaned = [];
-  for (const line of lines) {
-    if (/^\s*>/.test(line)) break;
-    cleaned.push(line);
+
+  // Find the first obvious quoted-history boundary. Gmail commonly emits
+  // "On <date> ... wrote:" and can wrap that header across several lines.
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    if (/^\s*>/.test(lines[i])) {
+      return lines.slice(0, i).join('\n').trim();
+    }
+
+    if (/^-{2,}\s*Original Message\s*-{2,}$/i.test(line)) {
+      return lines.slice(0, i).join('\n').trim();
+    }
+
+    if (/^From:\s/i.test(line)) {
+      const lookahead = lines.slice(i, Math.min(i + 8, lines.length)).join('\n');
+      if (/\nSent:\s/i.test(lookahead) && /\nTo:\s/i.test(lookahead) && /\nSubject:\s/i.test(lookahead)) {
+        return lines.slice(0, i).join('\n').trim();
+      }
+    }
+
+    if (/^On\s.+/i.test(line)) {
+      const lookahead = lines.slice(i, Math.min(i + 6, lines.length)).join(' ');
+      if (/\bwrote:\s*$/i.test(lookahead.trim()) || /\bwrote:/i.test(lookahead)) {
+        return lines.slice(0, i).join('\n').trim();
+      }
+    }
+
+    if (/^Sent with Proton Mail$/i.test(line) || /^_{5,}$/.test(line)) {
+      return lines.slice(0, i).join('\n').trim();
+    }
   }
 
-  return cleaned.join('\n').trim();
+  return value;
 }
 
 export async function handleIncomingEmail(message, env) {
@@ -362,7 +370,13 @@ export async function getThread(request, env, session, id) {
     ORDER BY created_at, id
   `;
 
-  return json({ thread: rows[0], messages: items });
+  return json({
+    thread: rows[0],
+    messages: items.map(item => ({
+      ...item,
+      body_text: cleanReplyText(item.body_text) || item.body_text,
+    })),
+  });
 }
 
 export async function replyToThread(request, env, session, id) {
@@ -383,6 +397,10 @@ export async function replyToThread(request, env, session, id) {
     WHERE thread_id = ${id}
     ORDER BY created_at, id
   `;
+  const cleanedHistory = history.map(item => ({
+    ...item,
+    body_text: cleanReplyText(item.body_text) || item.body_text,
+  }));
   const latestInbound = [...history].reverse().find(item => item.direction === 'inbound');
 
   const sendResult = await sendMessageCenterReply(env, {
@@ -393,7 +411,7 @@ export async function replyToThread(request, env, session, id) {
     threadCode: thread.thread_code,
     inReplyTo: latestInbound?.message_id || '',
     references: latestInbound?.references_header || '',
-    history,
+    history: cleanedHistory,
   });
 
   await sql`
