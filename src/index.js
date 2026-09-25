@@ -4,6 +4,7 @@ import * as adminAuth from './routes/adminAuth.js';
 import * as nativities from './routes/nativities.js';
 import * as admin from './routes/admin.js';
 import * as settings from './routes/settings.js';
+import * as messages from './routes/messages.js';
 import { getTour } from './routes/tour.js';
 import { error } from './lib/util.js';
 
@@ -215,6 +216,18 @@ export default {
       if (path === '/api/admin/tour-media' && method === 'POST') return await admin.uploadTourMedia(request, env, session);
       if (path === '/api/admin/tour-media' && method === 'DELETE') return await admin.deleteTourMedia(request, env, session);
 
+      if (path === '/api/admin/messages' && method === 'GET') return await messages.listThreads(request, env, session);
+
+      if ((m = path.match(/^\/api\/admin\/messages\/(\d+)$/)) && method === 'GET') {
+        return await messages.getThread(request, env, session, m[1]);
+      }
+      if ((m = path.match(/^\/api\/admin\/messages\/(\d+)\/reply$/)) && method === 'POST') {
+        return await messages.replyToThread(request, env, session, m[1]);
+      }
+      if ((m = path.match(/^\/api\/admin\/messages\/(\d+)\/status$/)) && method === 'POST') {
+        return await messages.updateThreadStatus(request, env, session, m[1]);
+      }
+
       if ((m = path.match(/^\/api\/admin\/admins\/([^/]+)$/)) && method === 'DELETE') {
         return await admin.removeAdmin(request, env, session, decodeURIComponent(m[1]));
       }
@@ -260,6 +273,15 @@ export default {
       if (err instanceof Response) return err;
       console.error(err);
       return error('Something went wrong. Please try again.', 500);
+    }
+  },
+
+  async email(message, env, ctx) {
+    try {
+      await messages.handleIncomingEmail(message, env);
+    } catch (err) {
+      console.error('Incoming email processing failed:', err);
+      throw err;
     }
   },
 };
