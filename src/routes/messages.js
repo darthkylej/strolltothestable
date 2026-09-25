@@ -165,7 +165,8 @@ export async function handleIncomingEmail(message, env) {
         SELECT DISTINCT t.*
         FROM message_threads t
         JOIN message_items m ON m.thread_id = t.id
-        WHERE m.message_id = ANY(${headerIds})
+        WHERE regexp_replace(coalesce(m.message_id, ''), '[<>]', '', 'g')
+          = ANY(${headerIds.map(v => v.replace(/[<>]/g, ''))}::text[])
         ORDER BY t.updated_at DESC
         LIMIT 1
       `;
@@ -364,7 +365,7 @@ export async function replyToThread(request, env, session, id) {
   `;
   const latestInbound = [...history].reverse().find(item => item.direction === 'inbound');
 
-  await sendMessageCenterReply(env, {
+  const sendResult = await sendMessageCenterReply(env, {
     to: thread.contact_email,
     fromAddress: thread.source_address,
     subject: thread.subject,
@@ -376,8 +377,22 @@ export async function replyToThread(request, env, session, id) {
   });
 
   await sql`
-    INSERT INTO message_items (thread_id, direction, sender_email, admin_email, body_text)
-    VALUES (${id}, 'outbound', ${thread.source_address}, ${session.email}, ${bodyText})
+    INSERT INTO message_items (
+      thread_id,
+      direction,
+      sender_email,
+      admin_email,
+      body_text,
+      message_id
+    )
+    VALUES (
+      ${id},
+      'outbound',
+      ${thread.source_address},
+      ${session.email},
+      ${bodyText},
+      ${sendResult?.messageId || null}
+    )
   `;
   await sql`
     UPDATE message_threads
