@@ -342,6 +342,23 @@ export async function sendMessageAnsweredNotification(env, {
   });
 }
 
+function normalizeMessageId(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const stripped = raw.replace(/^<|>$/g, '').trim();
+  return stripped ? `<${stripped}>` : '';
+}
+
+function normalizeReferenceChain(value) {
+  const ids = String(value || '')
+    .match(/<[^<>]+>|[^\s]+/g) || [];
+  return ids
+    .map(normalizeMessageId)
+    .filter(Boolean)
+    .filter((id, index, all) => all.indexOf(id) === index)
+    .join(' ');
+}
+
 export async function sendMessageCenterReply(env, {
   to,
   fromAddress,
@@ -387,17 +404,14 @@ export async function sendMessageCenterReply(env, {
     : '';
 
   const replyHeaders = {};
-  if (inReplyTo) replyHeaders['In-Reply-To'] = inReplyTo;
-  const referenceChain = String(references || '').trim();
-  if (referenceChain || inReplyTo) {
-    const combined = [referenceChain, inReplyTo]
-      .filter(Boolean)
-      .join(' ')
-      .split(/\s+/)
-      .filter((value, index, array) => array.indexOf(value) === index)
-      .join(' ');
-    if (combined) replyHeaders.References = combined;
-  }
+  const normalizedReplyTo = normalizeMessageId(inReplyTo);
+  if (normalizedReplyTo) replyHeaders['In-Reply-To'] = normalizedReplyTo;
+
+  const referenceChain = normalizeReferenceChain(references);
+  const combinedReferences = normalizeReferenceChain(
+    [referenceChain, normalizedReplyTo].filter(Boolean).join(' ')
+  );
+  if (combinedReferences) replyHeaders.References = combinedReferences;
 
   return send(env, {
     to,
