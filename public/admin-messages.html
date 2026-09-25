@@ -22,23 +22,21 @@
   .messages-header p:not(.eyebrow) { margin:2px 0 0; color:var(--wood); font-size:12px; }
   .messages-header .btn { width:auto; margin:0; padding:7px 10px; font-size:12px; }
 
-  .summary-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:0; }
-  .summary-btn {
-    appearance:none;
-    border:1px solid var(--border);
-    border-radius:8px;
-    background:rgba(8,16,31,.58);
-    color:var(--text);
-    padding:5px 8px;
-    text-align:left;
-    font:inherit;
+  .summary-row {
     display:flex;
     align-items:center;
-    gap:6px;
-    cursor:default;
+    gap:12px;
+    margin:0;
+    padding:4px 8px;
+    border:1px solid var(--border);
+    border-radius:7px;
+    background:rgba(8,16,31,.52);
+    font-size:11px;
+    line-height:1.2;
   }
-  .summary-count { color:var(--gold-bright); font-family:'Fraunces',Georgia,serif; font-size:1rem; line-height:1; }
-  .summary-label { color:var(--muted); font-size:.66rem; text-transform:uppercase; letter-spacing:.035em; font-weight:700; }
+  .summary-item { display:flex; align-items:center; gap:4px; white-space:nowrap; }
+  .summary-count { color:var(--gold-bright); font-weight:800; }
+  .summary-label { color:var(--muted); }
 
   .message-layout {
     display:grid;
@@ -145,7 +143,7 @@
     .messages-page { width:calc(100vw - 14px); height:auto; min-height:calc(100vh - 70px); grid-template-rows:auto auto auto; }
     .messages-header { align-items:flex-start; }
     .messages-header p:not(.eyebrow) { display:none; }
-    .summary-row { grid-template-columns:repeat(2,1fr); }
+    .summary-row { flex-wrap:wrap; }
     .message-layout { grid-template-columns:1fr; height:auto; }
     .thread-list { max-height:36vh; }
     .conversation { height:auto; min-height:52vh; }
@@ -167,10 +165,10 @@
   <div class="error-banner" data-error-banner></div>
   <div class="message-success" id="successBanner"></div>
 
-  <div class="summary-row">
-    <div class="summary-btn"><span class="summary-count" id="countPending">—</span><span class="summary-label">Needs Reply</span></div>
-    <div class="summary-btn"><span class="summary-count" id="countAnswered">—</span><span class="summary-label">Answered</span></div>
-    <div class="summary-btn"><span class="summary-count" id="countAll">—</span><span class="summary-label">All</span></div>
+  <div class="summary-row" aria-label="Message totals">
+    <span class="summary-item"><span class="summary-count" id="countPending">—</span><span class="summary-label">need reply</span></span>
+    <span class="summary-item"><span class="summary-count" id="countAnswered">—</span><span class="summary-label">answered</span></span>
+    <span class="summary-item"><span class="summary-count" id="countAll">—</span><span class="summary-label">total</span></span>
   </div>
 
   <div class="message-layout">
