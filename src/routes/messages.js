@@ -163,9 +163,11 @@ export async function handleIncomingEmail(message, env) {
   const admins = await sql`SELECT email FROM admins ORDER BY created_at`;
   const adminEmails = admins.map(a => a.email).filter(Boolean);
   const settings = await getSiteSettings(env);
-  const configured = settings.messageNotifications || {};
-  const selected = Array.isArray(configured[sourceAddress]) ? configured[sourceAddress] : [];
-  const recipients = (selected.length ? selected : adminEmails)
+  const configured = settings.messageNotifications;
+  const selected = configured && Array.isArray(configured[sourceAddress])
+    ? configured[sourceAddress]
+    : adminEmails;
+  const recipients = selected
     .filter(email => adminEmails.includes(email))
     .slice(0, 50);
   try {
@@ -295,11 +297,11 @@ export async function replyToThread(request, env, session, id) {
   const allAdmins = await sql`SELECT email FROM admins ORDER BY created_at`;
   const adminEmails = allAdmins.map(a => a.email).filter(Boolean);
   const settings = await getSiteSettings(env);
-  const configured = settings.messageNotifications || {};
-  const selected = Array.isArray(configured[thread.source_address])
+  const configured = settings.messageNotifications;
+  const selected = configured && Array.isArray(configured[thread.source_address])
     ? configured[thread.source_address]
-    : [];
-  const recipients = (selected.length ? selected : adminEmails)
+    : adminEmails;
+  const recipients = selected
     .filter(email => email.toLowerCase() !== session.email.toLowerCase())
     .filter(email => adminEmails.includes(email))
     .slice(0, 50);
