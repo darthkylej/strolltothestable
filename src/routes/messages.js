@@ -158,19 +158,22 @@ export async function handleIncomingEmail(message, env) {
 
   if (!thread && (inReplyTo || referencesHeader)) {
     const headerIds = [inReplyTo, ...referencesHeader.split(/\s+/)]
-      .map(v => String(v || '').trim())
+      .map(v => String(v || '').trim().replace(/[<>]/g, ''))
       .filter(Boolean);
-    if (headerIds.length) {
+
+    for (const headerId of headerIds) {
       const rows = await sql`
         SELECT DISTINCT t.*
         FROM message_threads t
         JOIN message_items m ON m.thread_id = t.id
-        WHERE regexp_replace(coalesce(m.message_id, ''), '[<>]', '', 'g')
-          = ANY(${headerIds.map(v => v.replace(/[<>]/g, ''))}::text[])
+        WHERE regexp_replace(coalesce(m.message_id, ''), '[<>]', '', 'g') = ${headerId}
         ORDER BY t.updated_at DESC
         LIMIT 1
       `;
-      if (rows.length) thread = rows[0];
+      if (rows.length) {
+        thread = rows[0];
+        break;
+      }
     }
   }
 
