@@ -50,10 +50,6 @@ export async function createWaiverPdf(record, signedImage = null, mime = '') {
   line('Signature: '+(record.signature||'________________________________'));
   line('Date: '+(record.method==='digital'?new Date(record.completedAt).toLocaleDateString('en-US',{timeZone:'UTC'}):'________________'));
   line('Printed Name: '+(record.fields.name||''));
-  gap();line('For Event Use Only:',11,true);
-  line('Display ID#: __________  Display Location: __________');
-  line('Received By: __________  Date: __________');
-  line('Returned To Owner: Yes / No  Date: __________');
   if(signedImage){
     let img;
     if(mime==='image/png')img=await pdf.embedPng(signedImage);
