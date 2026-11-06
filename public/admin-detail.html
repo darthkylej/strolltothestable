@@ -163,7 +163,7 @@
 
   <div class="card action-card">
     <h2>Check-In Status</h2>
-    <p id="waiverRecordInfo" class="section-note">Loading waiver record…</p>
+    <p id="waiverRecordInfo" class="section-note">Loading waiver record…</p><a id="waiverPdfDownload" class="btn btn-secondary" style="display:none" href="#">Download Signed PDF</a><div class="field"><label for="signedWaiverFile">Upload signed paper waiver as PDF, JPEG or PNG</label><input id="signedWaiverFile" type="file" accept=".pdf,image/jpeg,image/png,application/pdf"><button class="btn btn-secondary" type="button" id="signedWaiverUpload">Save Signed Waiver</button></div>
     <div class="toggle-row" id="waiverRow" style="margin-top:12px">
       <label class="switch">
         <input type="checkbox" id="waiverToggle">
@@ -313,6 +313,8 @@ async function load() {
     renderPieces(pieces);
 
     document.getElementById('waiverToggle').checked = nativity.waiver_signed;
+    document.getElementById('waiverPdfDownload').href = '/api/admin/nativities/'+id+'/waiver-pdf';
+    document.getElementById('waiverPdfDownload').style.display = nativity.waiver_signed ? 'inline-block' : 'none';
     try {
       const waiverData = await api(`/api/admin/nativities/${id}/waiver-record`);
       const w = waiverData.waiver;
@@ -464,6 +466,18 @@ document.getElementById('clearMainBtn').addEventListener('click', async () => {
   }
 });
 
+document.getElementById('signedWaiverUpload').addEventListener('click',async()=>{
+  const file=document.getElementById('signedWaiverFile').files[0];
+  if(!file){showError('Choose a signed waiver file.');return;}
+  const form=new FormData();form.append('file',file);
+  try{
+    const response=await fetch('/api/admin/nativities/'+id+'/waiver-scan',{method:'POST',body:form,credentials:'same-origin'});
+    const result=await response.json();
+    if(!response.ok)throw Error(result.error||'Upload failed');
+    showSuccess('Signed PDF saved and receipt recorded.');
+    await load();
+  }catch(e){showError(e.message);}
+});
 document.getElementById('waiverToggle').addEventListener('change', async (e) => {
   hideError();
   try {
