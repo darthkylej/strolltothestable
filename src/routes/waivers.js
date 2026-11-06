@@ -1,6 +1,8 @@
 import { db } from '../lib/db.js';
 import { json, error, requireUser, requireAdmin } from '../lib/util.js';
 import { getSiteSettings } from '../lib/siteSettings.js';
+import { createWaiverPdf } from '../lib/waiverPdf.js';
+import { sendWaiverPdfEmail } from '../lib/email.js';
 
 const key = id => `_waivers/${id}.json`;
 const formatDay = d => { const x = String(d || '').slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : ''; };
@@ -44,7 +46,43 @@ export async function saveWaiver(request,env,session,id) {
   const dates=eventDates(settings);
   if(body.method!=='onsite' && (!dates.start || !dates.end || !dates.pickupDeadline)) return error('Event dates must be configured before completing a waiver.');
   const record={version:1,organizer:'City of Seguin',event:'Stroll to the Stable',location:'Nolte Building, 101 E. Nolte St, Seguin, TX',dates,fields,method:body.method,initials:body.method==='digital'?String(body.initials).trim():null,signature:body.method==='digital'?String(body.signature).trim():null,agreed:body.method==='digital',completedAt:new Date().toISOString(),submissionNumber:n.submission_number};
+  if(body.method==='digital') {
+    const pdf=await createWaiverPdf(record);
+    await env.PHOTOS.put(`_waivers/${id}.pdf`,pdf,{httpMetadata:{contentType:'application/pdf'}});
+  }
   await env.PHOTOS.put(key(id),JSON.stringify(record),{httpMetadata:{contentType:'application/json'}});
   if(body.method==='digital') { const sql=db(env); await sql`UPDATE nativities SET waiver_signed=true,waiver_signed_by='Digital signature',waiver_signed_at=now(),updated_at=now() WHERE id=${id}`; }
+  if(body.method==='digital') {
+    const pdfObject=await env.PHOTOS.get(`_waivers/${id}.pdf`);
+    try {
+      await sendWaiverPdfEmail(env,{to:n.owner_email,name:n.owner_name,submissionNumber:n.submission_number,pdf:new Uint8Array(await pdfObject.arrayBuffer())});
+    } catch(e) { console.error('Signed waiver PDF email failed:',e); }
+  }
   return json({ok:true,waiver:record});
+}
+
+export async function downloadWaiverPdf(request,env,session,id) {
+  if(session?.kind==='admin') requireAdmin(session); else requireUser(session);
+  const n=await owned(env,session,id,session.kind==='admin');
+  if(!n.waiver_signed) return error('Signed waiver has not been received.',404);
+  const object=await env.PHOTOS.get(`_waivers/${id}.pdf`);
+  if(!object) return error('Signed waiver PDF is not yet available.',404);
+  return new Response(object.body,{headers:{'Content-Type':'application/pdf','Content-Disposition':'attachment; filename="Stroll-to-the-Stable-Waiver-'+n.submission_number.replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf"','Cache-Control':'private, no-store'}});
+}
+export async function uploadSignedWaiver(request,env,session,id) {
+  requireAdmin(session);
+  const n=await owned(env,session,id,true);
+  const file=(await request.formData()).get('file');
+  if(!(file instanceof File) || !['image/jpeg','image/png','application/pdf'].includes(file.type) || file.size>10*1024*1024) return error('Upload a PDF, JPEG or PNG under 10 MB.');
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  const record=await saved(env,id);
+  if(!record) return error('Complete the waiver form before uploading its signed copy.');
+  if(record.method==='digital') return error('A digitally signed PDF cannot be replaced.');
+  const pdf=file.type==='application/pdf'?bytes:await createWaiverPdf(record,bytes,file.type);
+  await env.PHOTOS.put(`_waivers/${id}.pdf`,pdf,{httpMetadata:{contentType:'application/pdf'}});
+  const sql=db(env);
+  await sql`UPDATE nativities SET waiver_signed=true,waiver_signed_by=${session.email},waiver_signed_at=now(),updated_at=now() WHERE id=${id}`;
+  try{await sendWaiverPdfEmail(env,{to:n.owner_email,name:n.owner_name,submissionNumber:n.submission_number,pdf});}
+  catch(e){console.error('Signed waiver PDF email failed:',e);}
+  return json({ok:true});
 }
