@@ -33,7 +33,7 @@ export async function saveWaiver(request,env,session,id) {
   const n=await owned(env,session,id);
   if(n.submission_number.startsWith('DRAFT-')) return error('Finish the nativity submission before completing the waiver.');
   const previous=await saved(env,id);
-  if(previous?.method==='digital' && n.waiver_signed) return error('This waiver is already signed and cannot be changed.');
+  if(n.waiver_signed) return error('This waiver has already been received and cannot be changed.');
   const body=await request.json();
   if(!['digital','print','onsite'].includes(body.method)) return error('Choose a waiver method.');
   const f=body.fields || {};
