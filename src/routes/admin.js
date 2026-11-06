@@ -241,6 +241,7 @@ export async function toggleWaiver(request, env, session, id) {
     const waiver = JSON.parse(await waiverObject.text());
     if (waiver.method === 'digital' && !signed) return error('A digitally signed waiver is an immutable record and cannot be cleared here.');
   }
+  if(signed && !(await env.PHOTOS.head(`_waivers/${id}.pdf`))) return error('Upload the signed paper waiver PDF before marking it received.');
   const sql = db(env);
   await sql`
     UPDATE nativities
