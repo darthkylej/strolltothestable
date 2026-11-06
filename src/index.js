@@ -2,6 +2,7 @@ import { getSession } from './lib/auth.js';
 import * as auth from './routes/auth.js';
 import * as adminAuth from './routes/adminAuth.js';
 import * as nativities from './routes/nativities.js';
+import * as waivers from './routes/waivers.js';
 import * as admin from './routes/admin.js';
 import * as settings from './routes/settings.js';
 import * as messages from './routes/messages.js';
