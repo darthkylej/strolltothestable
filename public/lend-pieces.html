@@ -52,7 +52,12 @@ function pieceCardHtml(i, existing) {
       </div>
       <div class="field">
         <label>Photo of this piece (optional)</label>
-        <input type="file" class="piece-photo" data-i="${i}" accept="image/*" capture="environment">
+        <div style="display:flex; gap:10px; flex-wrap:wrap">
+          <button type="button" class="btn" onclick="this.closest('.field').querySelector('.piece-photo').click()">Take Photo</button>
+          <button type="button" class="btn" onclick="this.closest('.field').querySelector('.piece-existing-photo').click()">Upload Existing Photo</button>
+        </div>
+        <input type="file" class="piece-photo" data-i="${i}" accept="image/*" capture="environment" style="display:none">
+        <input type="file" class="piece-existing-photo" data-i="${i}" accept="image/*" style="display:none">
         ${photoNote}
       </div>
     </div>
@@ -97,10 +102,12 @@ document.getElementById('piecesForm').addEventListener('submit', async (e) => {
     const descs = [...document.querySelectorAll('.piece-desc')];
     const conds = [...document.querySelectorAll('.piece-cond')];
     const photos = [...document.querySelectorAll('.piece-photo')];
+    const existingPhotos = [...document.querySelectorAll('.piece-existing-photo')];
     const pieces = [];
     for (let i = 0; i < descs.length; i++) {
       let photoKey = existingPieces[i]?.photo_key || null;
-      if (photos[i].files[0]) photoKey = await uploadPhoto(photos[i].files[0]);
+      const selectedPhoto = existingPhotos[i].files[0] || photos[i].files[0];
+      if (selectedPhoto) photoKey = await uploadPhoto(selectedPhoto);
       pieces.push({ description: descs[i].value, condition_notes: conds[i].value, photoKey });
     }
     await api(`/api/nativities/${nativityId}/pieces`, { method: 'POST', body: { pieces } });
