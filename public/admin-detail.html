@@ -163,6 +163,7 @@
 
   <div class="card action-card">
     <h2>Check-In Status</h2>
+    <p id="waiverRecordInfo" class="section-note">Loading waiver record…</p>
     <div class="toggle-row" id="waiverRow" style="margin-top:12px">
       <label class="switch">
         <input type="checkbox" id="waiverToggle">
@@ -312,6 +313,13 @@ async function load() {
     renderPieces(pieces);
 
     document.getElementById('waiverToggle').checked = nativity.waiver_signed;
+    try {
+      const waiverData = await api(`/api/admin/nativities/${id}/waiver-record`);
+      const w = waiverData.waiver;
+      document.getElementById('waiverRecordInfo').textContent = w
+        ? 'Waiver method: ' + ({digital:'Digitally signed',print:'Print and bring',onsite:'Complete onsite'}[w.method] || w.method) + '. ' + (nativity.waiver_signed ? 'Received.' : 'Awaiting signed form.') + ' Event dates recorded: ' + (w.dates?.start || 'Not set') + ' to ' + (w.dates?.end || 'Not set') + '.'
+        : 'No online waiver record yet. Paper waiver may be received onsite.';
+    } catch { document.getElementById('waiverRecordInfo').textContent = 'Waiver record unavailable.'; }
     const finalizeBtn = document.getElementById('finalizeBtn');
     const returnBtn = document.getElementById('returnBtn');
 
