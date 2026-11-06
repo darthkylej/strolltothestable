@@ -111,7 +111,7 @@ document.getElementById('piecesForm').addEventListener('submit', async (e) => {
       pieces.push({ description: descs[i].value, condition_notes: conds[i].value, photoKey });
     }
     await api(`/api/nativities/${nativityId}/pieces`, { method: 'POST', body: { pieces } });
-    window.location.href = '/dashboard.html';
+    window.location.href = '/waiver.html?id=' + encodeURIComponent(nativityId);
   } catch (err) {
     showError(err.message);
     btn.disabled = false;
