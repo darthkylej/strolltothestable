@@ -17,7 +17,12 @@
   <form id="photoForm" style="display:none">
     <div class="field">
       <label for="photo">Photo of the nativity</label>
-      <input type="file" id="photo" accept="image/*" capture="environment" required>
+      <div style="display:flex; gap:10px; flex-wrap:wrap">
+        <button type="button" class="btn" id="takePhotoBtn">Take Photo</button>
+        <button type="button" class="btn" id="choosePhotoBtn">Upload Existing Photo</button>
+      </div>
+      <input type="file" id="photo" accept="image/*" capture="environment" style="display:none">
+      <input type="file" id="existingPhoto" accept="image/*" style="display:none">
       <img id="preview" class="photo-preview">
     </div>
     <div class="field">
@@ -49,19 +54,26 @@ async function initialize() {
   }
 }
 
-document.getElementById('photo').addEventListener('change', (e) => {
+document.getElementById('takePhotoBtn').addEventListener('click', () => document.getElementById('photo').click());
+document.getElementById('choosePhotoBtn').addEventListener('click', () => document.getElementById('existingPhoto').click());
+
+function handlePhotoSelection(e) {
   const file = e.target.files[0];
   if (!file) return;
+  const other = document.getElementById(e.target.id === 'photo' ? 'existingPhoto' : 'photo');
+  other.value = '';
   const preview = document.getElementById('preview');
   preview.src = URL.createObjectURL(file);
   preview.style.display = 'block';
-});
+}
+document.getElementById('photo').addEventListener('change', handlePhotoSelection);
+document.getElementById('existingPhoto').addEventListener('change', handlePhotoSelection);
 
 document.getElementById('photoForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   hideError();
   const btn = document.getElementById('submitBtn');
-  const file = document.getElementById('photo').files[0];
+  const file = document.getElementById('photo').files[0] || document.getElementById('existingPhoto').files[0];
   if (!file) { showError('Please add a photo.'); return; }
   btn.disabled = true;
   btn.textContent = 'Uploading photo…';
