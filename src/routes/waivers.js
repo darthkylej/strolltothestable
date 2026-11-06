@@ -52,13 +52,15 @@ export async function saveWaiver(request,env,session,id) {
   }
   await env.PHOTOS.put(key(id),JSON.stringify(record),{httpMetadata:{contentType:'application/json'}});
   if(body.method==='digital') { const sql=db(env); await sql`UPDATE nativities SET waiver_signed=true,waiver_signed_by='Digital signature',waiver_signed_at=now(),updated_at=now() WHERE id=${id}`; }
+  let emailSent = null;
   if(body.method==='digital') {
     const pdfObject=await env.PHOTOS.get(`_waivers/${id}.pdf`);
     try {
       await sendWaiverPdfEmail(env,{to:n.owner_email,name:n.owner_name,submissionNumber:n.submission_number,pdf:new Uint8Array(await pdfObject.arrayBuffer())});
-    } catch(e) { console.error('Signed waiver PDF email failed:',e); }
+      emailSent=true;
+    } catch(e) { emailSent=false; console.error('Signed waiver PDF email failed:',e); }
   }
-  return json({ok:true,waiver:record});
+  return json({ok:true,waiver:record,emailSent});
 }
 
 export async function downloadWaiverPdf(request,env,session,id) {
@@ -72,6 +74,7 @@ export async function downloadWaiverPdf(request,env,session,id) {
 export async function uploadSignedWaiver(request,env,session,id) {
   requireAdmin(session);
   const n=await owned(env,session,id,true);
+  if(n.waiver_signed) return error('This signed waiver has already been received and cannot be replaced.');
   const file=(await request.formData()).get('file');
   if(!(file instanceof File) || !['image/jpeg','image/png','application/pdf'].includes(file.type) || file.size>10*1024*1024) return error('Upload a PDF, JPEG or PNG under 10 MB.');
   const bytes=new Uint8Array(await file.arrayBuffer());
