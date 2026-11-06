@@ -197,6 +197,10 @@ export default {
       if (path === '/api/upload-photo' && method === 'POST') return await nativities.uploadPhoto(request, env, session);
 
       let m;
+      if ((m = path.match(/^\/api\/nativities\/(\d+)\/waiver$/)) && method === 'GET') return await waivers.getWaiver(request,env,session,m[1]);
+      if ((m = path.match(/^\/api\/nativities\/(\d+)\/waiver$/)) && method === 'POST') return await waivers.saveWaiver(request,env,session,m[1]);
+      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/waiver-record$/)) && method === 'GET') return await waivers.getWaiver(request,env,session,m[1]);
+
       if ((m = path.match(/^\/api\/nativities\/(\d+)$/)) && method === 'GET') {
         return await nativities.getOne(request, env, session, m[1]);
       }
