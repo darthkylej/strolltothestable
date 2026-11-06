@@ -1,9 +1,17 @@
+export async function sendWaiverPdfEmail(env,{to,name,submissionNumber,pdf}) {
+  return send(env,{
+    to,
+    subject:'Your signed Stroll to the Stable waiver - '+submissionNumber,
+    html:'<p>Hello '+escapeHtml(name)+',</p><p>Attached is your signed Stroll to the Stable registration and release form for nativity '+escapeHtml(submissionNumber)+'. Please retain this copy for your records.</p>',
+    attachments:[{filename:'Stroll-to-the-Stable-Waiver-'+submissionNumber+'.pdf',contentType:'application/pdf',content:pdf}]
+  });
+}
 const DEFAULT_FROM = {
   email: 'submissions@strolltothestable.com',
   name: 'Stroll to the Stable',
 };
 
-async function send(env, { to, cc, from = DEFAULT_FROM, replyTo = DEFAULT_FROM.email, subject, html, text, headers }) {
+async function send(env, { to, cc, from = DEFAULT_FROM, replyTo = DEFAULT_FROM.email, subject, html, text, headers, attachments }) {
   if (!env.EMAIL) throw new Error('Cloudflare Email Sending is not configured.');
 
   return env.EMAIL.send({
@@ -15,6 +23,7 @@ async function send(env, { to, cc, from = DEFAULT_FROM, replyTo = DEFAULT_FROM.e
     html,
     ...(text ? { text } : {}),
     ...(headers ? { headers } : {}),
+    ...(attachments ? { attachments } : {}),
   });
 }
 
