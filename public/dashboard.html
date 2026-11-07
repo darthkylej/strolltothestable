@@ -22,10 +22,10 @@
 
   <div class="error-banner" data-error-banner></div>
 
-  <div class="card" id="scheduleCard" style="display:none; margin-bottom:18px">
-    <h2 style="margin-top:0">How It Works</h2>
+  <details class="card" id="scheduleCard" style="display:none; margin-bottom:18px">
+    <summary style="cursor:pointer;font-weight:700">Schedule and How It Works</summary>
     <div class="process-guide" id="scheduleInfo"></div>
-  </div>
+  </details>
 
   <a class="btn btn-primary" id="newSubmissionAction" href="/lend-photo.html" style="display:none">Lend a Nativity</a>
 
@@ -103,7 +103,7 @@ async function load() {
       return;
     }
     list.innerHTML = nativities.map((n) => `
-      <div class="card">
+      <div class="card" style="padding:14px 18px;margin-bottom:10px">
         <div style="display:flex; justify-content:space-between; align-items:flex-start">
           <div>
             <div class="eyebrow">${n.event_year}</div>
@@ -119,6 +119,7 @@ async function load() {
           </label>
           <span style="font-size:14px; color:var(--wood)">Show in public virtual tour</span>
         </div>
+        ${n.submission_number.startsWith('DRAFT') ? `<a class="btn btn-primary" href="/lend-pieces.html?id=${n.id}&review=1">Continue Registration</a>` : ''}
         ${!n.submission_number.startsWith('DRAFT') ? `<a class="btn btn-secondary" href="${n.waiver_signed ? `/api/nativities/${n.id}/waiver-pdf` : `/waiver.html?id=${n.id}`}">${n.waiver_signed ? "View Signed Waiver" : "Complete Waiver"}</a>` : ''}
         ${submissionsOpen && n.status === 'returned' && Number(n.event_year) < CURRENT_YEAR
           ? `<button class="btn btn-secondary" onclick="resubmit(${n.id})">Submit Again This Year</button>`
