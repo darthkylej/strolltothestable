@@ -44,6 +44,25 @@ export async function saveWaiverDraft(request,env,session,id) {
   await env.PHOTOS.put(draftKey(n),JSON.stringify({fields,updatedAt:new Date().toISOString()}),{httpMetadata:{contentType:'application/json'}});
   return json({ok:true});
 }
+async function waiverRecord(env,n,fields,extra={}) {
+  const sql=db(env),settings=await getSiteSettings(env);
+  const pieces=await sql`SELECT piece_number,description,condition_notes,photo_key FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
+  const nativity={submissionNumber:n.submission_number,eventYear:n.event_year,story:n.story||'',pieceCount:n.piece_count,photoKey:n.photo_key||'',displayPhotoKey:n.display_photo_key||'',includeInTour:n.include_in_tour,pieces};
+  return {version:4,nativity,year:n.event_year,organizer:'City of Seguin',event:'Stroll to the Stable',location:'Nolte Building, 101 E. Nolte St, Seguin, TX',dates:eventDates(settings),fields,method:'digital',submissionNumber:n.submission_number,...extra};
+}
+export async function previewWaiver(request,env,session,id) {
+  requireUser(session);
+  const n=await owned(env,session,id);
+  if(n.submission_number.startsWith('DRAFT-')) return error('Finish the nativity submission first.',400);
+  if(await saved(env,n)) return error('This waiver is already signed.',409);
+  const body=await request.json();
+  const f=body.fields||{};
+  const fields={name:String(f.name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
+  if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all participant information before reviewing the PDF.',400);
+  const record=await waiverRecord(env,n,fields,{signerName:'',signingDate:''});
+  const pdf=await createWaiverPdf(record);
+  return new Response(pdf,{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="Nativity-Waiver-Preview.pdf"','Cache-Control':'private, no-store'}});
+}
 export async function saveWaiver(request,env,session,id) {
   requireUser(session);
   const n=await owned(env,session,id);
@@ -56,14 +75,14 @@ export async function saveWaiver(request,env,session,id) {
   const fields={name:String(f.name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
   if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all required waiver fields.');
   if(body.method==='digital' && (!body.agreed || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(body.signatureImage||'') || (body.signatureImage||'').length>300000)) return error('Read the agreement and draw your signature.');
+  const signerName=String(body.signerName||'').trim(), signingDate=String(body.signingDate||'').trim();
+  if(!signerName || !/^\\d{4}-\\d{2}-\\d{2}$/.test(signingDate) || !Number.isFinite(Date.parse(signingDate+'T12:00:00Z'))) return error('Enter your printed name and signing date.',400);
+  if(signerName.toLowerCase()!==fields.name.toLowerCase()) return error('Printed signing name must match the participant name.',400);
   const settings=await getSiteSettings(env);
   const dates=eventDates(settings);
-  if(body.method!=='onsite' && (!dates.start || !dates.end || !dates.pickupDeadline)) return error('Event dates must be configured before completing a waiver.');
+  if(!dates.start || !dates.end || !dates.pickupDeadline) return error('Event dates must be configured before completing a waiver.');
   const sql=db(env);
-  const pieces=await sql`SELECT piece_number,description,condition_notes,photo_key FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
-  const submissions=[{submission_number:n.submission_number,story:n.story,piece_count:n.piece_count,pieces}];
-  const nativity={submissionNumber:n.submission_number,eventYear:n.event_year,story:n.story||'',pieceCount:n.piece_count,photoKey:n.photo_key||'',displayPhotoKey:n.display_photo_key||'',includeInTour:n.include_in_tour,pieces};
-  const record={version:3,nativity,year:n.event_year,submissions,organizer:'City of Seguin',event:'Stroll to the Stable',location:'Nolte Building, 101 E. Nolte St, Seguin, TX',dates,fields,method:body.method,signatureImage:body.signatureImage,signature:null,agreed:body.method==='digital',completedAt:new Date().toISOString(),submissionNumber:n.submission_number};
+  const record=await waiverRecord(env,n,fields,{signatureImage:body.signatureImage,signerName,signingDate,agreed:true,completedAt:new Date().toISOString()});
   if(body.method==='digital') {
     const pdf=await createWaiverPdf(record);
     await env.PHOTOS.put(pdfKey(n),pdf,{httpMetadata:{contentType:'application/pdf'}});
