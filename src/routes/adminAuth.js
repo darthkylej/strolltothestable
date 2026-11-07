@@ -5,6 +5,7 @@ import {
   createSessionToken,
   verifySessionToken,
   sessionCookieHeader,
+  nextUsername, generateShortPassword, hashPassword,
 } from '../lib/auth.js';
 import { sendAdminOtpEmail } from '../lib/email.js';
 import { json, error } from '../lib/util.js';
@@ -105,4 +106,23 @@ export async function emailLogin(request, env) {
       'Cache-Control': 'no-store',
     },
   });
+}
+
+export async function participantProfile(request, env, session) {
+  if (session?.kind !== 'admin' || !session.email) return error('Admin login required',401);
+  const sql=db(env);
+  const admins=await sql`SELECT email FROM admins WHERE lower(email)=lower(${session.email}) LIMIT 1`;
+  if (!admins.length) return error('Admin access no longer active.',403);
+  const existing=await sql`SELECT id,name,phone FROM users WHERE lower(email)=lower(${session.email}) ORDER BY id LIMIT 1`;
+  if (request.method==='GET') return json({exists:!!existing.length,email:session.email,name:existing[0]?.name||'',phone:existing[0]?.phone||''});
+  if (request.method!=='POST') return error('Method not allowed',405);
+  if (existing.length) return json({ok:true,existing:true});
+  const {name,phone}=await request.json();
+  if (!name?.trim() || !phone?.trim()) return error('Enter your name and phone number.');
+  const lastName=name.trim().split(/\s+/).pop();
+  const username=await nextUsername(sql,lastName);
+  const passwordHash=await hashPassword(generateShortPassword(32));
+  await sql`INSERT INTO users (username,name,phone,email,password_hash)
+    VALUES (${username},${name.trim()},${phone.trim()},${session.email},${passwordHash})`;
+  return json({ok:true,created:true});
 }
