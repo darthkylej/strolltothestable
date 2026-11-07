@@ -68,15 +68,37 @@ function base64url(str) {
 // Returns { kind: 'user', userId } | { kind: 'admin', email } | null
 export async function getSession(request, env) {
   const cookie = request.headers.get('Cookie') || '';
-  const match = cookie.match(/session=([^;]+)/);
-  if (!match) return null;
-  return verifySessionToken(env, decodeURIComponent(match[1]));
+  const read = async name => {
+    const match = cookie.match(new RegExp('(?:^|;\\s*)'+name+'=([^;]+)'));
+    if (!match) return null;
+    try { return await verifySessionToken(env, decodeURIComponent(match[1])); }
+    catch { return null; }
+  };
+  const path = new URL(request.url).pathname;
+  const wantsAdmin = path.startsWith('/api/admin/') || path === '/api/admin-email-login';
+  const preferred = await read(wantsAdmin ? 'admin_session' : 'user_session');
+  if (preferred && preferred.kind === (wantsAdmin ? 'admin' : 'user')) return preferred;
+  const legacy = await read('session');
+  if (legacy && legacy.kind === (wantsAdmin ? 'admin' : 'user')) return legacy;
+  // A verified administrator can also access their own participant account
+  // when the administrator email matches the participant email.
+  if (!wantsAdmin) {
+    const admin = await read('admin_session') || (legacy?.kind === 'admin' ? legacy : null);
+    if (admin?.kind === 'admin' && admin.email) {
+      const { db } = await import('./db.js');
+      const sql = db(env);
+      const rows = await sql`SELECT u.id FROM users u JOIN admins a ON lower(a.email)=lower(u.email) WHERE lower(u.email)=lower(${admin.email}) ORDER BY u.id LIMIT 1`;
+      if (rows.length) return { kind:'user', userId:rows[0].id };
+    }
+  }
+  return null;
 }
 
-export function sessionCookieHeader(token, { clear = false } = {}) {
+export function sessionCookieHeader(token, { clear = false, kind = 'user' } = {}) {
   const maxAge = clear ? 0 : TWO_WEEKS_MS / 1000;
   const value = clear ? '' : token;
-  return `session=${value}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+  const name = kind === 'admin' ? 'admin_session' : 'user_session';
+  return `${name}=${value}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
 }
 
 // ── One-time passwords (admin login) ────────────────────────────────────
