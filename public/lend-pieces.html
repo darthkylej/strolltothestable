@@ -8,7 +8,7 @@
 </head>
 <body>
 <div class="page">
-  <p class="eyebrow">Lend a Nativity · Step 2 of 2</p>
+  <p class="eyebrow">Lend a Nativity · Step 2 of 3</p>
   <h1>The Pieces</h1>
 
   <div class="error-banner" data-error-banner></div>
@@ -23,7 +23,7 @@
 
   <form id="piecesForm" style="display:none">
     <div id="pieceList"></div>
-    <button type="submit" class="btn btn-primary" id="submitBtn">Submit Nativity</button>
+    <button type="submit" class="btn btn-primary" id="submitBtn">Save Nativity &amp; Continue to Waiver</button>
   </form>
 
   <p style="text-align:center; margin-top:10px"><a class="link" href="/dashboard.html">Cancel</a></p>
@@ -40,7 +40,7 @@ function pieceCardHtml(i, existing) {
   const cond = existing ? existing.condition_notes : '';
   const photoNote = existing?.photo_key ? '<p class="hint">Existing photo on file — add a new one only if it needs updating.</p>' : '';
   return `
-    <div class="piece-card">
+    <div class="piece-card" style="padding:12px;margin:8px 0">
       <label><span class="piece-number">${i + 1}</span>Piece ${i + 1}</label>
       <div class="field" style="margin-top:12px">
         <label>Description</label>
@@ -50,8 +50,7 @@ function pieceCardHtml(i, existing) {
         <label>Condition (note any cracks, chips, repairs)</label>
         <input type="text" class="piece-cond" data-i="${i}" value="${cond.replace(/"/g, '&quot;')}" placeholder="e.g. No damage, or: small chip on base" required>
       </div>
-      <div class="field">
-        <label>Photo of this piece (optional)</label>
+      <details class="field"><summary style="cursor:pointer">Add photo of this piece (optional)</summary>
         <div style="display:flex; gap:10px; flex-wrap:wrap">
           <button type="button" class="btn" onclick="this.closest('.field').querySelector('.piece-photo').click()">Take Photo</button>
           <button type="button" class="btn" onclick="this.closest('.field').querySelector('.piece-existing-photo').click()">Upload Existing Photo</button>
@@ -59,7 +58,7 @@ function pieceCardHtml(i, existing) {
         <input type="file" class="piece-photo" data-i="${i}" accept="image/*" capture="environment" style="display:none">
         <input type="file" class="piece-existing-photo" data-i="${i}" accept="image/*" style="display:none">
         ${photoNote}
-      </div>
+      </details>
     </div>
   `;
 }
