@@ -1,8 +1,14 @@
-export async function sendWaiverPdfEmail(env,{to,name,submissionNumber,pdf}) {
+export async function sendWaiverPdfEmail(env,{to,name,submissionNumber,pdf,settings}) {
   return send(env,{
     to,
-    subject:'Your signed Stroll to the Stable waiver - '+submissionNumber,
-    html:'<p>Hello '+escapeHtml(name)+',</p><p>Attached is your signed Stroll to the Stable registration and release form for all nativities you submit during the '+escapeHtml(submissionNumber)+' event. Please retain this copy for your records.</p>',
+    subject:'Nativity preregistration complete - '+submissionNumber,
+    html:emailShell({
+      eyebrow:'Stroll to the Stable',
+      title:'Your nativity registration is complete',
+      intro:'<p>Hello '+escapeHtml(name)+',</p><p>Thank you for preregistering your nativity. Your waiver has been digitally signed and your registration is complete.</p><p><b>Submission number: '+escapeHtml(submissionNumber)+'</b></p>',
+      body:'<p>Your signed registration and release form is attached as a PDF. It includes your participant information, nativity details, piece inventory, and signed agreement. Keep this email and bring your submission number when dropping off your nativity.</p>'+
+        schedulePanel('Drop-off times',settings?.dropoffDays,settings?.dropoffStart,settings?.dropoffEnd)
+    }),
     attachments:[{filename:'Stroll-to-the-Stable-Waiver-'+submissionNumber+'.pdf',contentType:'application/pdf',content:pdf}]
   });
 }
