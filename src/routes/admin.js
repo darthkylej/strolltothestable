@@ -233,27 +233,6 @@ export async function deleteNativity(request, env, session, id) {
   return json({ ok: true, submission_number: rows[0].submission_number });
 }
 
-export async function toggleWaiver(request, env, session, id) {
-  requireAdmin(session);
-  const { signed } = await request.json();
-  const waiverObject = await env.PHOTOS.get(`_waivers/${id}.json`);
-  if (waiverObject) {
-    const waiver = JSON.parse(await waiverObject.text());
-    if (waiver.method === 'digital' && !signed) return error('A digitally signed waiver is an immutable record and cannot be cleared here.');
-  }
-  if(signed && !(await env.PHOTOS.head(`_waivers/${id}.pdf`))) return error('Upload the signed paper waiver PDF before marking it received.');
-  const sql = db(env);
-  await sql`
-    UPDATE nativities
-    SET waiver_signed = ${!!signed},
-        waiver_signed_by = ${signed ? session.email : null},
-        waiver_signed_at = ${signed ? new Date().toISOString() : null},
-        updated_at = now()
-    WHERE id = ${id}
-  `;
-  return json({ ok: true });
-}
-
 export async function finalize(request, env, session, id) {
   requireAdmin(session);
   const sql = db(env);
