@@ -58,9 +58,15 @@ export async function createWaiverPdf(record, signedImage = null, mime = '') {
     '4. I agree that photos/videos of my display may be used for promotional purposes.',
     '5. Unclaimed displays after the designated pick-up date '+date(record.dates.pickupDeadline)+' may be considered donations.'
   ]){line(item);gap(3);}
-  line('Initial '+(record.initials||'________'));
-  gap();
-  line('Signature: '+(record.signature||'________________________________'));
+  line('Signature:',10,true);
+  if(record.signatureImage){
+    const bytes=Uint8Array.from(atob(record.signatureImage.split(',')[1]),c=>c.charCodeAt(0));
+    const image=await pdf.embedPng(bytes);
+    const w=Math.min(310,image.width*0.7),h=Math.min(105,image.height*w/image.width);
+    if(y-h<54)newPage();
+    page.drawImage(image,{x:left,y:y-h,width:w,height:h});
+    y-=h+8;
+  } else line(record.signature||'________________________________');
   line('Date: '+(record.method==='digital'?new Date(record.completedAt).toLocaleDateString('en-US',{timeZone:'UTC'}):'________________'));
   line('Printed Name: '+(record.fields.name||''));
   if(signedImage){
