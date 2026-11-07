@@ -2,7 +2,7 @@ export async function sendWaiverPdfEmail(env,{to,name,submissionNumber,pdf}) {
   return send(env,{
     to,
     subject:'Your signed Stroll to the Stable waiver - '+submissionNumber,
-    html:'<p>Hello '+escapeHtml(name)+',</p><p>Attached is your signed Stroll to the Stable registration and release form for nativity '+escapeHtml(submissionNumber)+'. Please retain this copy for your records.</p>',
+    html:'<p>Hello '+escapeHtml(name)+',</p><p>Attached is your signed Stroll to the Stable registration and release form for all nativities you submit during the '+escapeHtml(submissionNumber)+' event. Please retain this copy for your records.</p>',
     attachments:[{filename:'Stroll-to-the-Stable-Waiver-'+submissionNumber+'.pdf',contentType:'application/pdf',content:pdf}]
   });
 }
