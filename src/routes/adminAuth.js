@@ -49,7 +49,7 @@ export async function verifyOtp(request, env) {
   await sql`DELETE FROM admin_otp_codes WHERE id = ${rows[0].id}`;
 
   const token = await createSessionToken(env, { kind: 'admin', email: normalized });
-  return json({ ok: true }, { headers: { 'Set-Cookie': sessionCookieHeader(token) } });
+  return json({ ok: true }, { headers: { 'Set-Cookie': sessionCookieHeader(token,{kind:'admin'}) } });
 }
 
 
@@ -101,7 +101,7 @@ export async function emailLogin(request, env) {
     status: 302,
     headers: {
       Location: safeNext,
-      'Set-Cookie': sessionCookieHeader(sessionToken),
+      'Set-Cookie': sessionCookieHeader(sessionToken,{kind:'admin'}),
       'Cache-Control': 'no-store',
     },
   });
