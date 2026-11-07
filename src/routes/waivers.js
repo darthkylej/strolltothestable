@@ -5,6 +5,7 @@ import { createWaiverPdf } from '../lib/waiverPdf.js';
 import { sendWaiverPdfEmail } from '../lib/email.js';
 
 const key = n => `_waivers/${n.id}.json`;
+const draftKey = n => `_waivers/${n.id}-draft.json`;
 const pdfKey = n => `_waivers/${n.id}.pdf`;
 const formatDay = d => { const x = String(d || '').slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : ''; };
 function eventDates(settings) {
@@ -24,12 +25,24 @@ export async function getWaiver(request,env,session,id) {
   const n=await owned(env,session,id,session.kind==='admin');
   const existing=await saved(env,n);
   const sql=db(env);
-  let prefill=existing?.fields||null;
+  const draftObj=existing?null:await env.PHOTOS.get(draftKey(n));
+  const draft=draftObj?JSON.parse(await draftObj.text()):null;
+  let prefill=existing?.fields||draft?.fields||null;
   if(!prefill){const prior=await sql`SELECT id FROM nativities WHERE owner_user_id=${n.owner_user_id} AND id<>${n.id} ORDER BY created_at DESC LIMIT 20`;for(const row of prior){const previous=await env.PHOTOS.get(`_waivers/${row.id}.json`);if(previous){const w=JSON.parse(await previous.text());if(w.fields){prefill=w.fields;break;}}}}
   const pieces=await sql`SELECT piece_number,description,condition_notes FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
   const submissions=[{submission_number:n.submission_number,story:n.story,piece_count:n.piece_count,pieces}];
   const settings=await getSiteSettings(env);
-  return json({ waiver:existing, signed:!!existing, owner:{name:n.owner_name,phone:n.owner_phone,email:n.owner_email}, prefill, submissions, year:n.event_year, dates:eventDates(settings), organizer:'City of Seguin' },{headers:{'Cache-Control':'no-store'}});
+  return json({ waiver:existing, draft, signed:!!existing, owner:{name:n.owner_name,phone:n.owner_phone,email:n.owner_email}, prefill, submissions, year:n.event_year, dates:eventDates(settings), organizer:'City of Seguin' },{headers:{'Cache-Control':'no-store'}});
+}
+export async function saveWaiverDraft(request,env,session,id) {
+  requireUser(session);
+  const n=await owned(env,session,id);
+  if(await saved(env,n)) return error('This waiver is already signed.',409);
+  const body=await request.json();
+  const fields={};
+  for(const k of ['name','address','cityStateZip','phone','email']) fields[k]=String(body.fields?.[k]||'').slice(0,500);
+  await env.PHOTOS.put(draftKey(n),JSON.stringify({fields,updatedAt:new Date().toISOString()}),{httpMetadata:{contentType:'application/json'}});
+  return json({ok:true});
 }
 export async function saveWaiver(request,env,session,id) {
   requireUser(session);
@@ -42,7 +55,7 @@ export async function saveWaiver(request,env,session,id) {
   const f=body.fields || {};
   const fields={name:String(f.name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
   if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all required waiver fields.');
-  if(body.method==='digital' && (!body.agreed || !body.initials?.trim() || !body.signature?.trim())) return error('Read the agreement, initial the donation clause, and sign.');
+  if(body.method==='digital' && (!body.agreed || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(body.signatureImage||'') || (body.signatureImage||'').length>300000)) return error('Read the agreement and draw your signature.');
   const settings=await getSiteSettings(env);
   const dates=eventDates(settings);
   if(body.method!=='onsite' && (!dates.start || !dates.end || !dates.pickupDeadline)) return error('Event dates must be configured before completing a waiver.');
@@ -50,11 +63,12 @@ export async function saveWaiver(request,env,session,id) {
   const pieces=await sql`SELECT piece_number,description,condition_notes,photo_key FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
   const submissions=[{submission_number:n.submission_number,story:n.story,piece_count:n.piece_count,pieces}];
   const nativity={submissionNumber:n.submission_number,eventYear:n.event_year,story:n.story||'',pieceCount:n.piece_count,photoKey:n.photo_key||'',displayPhotoKey:n.display_photo_key||'',includeInTour:n.include_in_tour,pieces};
-  const record={version:3,nativity,year:n.event_year,submissions,organizer:'City of Seguin',event:'Stroll to the Stable',location:'Nolte Building, 101 E. Nolte St, Seguin, TX',dates,fields,method:body.method,initials:body.method==='digital'?String(body.initials).trim():null,signature:body.method==='digital'?String(body.signature).trim():null,agreed:body.method==='digital',completedAt:new Date().toISOString(),submissionNumber:n.submission_number};
+  const record={version:3,nativity,year:n.event_year,submissions,organizer:'City of Seguin',event:'Stroll to the Stable',location:'Nolte Building, 101 E. Nolte St, Seguin, TX',dates,fields,method:body.method,signatureImage:body.signatureImage,signature:null,agreed:body.method==='digital',completedAt:new Date().toISOString(),submissionNumber:n.submission_number};
   if(body.method==='digital') {
     const pdf=await createWaiverPdf(record);
     await env.PHOTOS.put(pdfKey(n),pdf,{httpMetadata:{contentType:'application/pdf'}});
   }
+  await env.PHOTOS.delete(draftKey(n));
   await env.PHOTOS.put(key(n),JSON.stringify(record),{httpMetadata:{contentType:'application/json'}});
   if(body.method==='digital') { await sql`UPDATE nativities SET waiver_signed=true,waiver_signed_by='Digital signature',waiver_signed_at=now(),updated_at=now() WHERE id=${n.id}`; }
   let emailSent = null;
