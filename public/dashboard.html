@@ -119,7 +119,7 @@ async function load() {
           </label>
           <span style="font-size:14px; color:var(--wood)">Show in public virtual tour</span>
         </div>
-        ${!n.submission_number.startsWith('DRAFT') ? `<a class="btn btn-secondary" href="/waiver.html?id=${n.id}">View / Complete Waiver</a>` : ''}
+        ${!n.submission_number.startsWith('DRAFT') ? `<a class="btn btn-secondary" href="${n.waiver_signed ? `/api/nativities/${n.id}/waiver-pdf` : `/waiver.html?id=${n.id}`}">${n.waiver_signed ? "View Signed Waiver" : "Complete Waiver"}</a>` : ''}
         ${submissionsOpen && n.status === 'returned' && Number(n.event_year) < CURRENT_YEAR
           ? `<button class="btn btn-secondary" onclick="resubmit(${n.id})">Submit Again This Year</button>`
           : ''}
