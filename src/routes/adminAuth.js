@@ -114,15 +114,18 @@ export async function participantProfile(request, env, session) {
   const admins=await sql`SELECT email FROM admins WHERE lower(email)=lower(${session.email}) LIMIT 1`;
   if (!admins.length) return error('Admin access no longer active.',403);
   const existing=await sql`SELECT id,name,phone FROM users WHERE lower(email)=lower(${session.email}) ORDER BY id LIMIT 1`;
-  if (request.method==='GET') return json({exists:!!existing.length,email:session.email,name:existing[0]?.name||'',phone:existing[0]?.phone||''});
+  if (request.method==='GET') {
+    const headers=existing.length?{'Set-Cookie':sessionCookieHeader(await createSessionToken(env,{kind:'user',userId:existing[0].id}))}:{};
+    return json({exists:!!existing.length,email:session.email,name:existing[0]?.name||'',phone:existing[0]?.phone||''},{headers});
+  }
   if (request.method!=='POST') return error('Method not allowed',405);
-  if (existing.length) return json({ok:true,existing:true});
+  if (existing.length) return json({ok:true,existing:true},{headers:{'Set-Cookie':sessionCookieHeader(await createSessionToken(env,{kind:'user',userId:existing[0].id}))}});
   const {name,phone}=await request.json();
   if (!name?.trim() || !phone?.trim()) return error('Enter your name and phone number.');
   const lastName=name.trim().split(/\s+/).pop();
   const username=await nextUsername(sql,lastName);
   const passwordHash=await hashPassword(generateShortPassword(32));
-  await sql`INSERT INTO users (username,name,phone,email,password_hash)
-    VALUES (${username},${name.trim()},${phone.trim()},${session.email},${passwordHash})`;
-  return json({ok:true,created:true});
+  const created=await sql`INSERT INTO users (username,name,phone,email,password_hash)
+    VALUES (${username},${name.trim()},${phone.trim()},${session.email},${passwordHash}) RETURNING id`;
+  return json({ok:true,created:true},{headers:{'Set-Cookie':sessionCookieHeader(await createSessionToken(env,{kind:'user',userId:created[0].id}))}});
 }
