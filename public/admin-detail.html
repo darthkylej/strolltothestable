@@ -307,7 +307,7 @@ async function load() {
       const w = waiverData.waiver;
       document.getElementById('waiverRecordInfo').textContent = w
         ? 'Waiver method: ' + ({digital:'Digitally signed',print:'Print and bring',onsite:'Complete onsite'}[w.method] || w.method) + '. ' + (nativity.waiver_signed ? 'Received.' : 'Awaiting signed form.') + ' Event dates recorded: ' + (w.dates?.start || 'Not set') + ' to ' + (w.dates?.end || 'Not set') + '.'
-        : 'No signed digital waiver yet. Ask the participant to sign online.';
+        : waiverData.draft ? 'Waiver in progress. Participant information has been saved. Staff can help the participant finish and sign at check-in.' : 'No signed digital waiver yet. Ask the participant to sign online or offer help at check-in.';
     } catch { document.getElementById('waiverRecordInfo').textContent = 'Waiver record unavailable.'; }
     const finalizeBtn = document.getElementById('finalizeBtn');
     const returnBtn = document.getElementById('returnBtn');
