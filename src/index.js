@@ -179,6 +179,7 @@ export default {
 
       const session = await getSession(request, env);
 
+      if (path === '/api/session-status' && method === 'GET') return await auth.sessionStatus(request,env,session);
       if (path === '/api/settings' && method === 'GET') return await settings.getPublicSettings(request, env);
 
       if (path === '/api/register' && method === 'POST') return await auth.register(request, env);
