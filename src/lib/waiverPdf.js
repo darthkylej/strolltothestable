@@ -58,6 +58,11 @@ export async function createWaiverPdf(record, signedImage = null, mime = '') {
     '4. I agree that photos/videos of my display may be used for promotional purposes.',
     '5. Unclaimed displays after the designated pick-up date '+date(record.dates.pickupDeadline)+' may be considered donations.'
   ]){line(item);gap(3);}
+  gap(8);
+  line('Electronic Signature and Consent',12,true);
+  const consent='I have reviewed the complete Registration and Release Agreement, understand its terms, and agree that my electronic signature is legally binding.';
+  line((record.electronicSignatureConsent===true?'[X]':'[ ]')+' '+consent,10);
+  gap(8);
   line('Signature:',10,true);
   if(record.signatureImage){
     const bytes=Uint8Array.from(atob(record.signatureImage.split(',')[1]),c=>c.charCodeAt(0));
@@ -69,6 +74,16 @@ export async function createWaiverPdf(record, signedImage = null, mime = '') {
   } else line(record.signature||'________________________________');
   line('Date: '+(record.signingDate?date(record.signingDate):record.completedAt?new Date(record.completedAt).toLocaleDateString('en-US',{timeZone:'UTC'}):'________________'));
   line('Printed Name of Signer: '+(record.signerName||'________________'));
+  gap(8);
+  line('Electronic Signing Audit Trail',11,true);
+  const audit=record.audit||{};
+  line('Server Timestamp (UTC): '+(audit.signedAt||'Pending signature'));
+  line('IP Address: '+(audit.ipAddress||'Not available'));
+  line('Browser / User Agent: '+(audit.userAgent||'Not available'),9);
+  line('Authenticated Account ID: '+(audit.authenticatedUserId??'Not yet signed'),9);
+  line('Reviewed PDF SHA-256: '+(audit.reviewedPdfSha256||'Pending review'),8);
+  line('Document Reviewed At (UTC): '+(audit.reviewedAt||'Pending review'),9);
+  line('Electronic Consent: '+(record.electronicSignatureConsent===true?'Checked and accepted':'Not yet accepted'));
   if(signedImage){
     let img;
     if(mime==='image/png')img=await pdf.embedPng(signedImage);
