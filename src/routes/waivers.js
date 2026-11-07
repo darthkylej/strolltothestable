@@ -69,7 +69,7 @@ export async function downloadWaiverPdf(request,env,session,id) {
   if(!n.waiver_signed) return error('Signed waiver has not been received.',404);
   const object=await env.PHOTOS.get(`_waivers/${id}.pdf`);
   if(!object) return error('Signed waiver PDF is not yet available.',404);
-  return new Response(object.body,{headers:{'Content-Type':'application/pdf','Content-Disposition':'attachment; filename="Stroll-to-the-Stable-Waiver-'+n.submission_number.replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf"','Cache-Control':'private, no-store'}});
+  return new Response(object.body,{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="Stroll-to-the-Stable-Waiver-'+n.submission_number.replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf"','Cache-Control':'private, no-store'}});
 }
 export async function uploadSignedWaiver(request,env,session,id) {
   requireAdmin(session);
