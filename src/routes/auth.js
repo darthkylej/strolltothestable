@@ -114,3 +114,8 @@ export async function recoverLogin(request, env) {
     { headers: { 'Set-Cookie': sessionCookieHeader(sessionToken) } }
   );
 }
+
+export async function sessionStatus(request,env,session) {
+  if(session?.kind==='user') return json({authenticated:true,role:'user'});
+  return json({authenticated:false});
+}
