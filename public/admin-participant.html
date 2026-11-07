@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>My Nativities — Stroll to the Stable</title><link rel="stylesheet" href="/style.css"></head>
+<body><div class="page"><p class="eyebrow">Stroll to the Stable</p><h1>My Nativities</h1><div class="error-banner" data-error-banner></div>
+<div id="loading" class="card">Checking your participant profile…</div>
+<form id="profileForm" class="card" style="display:none"><h2>Complete your participant profile</h2><p>Your verified admin email will be used automatically. You only need to provide your name and phone number once.</p>
+<div class="field"><label for="profileName">Name</label><input id="profileName" autocomplete="name" required></div>
+<div class="field"><label for="profilePhone">Phone</label><input id="profilePhone" type="tel" autocomplete="tel" required></div>
+<button class="btn btn-primary" id="saveBtn" type="submit">Continue to My Nativities</button></form>
+<p><a class="link" href="/admin-dashboard.html">Back to Admin</a></p></div><script src="/js/app.js"></script><script>
+async function checkProfile(){try{const data=await api('/api/admin/participant-profile');if(data.exists){location.replace('/dashboard.html');return;}document.getElementById('loading').style.display='none';document.getElementById('profileForm').style.display='block';}catch(e){document.getElementById('loading').style.display='none';showError(e.message);}}
+document.getElementById('profileForm').addEventListener('submit',async e=>{e.preventDefault();hideError();const btn=document.getElementById('saveBtn');btn.disabled=true;try{await api('/api/admin/participant-profile',{method:'POST',body:{name:document.getElementById('profileName').value,phone:document.getElementById('profilePhone').value}});location.replace('/dashboard.html');}catch(e){showError(e.message);btn.disabled=false;}});
+checkProfile();
+</script></body></html>
