@@ -55,7 +55,7 @@ export async function saveWaiver(request,env,session,id) {
   if(body.method==='digital') { await sql`UPDATE nativities SET waiver_signed=true,waiver_signed_by='Digital signature',waiver_signed_at=now(),updated_at=now() WHERE owner_user_id=${n.owner_user_id} AND event_year=${n.event_year} AND submission_number NOT LIKE 'DRAFT-%'`; }
   let emailSent = null;
   if(body.method==='digital') {
-    const pdfObject=await env.PHOTOS.get(`_waivers/${id}.pdf`);
+    const pdfObject=await env.PHOTOS.get(pdfKey(n));
     try {
       await sendWaiverPdfEmail(env,{to:n.owner_email,name:n.owner_name,submissionNumber:String(n.event_year),pdf:new Uint8Array(await pdfObject.arrayBuffer())});
       emailSent=true;
