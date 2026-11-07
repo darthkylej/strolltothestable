@@ -67,8 +67,8 @@ export async function createWaiverPdf(record, signedImage = null, mime = '') {
     page.drawImage(image,{x:left,y:y-h,width:w,height:h});
     y-=h+8;
   } else line(record.signature||'________________________________');
-  line('Date: '+(record.method==='digital'?new Date(record.completedAt).toLocaleDateString('en-US',{timeZone:'UTC'}):'________________'));
-  line('Printed Name: '+(record.fields.name||''));
+  line('Date: '+(record.signingDate?date(record.signingDate):record.completedAt?new Date(record.completedAt).toLocaleDateString('en-US',{timeZone:'UTC'}):'________________'));
+  line('Printed Name of Signer: '+(record.signerName||'________________'));
   if(signedImage){
     let img;
     if(mime==='image/png')img=await pdf.embedPng(signedImage);
