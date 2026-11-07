@@ -201,7 +201,6 @@ export default {
       if ((m = path.match(/^\/api\/nativities\/(\d+)\/waiver$/)) && method === 'POST') return await waivers.saveWaiver(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/nativities\/(\d+)\/waiver-pdf$/)) && method === 'GET') return await waivers.downloadWaiverPdf(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/waiver-pdf$/)) && method === 'GET') return await waivers.downloadWaiverPdf(request,env,session,m[1]);
-      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/waiver-scan$/)) && method === 'POST') return await waivers.uploadSignedWaiver(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/waiver-record$/)) && method === 'GET') return await waivers.getWaiver(request,env,session,m[1]);
 
       if ((m = path.match(/^\/api\/nativities\/(\d+)$/)) && method === 'GET') {
@@ -257,9 +256,7 @@ export default {
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)$/)) && method === 'DELETE') {
         return await admin.deleteNativity(request, env, session, m[1]);
       }
-      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/waiver$/)) && method === 'POST') {
-        return await admin.toggleWaiver(request, env, session, m[1]);
-      }
+
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/finalize$/)) && method === 'POST') {
         return await admin.finalize(request, env, session, m[1]);
       }
