@@ -36,7 +36,7 @@ export async function saveWaiver(request,env,session,id) {
   const n=await owned(env,session,id);
   if(n.submission_number.startsWith('DRAFT-')) return error('Finish the nativity submission before completing the waiver.');
   const previous=await saved(env,n);
-  if(previous) return error('This nativity's waiver is already signed.');
+  if(previous) return error("This nativity's waiver is already signed.");
   const body=await request.json();
   if(body.method!=='digital') return error('Digital signing is required.');
   const f=body.fields || {};
@@ -61,7 +61,7 @@ export async function saveWaiver(request,env,session,id) {
   if(body.method==='digital') {
     const pdfObject=await env.PHOTOS.get(pdfKey(n));
     try {
-      await sendWaiverPdfEmail(env,{to:n.owner_email,name:n.owner_name,submissionNumber:n.submission_number,pdf:new Uint8Array(await pdfObject.arrayBuffer())});
+      await sendWaiverPdfEmail(env,{to:n.owner_email,name:n.owner_name,submissionNumber:n.submission_number,pdf:new Uint8Array(await pdfObject.arrayBuffer()),settings});
       emailSent=true;
     } catch(e) { emailSent=false; console.error('Signed waiver PDF email failed:',e); }
   }
