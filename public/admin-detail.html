@@ -64,7 +64,15 @@
   <div class="error-banner" data-error-banner></div>
   <div class="admin-success" id="successBanner"></div>
 
-  <div class="card edit-card">
+  <div class="card action-card">
+    <h2>Check-In Status</h2>
+    <p id="waiverRecordInfo" class="section-note">Loading waiver record…</p><a id="waiverPdfDownload" class="btn btn-secondary" style="display:none" href="#">Download Signed PDF</a><div class="action-row" style="margin-top:16px">
+      <button class="btn btn-primary detail-primary-action" id="finalizeBtn">Finalize Check-In</button>
+      <button class="btn btn-secondary detail-primary-action" id="returnBtn" style="display:none">Mark Returned to Owner</button>
+    </div>
+  </div>
+
+  <details class="card edit-card"><summary style="cursor:pointer;font-size:1.2rem;font-weight:700">Edit submission details, pieces and photos</summary>
     <h2>Edit Submission</h2>
     <p class="section-note">Admins can correct all information entered by the donor before or after check-in.</p>
 
@@ -138,7 +146,7 @@
     </section>
   </div>
 
-  <div class="card admin-note-card">
+  </details><div class="card admin-note-card">
     <span class="admin-note-badge">Admin Only</span>
     <h2>Private Notes</h2>
     <p class="section-note">These notes are never shown to the donor or in the Virtual Tour.</p>
@@ -158,26 +166,6 @@
     <div class="action-row" style="margin-top:12px">
       <button class="btn btn-secondary" id="uploadDisplayBtn">Upload / Replace Display Photo</button>
       <button class="btn btn-danger" id="clearDisplayBtn" style="display:none">Remove Display Photo</button>
-    </div>
-  </div>
-
-  <div class="card action-card">
-    <h2>Check-In Status</h2>
-    <p id="waiverRecordInfo" class="section-note">Loading waiver record…</p><a id="waiverPdfDownload" class="btn btn-secondary" style="display:none" href="#">Download Signed PDF</a><div class="field"><label for="signedWaiverFile">Upload signed paper waiver as PDF, JPEG or PNG</label><input id="signedWaiverFile" type="file" accept=".pdf,image/jpeg,image/png,application/pdf"><button class="btn btn-secondary" type="button" id="signedWaiverUpload">Save Signed Waiver</button></div>
-    <div class="toggle-row" id="waiverRow" style="margin-top:12px">
-      <label class="switch">
-        <input type="checkbox" id="waiverToggle">
-        <span class="track"></span>
-      </label>
-      <div>
-        <div style="font-weight:700">Waiver signed</div>
-        <div class="section-note">Turn this on once the signed waiver is in hand.</div>
-      </div>
-    </div>
-
-    <div class="action-row" style="margin-top:16px">
-      <button class="btn btn-primary detail-primary-action" id="finalizeBtn">Finalize Check-In</button>
-      <button class="btn btn-secondary detail-primary-action" id="returnBtn" style="display:none">Mark Returned to Owner</button>
     </div>
   </div>
 
@@ -312,7 +300,6 @@ async function load() {
     renderPhotos(nativity);
     renderPieces(pieces);
 
-    document.getElementById('waiverToggle').checked = nativity.waiver_signed;
     document.getElementById('waiverPdfDownload').href = '/api/admin/nativities/'+id+'/waiver-pdf';
     document.getElementById('waiverPdfDownload').style.display = nativity.waiver_signed ? 'inline-block' : 'none';
     try {
@@ -320,7 +307,7 @@ async function load() {
       const w = waiverData.waiver;
       document.getElementById('waiverRecordInfo').textContent = w
         ? 'Waiver method: ' + ({digital:'Digitally signed',print:'Print and bring',onsite:'Complete onsite'}[w.method] || w.method) + '. ' + (nativity.waiver_signed ? 'Received.' : 'Awaiting signed form.') + ' Event dates recorded: ' + (w.dates?.start || 'Not set') + ' to ' + (w.dates?.end || 'Not set') + '.'
-        : 'No online waiver record yet. Paper waiver may be received onsite.';
+        : 'No signed digital waiver yet. Ask the participant to sign online.';
     } catch { document.getElementById('waiverRecordInfo').textContent = 'Waiver record unavailable.'; }
     const finalizeBtn = document.getElementById('finalizeBtn');
     const returnBtn = document.getElementById('returnBtn');
@@ -463,30 +450,6 @@ document.getElementById('clearMainBtn').addEventListener('click', async () => {
     await load();
   } catch (err) {
     showError(err.message);
-  }
-});
-
-document.getElementById('signedWaiverUpload').addEventListener('click',async()=>{
-  const file=document.getElementById('signedWaiverFile').files[0];
-  if(!file){showError('Choose a signed waiver file.');return;}
-  const form=new FormData();form.append('file',file);
-  try{
-    const response=await fetch('/api/admin/nativities/'+id+'/waiver-scan',{method:'POST',body:form,credentials:'same-origin'});
-    const result=await response.json();
-    if(!response.ok)throw Error(result.error||'Upload failed');
-    showSuccess('Signed PDF saved and receipt recorded.');
-    await load();
-  }catch(e){showError(e.message);}
-});
-document.getElementById('waiverToggle').addEventListener('change', async (e) => {
-  hideError();
-  try {
-    await api(`/api/admin/nativities/${id}/waiver`, { method: 'POST', body: { signed: e.target.checked } });
-    document.getElementById('finalizeBtn').disabled = !e.target.checked;
-    showSuccess(e.target.checked ? 'Waiver marked signed.' : 'Waiver signature cleared.');
-  } catch (err) {
-    showError(err.message);
-    e.target.checked = !e.target.checked;
   }
 });
 
