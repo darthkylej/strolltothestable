@@ -200,6 +200,7 @@ export default {
 
       let m;
       if ((m = path.match(/^\/api\/nativities\/(\d+)\/waiver$/)) && method === 'GET') return await waivers.getWaiver(request,env,session,m[1]);
+      if ((m = path.match(/^\/api\/nativities\/(\d+)\/waiver-preview$/)) && method === 'POST') return await waivers.previewWaiver(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/nativities\/(\d+)\/waiver-draft$/)) && method === 'POST') return await waivers.saveWaiverDraft(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/nativities\/(\d+)\/waiver$/)) && method === 'POST') return await waivers.saveWaiver(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/nativities\/(\d+)\/waiver-pdf$/)) && method === 'GET') return await waivers.downloadWaiverPdf(request,env,session,m[1]);
