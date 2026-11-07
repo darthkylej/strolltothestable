@@ -33,10 +33,11 @@ export async function createWaiverPdf(record, signedImage = null, mime = '') {
   line('Event Location: Nolte Building (formerly Wells Fargo) at 101 E. Nolte in downtown Seguin');
   gap();line('Participant Information',12,true);
   for(const [key,label] of labels.slice(0,5))line(label+': '+(record.fields[key]||''));
-  gap();line('Nativity Display Information',12,true);
-  for(const [key,label] of labels.slice(5))line(label+': '+(record.fields[key]||''));
+  gap();line('Nativities registered this event year at the time of signing',12,true);
+  for(const n of record.submissions||[]) {line('Submission '+n.submission_number+' - '+n.piece_count+' pieces');if(n.story)line('Origin or Special Story: '+n.story,9);}
+  line('This release covers all nativities I submit for the '+record.year+' event, including those submitted after signing.');
   gap();line('Liability & Release Agreement',12,true);
-  line('I, the undersigned, acknowledge that I am voluntarily lending my personal nativity set ("Property") for use in "A Stroll to the Stable" hosted by City of Seguin ("Organizer"). I understand and agree to the following:');
+  line('I, the undersigned, acknowledge that I am voluntarily lending all of my personal nativity sets and displays ("Property") for use in "A Stroll to the Stable" hosted by City of Seguin ("Organizer"). I understand and agree to the following:');
   gap(5);
   for(const item of [
     '1. My participation is voluntary, and I assume all risks associated with displaying my property.',
