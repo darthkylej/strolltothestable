@@ -39,7 +39,6 @@ export async function createWaiverPdf(record, signedImage = null, mime = '') {
   line('Event Year: '+(n.eventYear||record.year||''));
   line('Story / Origin: '+(n.story||'Not provided'));
   line('Total Pieces: '+(n.pieceCount??''));
-  line('Include in Public Virtual Tour: '+(n.includeInTour?'Yes':'No'));
   if(n.photoKey)line('Nativity Photo Reference: '+n.photoKey,9);
   if(n.displayPhotoKey)line('Display Photo Reference: '+n.displayPhotoKey,9);
   gap(4);line('Individual Pieces',11,true);
