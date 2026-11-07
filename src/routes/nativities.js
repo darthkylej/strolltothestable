@@ -19,7 +19,7 @@ export async function listMine(request, env, session) {
   requireUser(session);
   const sql = db(env);
   const nativities = await sql`
-    SELECT id, submission_number, event_year, status, piece_count, photo_key, story, include_in_tour, created_at
+    SELECT id, submission_number, event_year, status, piece_count, photo_key, story, include_in_tour, waiver_signed, created_at
     FROM nativities WHERE owner_user_id = ${session.userId}
     ORDER BY event_year DESC, created_at DESC
   `;
@@ -102,6 +102,8 @@ export async function submitPieces(request, env, session, id) {
     WHERE id = ${id}
   `;
 
+  const existingWaiver = await env.PHOTOS.head(`_waivers/participant-${session.userId}-${eventYear}.json`);
+  if(existingWaiver) await sql`UPDATE nativities SET waiver_signed=true,waiver_signed_by='Annual digital signature',waiver_signed_at=now() WHERE id=${id}`;
   const savedPieces = await sql`SELECT * FROM nativity_pieces WHERE nativity_id = ${id} ORDER BY piece_number`;
   const settings = await getSiteSettings(env);
   const nativity = { ...owned[0], submission_number: submissionNumber, piece_count: pieces.length };
