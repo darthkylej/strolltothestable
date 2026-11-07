@@ -40,12 +40,12 @@ export async function create(request, env, session) {
   requireUser(session);
   await requireSubmissionsOpen(env);
 
-  const { photoKey, story, includeInTour } = await request.json();
+  const { photoKey, story } = await request.json();
   const sql = db(env);
   const eventYear = currentEventYear();
   const rows = await sql`
     INSERT INTO nativities (submission_number, owner_user_id, event_year, photo_key, story, status, include_in_tour)
-    VALUES (${'DRAFT-' + crypto.randomUUID()}, ${session.userId}, ${eventYear}, ${photoKey || null}, ${story || null}, 'pending', ${includeInTour !== false})
+    VALUES (${'DRAFT-' + crypto.randomUUID()}, ${session.userId}, ${eventYear}, ${photoKey || null}, ${story || null}, 'pending', ${true})
     RETURNING id
   `;
   return json({ id: rows[0].id });
