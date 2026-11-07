@@ -48,7 +48,11 @@ export async function login(request, env) {
 }
 
 export async function logout() {
-  return json({ ok: true }, { headers: { 'Set-Cookie': sessionCookieHeader(null, { clear: true }) } });
+  const response=json({ok:true});
+  response.headers.append('Set-Cookie',sessionCookieHeader(null,{clear:true,kind:'user'}));
+  response.headers.append('Set-Cookie',sessionCookieHeader(null,{clear:true,kind:'admin'}));
+  response.headers.append('Set-Cookie','session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0');
+  return response;
 }
 
 export async function forgotLogin(request, env) {
