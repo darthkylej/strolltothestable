@@ -29,7 +29,7 @@ export async function getWaiver(request,env,session,id) {
   const pieces=await sql`SELECT piece_number,description,condition_notes FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
   const submissions=[{submission_number:n.submission_number,story:n.story,piece_count:n.piece_count,pieces}];
   const settings=await getSiteSettings(env);
-  return json({ waiver:existing, signed:!!existing || !!n.waiver_signed, owner:{name:n.owner_name,phone:n.owner_phone,email:n.owner_email}, prefill, submissions, year:n.event_year, dates:eventDates(settings), organizer:'City of Seguin' },{headers:{'Cache-Control':'no-store'}});
+  return json({ waiver:existing, signed:!!existing, owner:{name:n.owner_name,phone:n.owner_phone,email:n.owner_email}, prefill, submissions, year:n.event_year, dates:eventDates(settings), organizer:'City of Seguin' },{headers:{'Cache-Control':'no-store'}});
 }
 export async function saveWaiver(request,env,session,id) {
   requireUser(session);
