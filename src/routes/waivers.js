@@ -6,6 +6,9 @@ import { sendWaiverPdfEmail } from '../lib/email.js';
 
 const key = n => `_waivers/${n.id}.json`;
 const draftKey = n => `_waivers/${n.id}-draft.json`;
+const reviewKey = n => `_waivers/${n.id}-review.json`;
+const reviewPdfKey = n => `_waivers/${n.id}-review.pdf`;
+async function sha256(bytes){const hash=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('');}
 const pdfKey = n => `_waivers/${n.id}.pdf`;
 const formatDay = d => { const x = String(d || '').slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : ''; };
 function eventDates(settings) {
@@ -61,7 +64,11 @@ export async function previewWaiver(request,env,session,id) {
   if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all participant information before reviewing the PDF.',400);
   const record=await waiverRecord(env,n,fields,{signerName:'',signingDate:''});
   const pdf=await createWaiverPdf(record);
-  return new Response(pdf,{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="Nativity-Waiver-Preview.pdf"','Cache-Control':'private, no-store'}});
+  const hash=await sha256(pdf);
+  const token=crypto.randomUUID();
+  await env.PHOTOS.put(reviewPdfKey(n),pdf,{httpMetadata:{contentType:'application/pdf'}});
+  await env.PHOTOS.put(reviewKey(n),JSON.stringify({token,hash,record,userId:session.userId,createdAt:new Date().toISOString()}),{httpMetadata:{contentType:'application/json'}});
+  return new Response(pdf,{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="Nativity-Waiver-Preview.pdf"','Cache-Control':'private, no-store','X-Waiver-Review-Token':token,'X-Waiver-Document-SHA256':hash,'Access-Control-Expose-Headers':'X-Waiver-Review-Token, X-Waiver-Document-SHA256'}});
 }
 export async function saveWaiver(request,env,session,id) {
   requireUser(session);
@@ -74,7 +81,7 @@ export async function saveWaiver(request,env,session,id) {
   const f=body.fields || {};
   const fields={name:String(f.name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
   if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all required waiver fields.');
-  if(body.method==='digital' && (!body.agreed || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(body.signatureImage||'') || (body.signatureImage||'').length>300000)) return error('Read the agreement and draw your signature.');
+  if(body.method==='digital' && (!body.agreed || body.electronicSignatureConsent!==true || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(body.signatureImage||'') || (body.signatureImage||'').length>300000)) return error('Read the agreement and draw your signature.');
   const signerName=String(body.signerName||'').trim(), signingDate=String(body.signingDate||'').trim();
   if(!signerName || !/^\\d{4}-\\d{2}-\\d{2}$/.test(signingDate) || !Number.isFinite(Date.parse(signingDate+'T12:00:00Z'))) return error('Enter your printed name and signing date.',400);
   if(signerName.toLowerCase()!==fields.name.toLowerCase()) return error('Printed signing name must match the participant name.',400);
@@ -82,12 +89,25 @@ export async function saveWaiver(request,env,session,id) {
   const dates=eventDates(settings);
   if(!dates.start || !dates.end || !dates.pickupDeadline) return error('Event dates must be configured before completing a waiver.');
   const sql=db(env);
-  const record=await waiverRecord(env,n,fields,{signatureImage:body.signatureImage,signerName,signingDate,agreed:true,completedAt:new Date().toISOString()});
+  const reviewObject=await env.PHOTOS.get(reviewKey(n));
+  if(!reviewObject) return error('Review the complete PDF before signing.',409);
+  const review=JSON.parse(await reviewObject.text());
+  if(review.userId!==session.userId || review.token!==body.reviewToken || review.hash!==body.reviewHash) return error('The reviewed document does not match. Review the PDF again.',409);
+  const reviewedPdf=await env.PHOTOS.get(reviewPdfKey(n));
+  if(!reviewedPdf || await sha256(await reviewedPdf.arrayBuffer())!==review.hash) return error('The reviewed PDF could not be verified. Review it again.',409);
+  const current=await waiverRecord(env,n,fields,{signerName:'',signingDate:''});
+  if(JSON.stringify(current)!==JSON.stringify(review.record)) return error('The waiver information changed. Review the updated PDF before signing.',409);
+  const signedAt=new Date().toISOString();
+  const record={...review.record,signatureImage:body.signatureImage,signerName,signingDate,agreed:true,electronicSignatureConsent:true,completedAt:signedAt,
+    audit:{signedAt,authenticatedUserId:session.userId,ipAddress:request.headers.get('CF-Connecting-IP')||null,userAgent:request.headers.get('User-Agent')||null,reviewToken:review.token,reviewedPdfSha256:review.hash,reviewedAt:review.createdAt,consentText:'I have reviewed the complete Registration and Release Agreement, understand its terms, and agree that my electronic signature is legally binding.'}};
   if(body.method==='digital') {
     const pdf=await createWaiverPdf(record);
+    record.audit.signedPdfSha256=await sha256(pdf);
     await env.PHOTOS.put(pdfKey(n),pdf,{httpMetadata:{contentType:'application/pdf'}});
   }
   await env.PHOTOS.delete(draftKey(n));
+  await env.PHOTOS.delete(reviewKey(n));
+  await env.PHOTOS.delete(reviewPdfKey(n));
   await env.PHOTOS.put(key(n),JSON.stringify(record),{httpMetadata:{contentType:'application/json'}});
   if(body.method==='digital') { await sql`UPDATE nativities SET waiver_signed=true,waiver_signed_by='Digital signature',waiver_signed_at=now(),updated_at=now() WHERE id=${n.id}`; }
   let emailSent = null;
