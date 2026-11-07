@@ -192,6 +192,7 @@ export default {
 
       if (path === '/api/tour' && method === 'GET') return await getTour(request, env);
 
+      if (path === '/api/admin/participant-profile' && (method === 'GET' || method === 'POST')) return await adminAuth.participantProfile(request,env,session);
       if (path === '/api/nativities' && method === 'GET') return await nativities.listMine(request, env, session);
       if (path === '/api/nativities' && method === 'POST') return await nativities.create(request, env, session);
       if (path === '/api/upload-photo' && method === 'POST') return await nativities.uploadPhoto(request, env, session);
