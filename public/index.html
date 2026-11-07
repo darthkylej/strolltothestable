@@ -589,7 +589,24 @@
 
   loadNativitySchedule();
 
-  document.getElementById('submitNativity').addEventListener('click', () => {
+  document.getElementById('submitNativity').addEventListener('click', async () => {
+    const button=document.getElementById('submitNativity');
+    button.disabled=true;
+    try {
+      const response=await fetch('/api/session-status',{cache:'no-store'});
+      if(response.ok && (await response.json()).authenticated){
+        window.location.href='/lend-photo.html';
+        return;
+      }
+      const adminResponse=await fetch('/api/admin/participant-profile',{cache:'no-store'});
+      if(adminResponse.ok){
+        const profile=await adminResponse.json();
+        window.location.href=profile.exists?'/lend-photo.html':'/admin-participant.html';
+        return;
+      }
+    } catch(e) {
+      // If session lookup fails, preserve the normal login and registration choices.
+    } finally {button.disabled=false;}
     if (typeof dialog.showModal === 'function') dialog.showModal();
     else dialog.setAttribute('open', '');
   });
