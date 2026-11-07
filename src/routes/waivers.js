@@ -83,7 +83,7 @@ export async function saveWaiver(request,env,session,id) {
   if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all required waiver fields.');
   if(body.method==='digital' && (!body.agreed || body.electronicSignatureConsent!==true || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(body.signatureImage||'') || (body.signatureImage||'').length>300000)) return error('Read the agreement and draw your signature.');
   const signerName=String(body.signerName||'').trim(), signingDate=String(body.signingDate||'').trim();
-  if(!signerName || !/^\\d{4}-\\d{2}-\\d{2}$/.test(signingDate) || !Number.isFinite(Date.parse(signingDate+'T12:00:00Z'))) return error('Enter your printed name and signing date.',400);
+  if(!signerName || !/^\d{4}-\d{2}-\d{2}$/.test(signingDate) || !Number.isFinite(Date.parse(signingDate+'T12:00:00Z'))) return error('Enter your printed name and signing date.',400);
   if(signerName.toLowerCase()!==fields.name.toLowerCase()) return error('Printed signing name must match the participant name.',400);
   const settings=await getSiteSettings(env);
   const dates=eventDates(settings);
