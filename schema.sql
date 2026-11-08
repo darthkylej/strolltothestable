@@ -39,6 +39,8 @@ CREATE TABLE users (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_users_email ON users (email);
+-- One account per email (the email is the login).
+CREATE UNIQUE INDEX users_email_unique ON users (lower(email));
 CREATE INDEX idx_users_phone ON users (phone);
 
 -- Tracks the next available suffix per last name so usernames increment
