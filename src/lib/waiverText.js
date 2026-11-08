@@ -1,10 +1,9 @@
 // Single source of truth for the waiver wording. The PDF and the signing
 // screen both render from this, so what people read is what they sign.
 // Change AGREEMENT_VERSION whenever the wording changes.
-export const AGREEMENT_VERSION = '2026-11-08.2';
+export const AGREEMENT_VERSION = '2026-11-08.3';
 export const ORGANIZER = 'City of Seguin';
 export const CONTACT_EMAIL = 'submissions@strolltothestable.com';
-export const ABANDON_DAYS = 30;
 
 // Public event dates (used when admins have not set eventStart/eventEnd).
 export const DEFAULT_EVENT = { start: '2026-11-27', end: '2026-12-06' };
@@ -29,8 +28,8 @@ export function agreementSections(dates = {}) {
       text: `I ("Lender") am lending the nativity set and pieces listed in this form ("Property") for display at A Stroll to the Stable, hosted by the ${ORGANIZER} ("Organizer"). "Released Parties" means the Organizer and its officials, employees, volunteers, sponsors and partners, and the owner of the event venue.`,
     },
     {
-      title: '1. Ownership and Risk',
-      text: 'I am at least 18 years old and own the Property or am authorized to lend it. The piece list and condition notes in this form are accurate. I am lending the Property voluntarily and accept the risk that it may be damaged, lost or stolen. The Released Parties do not insure the Property.',
+      title: '1. Ownership, Care and Risk',
+      text: 'I am at least 18 years old and own the Property or am authorized to lend it. The piece list and condition notes in this form are accurate. The Organizer will take reasonable precautions to care for the Property but cannot guarantee it against damage, loss or theft. I understand the Property may be damaged, lost or stolen during transport, setup, display, storage or return, and I am lending it voluntarily and accept those risks. The Released Parties do not insure the Property.',
     },
     {
       title: `${RELEASE_SECTION}. RELEASE OF LIABILITY - PLEASE READ CAREFULLY`,
@@ -43,7 +42,7 @@ export function agreementSections(dates = {}) {
     },
     {
       title: '4. Pick-Up',
-      text: `I am responsible for collecting the Property by ${deadline}. Property not collected within ${ABANDON_DAYS} days after that date is considered abandoned and becomes the property of the Organizer.`,
+      text: `I am responsible for collecting the Property by ${deadline}. Property not collected by that date is considered abandoned and becomes the property of the Organizer.`,
     },
     {
       title: '5. General Terms',
