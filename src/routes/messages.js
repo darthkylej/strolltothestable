@@ -135,6 +135,21 @@ function cleanReplyText(text) {
   return value;
 }
 
+const OWN_DOMAIN = 'strolltothestable.com';
+
+export function isAutomatedOrInternal(sender, headers) {
+  const address = String(sender || '').toLowerCase();
+  const domain = address.split('@').pop();
+  if (VALID_ADDRESSES.has(address)) return true;
+  if (domain === OWN_DOMAIN || domain.endsWith('.' + OWN_DOMAIN)) return true;
+  if (/^(mailer-daemon|postmaster)@/.test(address)) return true;
+  const get = (name) => String(headers?.get?.(name) || '').trim().toLowerCase();
+  const autoSubmitted = get('auto-submitted');
+  if (autoSubmitted && autoSubmitted !== 'no') return true;
+  if (['auto_reply', 'bulk', 'junk'].includes(get('precedence'))) return true;
+  return false;
+}
+
 export async function handleIncomingEmail(message, env) {
   const sourceAddress = String(message.to || '').toLowerCase();
   if (!VALID_ADDRESSES.has(sourceAddress)) {
@@ -143,8 +158,10 @@ export async function handleIncomingEmail(message, env) {
   }
 
   const sender = String(message.from || '').toLowerCase();
-  if (VALID_ADDRESSES.has(sender)) {
-    // Prevent internally generated Stroll mail from creating message-center loops.
+  if (isAutomatedOrInternal(sender, message.headers)) {
+    // The message center is for people's questions. Our own mail (including
+    // its bounce addresses), delivery failures and auto-replies never create
+    // threads or notify admins.
     return;
   }
 
