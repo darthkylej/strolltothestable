@@ -1,5 +1,6 @@
 import { db } from '../lib/db.js';
 import { nextSubmissionNumber } from '../lib/auth.js';
+import { sendPreregistrationEmail } from '../lib/email.js';
 import { json, error, requireUser } from '../lib/util.js';
 import { getSiteSettings, submissionsAreOpen } from '../lib/siteSettings.js';
 
@@ -101,7 +102,21 @@ export async function submitPieces(request, env, session, id) {
     WHERE id = ${id}
   `;
 
-  return json({ ok: true, submissionNumber });
+  let emailSent=true;
+  try {
+    const settings=await getSiteSettings(env);
+    await sendPreregistrationEmail(env,{
+      to:owned[0].owner_email,
+      name:owned[0].owner_name,
+      nativity:{...owned[0],submission_number:submissionNumber},
+      pieces:pieces.map((p,i)=>({piece_number:i+1,description:p.description,condition_notes:p.condition_notes})),
+      settings
+    });
+  } catch(e) {
+    emailSent=false;
+    console.error('Nativity preregistration confirmation email failed:',e);
+  }
+  return json({ ok: true, submissionNumber, emailSent });
 }
 
 // One-click resubmit creates a new current-year submission, so it is disabled
