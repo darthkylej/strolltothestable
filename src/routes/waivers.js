@@ -3,6 +3,7 @@ import { json, error, requireUser, requireAdmin } from '../lib/util.js';
 import { getSiteSettings } from '../lib/siteSettings.js';
 import { createWaiverPdf } from '../lib/waiverPdf.js';
 import { sendWaiverPdfEmail } from '../lib/email.js';
+import { AGREEMENT_VERSION, DEFAULT_EVENT, agreementSections, RELEASE_ACK, CONSENT_TEXT } from '../lib/waiverText.js';
 
 const key = n => `_waivers/${n.id}.json`;
 const draftKey = n => `_waivers/${n.id}-draft.json`;
@@ -14,7 +15,18 @@ const formatDay = d => { const x = String(d || '').slice(0,10); return /^\d{4}-\
 function eventDates(settings) {
   const drop = (settings.dropoffDays || []).filter(x => x.available !== false).map(x => formatDay(x.date)).filter(Boolean).sort();
   const pick = (settings.pickupDays || []).filter(x => x.available !== false).map(x => formatDay(x.date)).filter(Boolean).sort();
-  return { start: drop[0] || formatDay(settings.dropoffStart), end: pick.at(-1) || formatDay(settings.pickupEnd), pickupDeadline: pick.at(-1) || formatDay(settings.pickupEnd) };
+  const pickupDeadline = pick.at(-1) || formatDay(settings.pickupEnd);
+  return {
+    eventStart: formatDay(settings.eventStart) || DEFAULT_EVENT.start,
+    eventEnd: formatDay(settings.eventEnd) || DEFAULT_EVENT.end,
+    dropoffStart: drop[0] || formatDay(settings.dropoffStart),
+    dropoffEnd: drop.at(-1) || formatDay(settings.dropoffEnd) || drop[0] || formatDay(settings.dropoffStart),
+    pickupStart: pick[0] || formatDay(settings.pickupStart),
+    // start/end kept for older records: overall drop-off through pick-up span.
+    start: drop[0] || formatDay(settings.dropoffStart),
+    end: pickupDeadline,
+    pickupDeadline,
+  };
 }
 async function owned(env, session, id, admin = false) {
   const sql = db(env);
@@ -35,7 +47,8 @@ export async function getWaiver(request,env,session,id) {
   const pieces=await sql`SELECT piece_number,description,condition_notes FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
   const submissions=[{submission_number:n.submission_number,story:n.story,piece_count:n.piece_count,pieces}];
   const settings=await getSiteSettings(env);
-  return json({ waiver:existing, draft, signed:!!existing, owner:{name:n.owner_name,phone:n.owner_phone,email:n.owner_email}, prefill, submissions, year:n.event_year, dates:eventDates(settings), organizer:'City of Seguin' },{headers:{'Cache-Control':'no-store'}});
+  const dates=eventDates(settings);
+  return json({ waiver:existing, draft, signed:!!existing, owner:{name:n.owner_name,phone:n.owner_phone,email:n.owner_email}, prefill, submissions, year:n.event_year, dates, organizer:'City of Seguin', agreement:{version:AGREEMENT_VERSION,sections:agreementSections(dates),releaseAck:RELEASE_ACK,consentText:CONSENT_TEXT} },{headers:{'Cache-Control':'no-store'}});
 }
 export async function saveWaiverDraft(request,env,session,id) {
   requireUser(session);
@@ -57,7 +70,7 @@ async function waiverRecord(env,n,fields,extra={}) {
   const sql=db(env),settings=await getSiteSettings(env);
   const pieces=await sql`SELECT piece_number,description,condition_notes,photo_key FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
   const nativity={submissionNumber:n.submission_number,eventYear:n.event_year,story:n.story||'',pieceCount:n.piece_count,photoKey:n.photo_key||'',displayPhotoKey:n.display_photo_key||'',includeInTour:n.include_in_tour,pieces};
-  return {version:4,nativity,year:n.event_year,organizer:'City of Seguin',event:'Stroll to the Stable',location:'Nolte Building, 101 E. Nolte St, Seguin, TX',dates:eventDates(settings),fields,method:'digital',submissionNumber:n.submission_number,...extra};
+  return {version:5,agreementVersion:AGREEMENT_VERSION,nativity,year:n.event_year,organizer:'City of Seguin',event:'Stroll to the Stable',location:'Nolte Building, 101 E. Nolte St, Seguin, TX',dates:eventDates(settings),fields,method:'digital',submissionNumber:n.submission_number,...extra};
 }
 export async function previewWaiver(request,env,session,id) {
   requireUser(session);
@@ -87,6 +100,7 @@ export async function saveWaiver(request,env,session,id) {
   const f=body.fields || {};
   const fields={name:String(f.name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
   if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all required waiver fields.');
+  if(body.releaseAccepted!==true) return error('Confirm that you have read and accept the Release of Liability.',400);
   if(body.method==='digital' && (!body.agreed || body.electronicSignatureConsent!==true || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(body.signatureImage||'') || (body.signatureImage||'').length>300000)) return error('Read the agreement and draw your signature.');
   const signerName=String(body.signerName||'').trim(), signingDate=String(body.signingDate||'').trim();
   if(!signerName || !/^\d{4}-\d{2}-\d{2}$/.test(signingDate) || !Number.isFinite(Date.parse(signingDate+'T12:00:00Z'))) return error('Enter your printed name and signing date.',400);
@@ -104,8 +118,8 @@ export async function saveWaiver(request,env,session,id) {
   const current=await waiverRecord(env,n,fields,{signerName:'',signingDate:''});
   if(JSON.stringify(current)!==JSON.stringify(review.record)) return error('The waiver information changed. Review the updated PDF before signing.',409);
   const signedAt=new Date().toISOString();
-  const record={...review.record,signatureImage:body.signatureImage,signerName,signingDate,agreed:true,electronicSignatureConsent:true,completedAt:signedAt,
-    audit:{signedAt,authenticatedUserId:session.userId,ipAddress:request.headers.get('CF-Connecting-IP')||null,userAgent:request.headers.get('User-Agent')||null,reviewToken:review.token,reviewedPdfSha256:review.hash,reviewedAt:review.createdAt,consentText:'I have reviewed the complete Registration and Release Agreement, understand its terms, and agree that my electronic signature is legally binding.'}};
+  const record={...review.record,signatureImage:body.signatureImage,signerName,signingDate,agreed:true,electronicSignatureConsent:true,releaseAccepted:true,completedAt:signedAt,
+    audit:{signedAt,authenticatedUserId:session.userId,ipAddress:request.headers.get('CF-Connecting-IP')||null,userAgent:request.headers.get('User-Agent')||null,reviewToken:review.token,reviewedPdfSha256:review.hash,reviewedAt:review.createdAt,consentText:CONSENT_TEXT,releaseAcknowledgment:RELEASE_ACK,agreementVersion:AGREEMENT_VERSION}};
   if(body.method==='digital') {
     const pdf=await createWaiverPdf(record,null,'',await nativityPhoto(env,record));
     record.audit.signedPdfSha256=await sha256(pdf);
