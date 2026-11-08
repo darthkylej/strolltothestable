@@ -12,10 +12,11 @@ export async function hashPassword(password) {
 }
 
 export async function verifyPassword(password, stored) {
-  const [saltHex, hashHex] = stored.split(':');
+  const [saltHex, hashHex] = String(stored || '').split(':');
+  if (!saltHex || !hashHex) return false;
   const salt = hexToBuf(saltHex);
   const hash = await pbkdf2(password, salt);
-  return bufToHex(hash) === hashHex;
+  return safeEqual(bufToHex(hash), hashHex);
 }
 
 async function pbkdf2(password, salt) {
@@ -46,7 +47,7 @@ export async function verifySessionToken(env, token) {
   const [bodyB64, sig] = token.split('.');
   if (!bodyB64 || !sig) return null;
   const expectedSig = await hmacSign(env, bodyB64);
-  if (sig !== expectedSig) return null;
+  if (!safeEqual(sig, expectedSig)) return null;
   const body = JSON.parse(atob(bodyB64.replace(/-/g, '+').replace(/_/g, '/')));
   if (Date.now() > body.exp) return null;
   return body;
@@ -157,6 +158,14 @@ export async function nextSubmissionNumber(sql, eventYear) {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────
+// Constant-time string comparison (for signatures and password hashes).
+export function safeEqual(a, b) {
+  a = String(a); b = String(b);
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
 function bufToHex(buf) {
   return Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
 }

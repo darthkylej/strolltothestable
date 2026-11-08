@@ -1,7 +1,7 @@
 # Stroll to the Stable — Nativity Check-In
 
 A Cloudflare Worker (backend + static frontend) backed by Neon Postgres,
-Resend for email, and Cloudflare R2 for photos.
+Cloudflare Email Service for email, and Cloudflare R2 for photos.
 
 ## One-time setup
 
@@ -18,17 +18,14 @@ wrangler r2 bucket create nativity-photos
 ```
 (Matches the `bucket_name` already set in `wrangler.toml`.)
 
-**3. Resend**
-Reuse your existing verified domain from your other apps — no new domain
-setup needed. Just grab an API key for this project (or reuse the same
-key if that's simpler for you).
+**3. Cloudflare Email**
+Outbound mail uses the `EMAIL` send_email binding in `wrangler.toml`; the
+sender addresses listed there must be verified on your domain.
 
 **4. Secrets**
 ```
 wrangler secret put DATABASE_URL       # Neon pooled connection string
 wrangler secret put SESSION_SECRET     # any long random string, e.g. `openssl rand -hex 32`
-wrangler secret put RESEND_API_KEY
-wrangler secret put RESEND_FROM        # e.g. "Stroll to the Stable <noreply@yourdomain.org>"
 ```
 
 **5. Install & deploy**
@@ -76,7 +73,14 @@ ALTER TABLE nativities ADD COLUMN display_photo_key TEXT;
   fine for a once-a-year event, but flag it if you ever need to run the
   registration window across a year boundary (e.g., opening in December
   for a January event).
-- There's no rate-limiting yet on login/OTP attempts. Given the 5-char
-  password is meant to be low-friction rather than high-security, this
-  is worth a look before a public-facing rollout, but likely fine for a
-  ward-only audience.
+- Login, admin-code, registration and forgot-login attempts are throttled
+  using the `auth_attempts` table (`src/lib/rateLimit.js`): 8 failed logins
+  per username and 30 per IP per 15 minutes, 5 wrong admin codes per
+  15 minutes (which also burns the outstanding code), and hourly caps on
+  registrations and code/recovery emails. A locked-out donor can still use
+  "forgot login".
+- Uploads are accepted only as real JPEG/PNG/WebP/GIF files up to 10 MB
+  (checked by file signature, not the Content-Type header), and everything
+  served from the photo bucket is sent with `nosniff` and a sandbox CSP.
+- Submissions are locked to donors once the waiver is signed or an admin has
+  checked them in; admins can still edit them.

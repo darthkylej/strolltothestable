@@ -142,6 +142,19 @@ CREATE TABLE message_items (
     sender_email     TEXT NOT NULL,
     admin_email      TEXT,
     body_text        TEXT NOT NULL,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    message_id       TEXT,                        -- RFC 5322 Message-ID, for email threading
+    references_header TEXT                        -- References header, for email threading
 );
 CREATE INDEX idx_message_items_thread ON message_items (thread_id, created_at);
+
+-- ── Attempt limiter ────────────────────────────────────────────────────
+-- Counts registrations, login failures and admin-code requests/failures so
+-- they can be throttled (see src/lib/rateLimit.js). The app also creates this
+-- table on first use, so running this section by hand is optional.
+CREATE TABLE IF NOT EXISTS auth_attempts (
+    id         BIGSERIAL PRIMARY KEY,
+    key        TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_auth_attempts_key ON auth_attempts (key, created_at);

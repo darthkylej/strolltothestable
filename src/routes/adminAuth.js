@@ -9,18 +9,25 @@ import {
 } from '../lib/auth.js';
 import { sendAdminOtpEmail } from '../lib/email.js';
 import { json, error } from '../lib/util.js';
+import { clientIp, consume, isBlocked, recordFailure, clearFailures } from '../lib/rateLimit.js';
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 
 export async function requestOtp(request, env) {
-  const { email } = await request.json();
-  if (!email?.trim()) return error('Enter your admin email.');
-  const normalized = email.trim().toLowerCase();
+  const body = await request.json();
+  const email = String(body?.email ?? '').trim();
+  if (!email) return error('Enter your admin email.');
+  const normalized = email.toLowerCase().slice(0, 254);
 
   const sql = db(env);
   const admins = await sql`SELECT email FROM admins WHERE lower(email) = ${normalized}`;
-  // Same non-leaking pattern as forgot-login: always say ok.
-  if (admins.length > 0) {
+  // Same non-leaking pattern as forgot-login: always say ok, even when throttled.
+  const allowed = (await consume(sql, `otp-request:email:${normalized}`, 5, 3600))
+    && (await consume(sql, `otp-request:ip:${clientIp(request)}`, 20, 3600));
+  if (admins.length > 0 && allowed) {
+    // Only one live code per admin, so outstanding codes never multiply
+    // an attacker's chance of guessing one.
+    await sql`DELETE FROM admin_otp_codes WHERE email = ${normalized} OR expires_at < now()`;
     const code = generateOtp();
     const codeHash = await hashOtp(code);
     await sql`
@@ -33,18 +40,34 @@ export async function requestOtp(request, env) {
 }
 
 export async function verifyOtp(request, env) {
-  const { email, code } = await request.json();
-  if (!email?.trim() || !code?.trim()) return error('Enter the code from your email.');
-  const normalized = email.trim().toLowerCase();
+  const body = await request.json();
+  const email = String(body?.email ?? '').trim();
+  const code = String(body?.code ?? '').trim();
+  if (!email || !code) return error('Enter the code from your email.');
+  const normalized = email.toLowerCase().slice(0, 254);
 
   const sql = db(env);
-  const codeHash = await hashOtp(code.trim());
+  const emailKey = `otp-fail:email:${normalized}`;
+  const ipKey = `otp-fail:ip:${clientIp(request)}`;
+  const invalidate = () => sql`DELETE FROM admin_otp_codes WHERE email = ${normalized}`;
+  if (await isBlocked(sql, emailKey, 5, 900) || await isBlocked(sql, ipKey, 30, 900)) {
+    await invalidate();
+    return error('Too many incorrect codes. Request a new code in 15 minutes.', 429);
+  }
+  const codeHash = await hashOtp(code);
   const rows = await sql`
     SELECT id FROM admin_otp_codes
     WHERE email = ${normalized} AND code_hash = ${codeHash} AND expires_at > now()
     ORDER BY id DESC LIMIT 1
   `;
-  if (rows.length === 0) return error('That code is invalid or expired.', 401);
+  if (rows.length === 0) {
+    await recordFailure(sql, emailKey);
+    await recordFailure(sql, ipKey);
+    // Five misses burn the outstanding code so it cannot be guessed further.
+    if (await isBlocked(sql, emailKey, 5, 900)) await invalidate();
+    return error('That code is invalid or expired.', 401);
+  }
+  await clearFailures(sql, emailKey);
 
   // Consume it so it can't be reused.
   await sql`DELETE FROM admin_otp_codes WHERE id = ${rows[0].id}`;

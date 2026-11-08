@@ -1,6 +1,7 @@
 import { db } from '../lib/db.js';
 import { json, error, requireAdmin } from '../lib/util.js';
 import { sendClaimTicketEmail } from '../lib/email.js';
+import { readImageUpload } from '../lib/images.js';
 import {
   TOUR_MEDIA_PREFIX,
   MAX_TOUR_MEDIA_BYTES,
@@ -275,11 +276,9 @@ export async function markReturned(request, env, session, id) {
 }
 
 async function putAdminPhoto(request, env, keyPrefix) {
-  const contentType = request.headers.get('Content-Type') || 'image/jpeg';
-  if (!contentType.startsWith('image/')) return error('Choose an image file.', 415);
-  const key = `${keyPrefix}/${crypto.randomUUID()}.jpg`;
-  const bytes = await request.arrayBuffer();
-  await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType } });
+  const { bytes, type, ext } = await readImageUpload(request);
+  const key = `${keyPrefix}/${crypto.randomUUID()}.${ext}`;
+  await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType: type } });
   return key;
 }
 
@@ -351,19 +350,7 @@ const LANDING_BACKGROUND_KEY = 'site-assets/landing-background';
 
 export async function uploadLandingBackground(request, env, session) {
   requireAdmin(session);
-  const contentType = request.headers.get('Content-Type') || '';
-  if (!contentType.startsWith('image/')) return error('Choose an image file.', 415);
-
-  const contentLength = Number(request.headers.get('Content-Length') || 0);
-  if (contentLength > 20 * 1024 * 1024) {
-    return error('The background image must be 20 MB or smaller.', 413);
-  }
-
-  const bytes = await request.arrayBuffer();
-  if (!bytes.byteLength) return error('Choose an image file.');
-  if (bytes.byteLength > 20 * 1024 * 1024) {
-    return error('The background image must be 20 MB or smaller.', 413);
-  }
+  const { bytes, type: contentType } = await readImageUpload(request, 20 * 1024 * 1024);
 
   await env.PHOTOS.put(LANDING_BACKGROUND_KEY, bytes, {
     httpMetadata: {
