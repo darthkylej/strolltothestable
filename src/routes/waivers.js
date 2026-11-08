@@ -47,6 +47,12 @@ export async function saveWaiverDraft(request,env,session,id) {
   await env.PHOTOS.put(draftKey(n),JSON.stringify({fields,updatedAt:new Date().toISOString()}),{httpMetadata:{contentType:'application/json'}});
   return json({ok:true});
 }
+async function nativityPhoto(env,record) {
+  const key=record.nativity?.photoKey||record.nativity?.displayPhotoKey;
+  if(!key)return null;
+  const object=await env.PHOTOS.get(key);
+  return object?new Uint8Array(await object.arrayBuffer()):null;
+}
 async function waiverRecord(env,n,fields,extra={}) {
   const sql=db(env),settings=await getSiteSettings(env);
   const pieces=await sql`SELECT piece_number,description,condition_notes,photo_key FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
@@ -63,7 +69,7 @@ export async function previewWaiver(request,env,session,id) {
   const fields={name:String(f.name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
   if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all participant information before reviewing the PDF.',400);
   const record=await waiverRecord(env,n,fields,{signerName:'',signingDate:''});
-  const pdf=await createWaiverPdf(record);
+  const pdf=await createWaiverPdf(record,null,'',await nativityPhoto(env,record));
   const hash=await sha256(pdf);
   const token=crypto.randomUUID();
   await env.PHOTOS.put(reviewPdfKey(n),pdf,{httpMetadata:{contentType:'application/pdf'}});
@@ -101,7 +107,7 @@ export async function saveWaiver(request,env,session,id) {
   const record={...review.record,signatureImage:body.signatureImage,signerName,signingDate,agreed:true,electronicSignatureConsent:true,completedAt:signedAt,
     audit:{signedAt,authenticatedUserId:session.userId,ipAddress:request.headers.get('CF-Connecting-IP')||null,userAgent:request.headers.get('User-Agent')||null,reviewToken:review.token,reviewedPdfSha256:review.hash,reviewedAt:review.createdAt,consentText:'I have reviewed the complete Registration and Release Agreement, understand its terms, and agree that my electronic signature is legally binding.'}};
   if(body.method==='digital') {
-    const pdf=await createWaiverPdf(record);
+    const pdf=await createWaiverPdf(record,null,'',await nativityPhoto(env,record));
     record.audit.signedPdfSha256=await sha256(pdf);
     await env.PHOTOS.put(pdfKey(n),pdf,{httpMetadata:{contentType:'application/pdf'}});
   }
