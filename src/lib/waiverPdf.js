@@ -56,6 +56,8 @@ export async function createWaiverPdf(record, signedImage = null, mime = '') {
     line('Condition: '+(p.condition_notes||''),9);
     if(p.photo_key)line('Photo Reference: '+p.photo_key,9);
   }
+  // Keep the release and the participant's signature on the same dedicated page.
+  newPage();
   section('Liability & Release Agreement');
   line('I, the undersigned, acknowledge that I am voluntarily lending my personal nativity set and its listed pieces ("Property"), for use in "A Stroll to the Stable" hosted by City of Seguin ("Organizer"). I understand and agree to the following:');
   gap(5);
