@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { agreementSections, RELEASE_ACK, CONSENT_TEXT, DEFAULT_EVENT } from './waiverText.js';
 
 const labels = [
  ['name','Name'],['address','Address'],['cityStateZip','City/State/ZIP'],['phone','Phone'],['email','Email'],
@@ -35,11 +36,38 @@ export async function createWaiverPdf(record, signedImage = null, mime = '', nat
     function draw(value){if(y-size-5<contentBottom)newPage();page.drawText(value,{x:left+indent,y,size,font,color:rgb(0.12,0.16,0.21)});y-=size+5;}
   }
   function gap(n=9){y-=n;}
-  line('Registration & Release Form',16,true);
+  function wrap(text,size,font,maxWidth){
+    const out=[]; let current='';
+    for(const word of clean(text).split(/\s+/)){
+      const candidate=current?current+' '+word:word;
+      if(font.widthOfTextAtSize(candidate,size)>maxWidth && current){out.push(current);current=word;} else current=candidate;
+    }
+    if(current)out.push(current);
+    return out;
+  }
+  // A shaded, bordered block in bold type so the release cannot be missed.
+  function conspicuousBox(title,text){
+    const pad=12,size=10.5,lead=size+5,inner=width-pad*2;
+    const titleLines=wrap(title,12,bold,inner), bodyLines=wrap(text,size,bold,inner);
+    const h=pad*2+titleLines.length*17+6+bodyLines.length*lead;
+    ensureSpace(h+10);
+    page.drawRectangle({x:left,y:y-h,width,height:h,color:rgb(1,0.96,0.86),borderColor:rgb(0.55,0.12,0.08),borderWidth:2});
+    let yy=y-pad-11;
+    for(const t of titleLines){page.drawText(t,{x:left+pad,y:yy,size:12,font:bold,color:rgb(0.55,0.12,0.08)});yy-=17;}
+    yy-=6;
+    for(const b of bodyLines){page.drawText(b,{x:left+pad,y:yy,size,font:bold,color:rgb(0.1,0.1,0.1)});yy-=lead;}
+    y-=h+12;
+  }
+  const d=record.dates||{};
+  line('Registration, Loan & Release Agreement',16,true);
   gap(7);
   line('Event: Stroll to the Stable');
-  line('Dates: '+date(record.dates.start)+' - '+date(record.dates.end));
+  line('Event Dates: '+date(d.eventStart||DEFAULT_EVENT.start)+' - '+date(d.eventEnd||DEFAULT_EVENT.end));
+  if(d.dropoffStart)line('Drop-off: '+date(d.dropoffStart)+(d.dropoffEnd&&d.dropoffEnd!==d.dropoffStart?' - '+date(d.dropoffEnd):''));
+  line('Pick-up Deadline: '+date(d.pickupDeadline));
   line('Event Location: Nolte Building (formerly Wells Fargo) at 101 E. Nolte in downtown Seguin');
+  gap(6);
+  line('IMPORTANT: This agreement contains a RELEASE OF LIABILITY (section 3) that gives up claims, including claims for negligence. Read it before signing.',10,true);
   section('Participant Information');
   for(const [key,label] of labels.slice(0,5))line(label+': '+(record.fields[key]||''));
   section('Nativity Information');
@@ -56,37 +84,34 @@ export async function createWaiverPdf(record, signedImage = null, mime = '', nat
       else if(bytes[0]===0xff && bytes[1]===0xd8) photo=await pdf.embedJpg(bytes);
     } catch(e) { console.error('Could not embed nativity photo in waiver:',e); }
     if(photo){
-      section('Nativity Photograph');
       const scale=Math.min(420/photo.width,240/photo.height);
       const w=photo.width*scale,h=photo.height*scale;
-      ensureSpace(h+16);
+      ensureSpace(h+16+46); // keep the heading with its photo
+      section('Nativity Photograph');
       page.drawImage(photo,{x:left+(width-w)/2,y:y-h,width:w,height:h});
       y-=h+12;
     }
   }
-  if(n.photoKey)line('Nativity Photo Reference: '+n.photoKey,9);
-  if(n.displayPhotoKey)line('Display Photo Reference: '+n.displayPhotoKey,9);
   section('Individual Pieces');
   for(const p of n.pieces||[]){
     line('Piece '+p.piece_number+': '+(p.description||''));
     line('Condition: '+(p.condition_notes||''),9);
-    if(p.photo_key)line('Photo Reference: '+p.photo_key,9);
+    if(p.photo_key)line('(Photo on file)',9);
   }
   // Keep the release and the participant's signature on the same dedicated page.
   newPage();
-  section('Liability & Release Agreement');
-  line('I, the undersigned, acknowledge that I am voluntarily lending my personal nativity set and its listed pieces ("Property"), for use in "A Stroll to the Stable" hosted by City of Seguin ("Organizer"). I understand and agree to the following:');
-  gap(5);
-  for(const item of [
-    '1. My participation is voluntary, and I assume all risks associated with displaying my property.',
-    '2. The Organizer will take reasonable precautions but cannot guarantee against damage, loss, or theft.',
-    '3. I release and hold harmless the Organizer, its staff, volunteers, affiliates, and sponsors from any liability for loss, damage, or injury to my property or person arising from my participation in the event.',
-    '4. I agree that photos/videos of my display may be used for promotional purposes.',
-    '5. Unclaimed displays after the designated pick-up date '+date(record.dates.pickupDeadline)+' may be considered donations.'
-  ]){line(item);gap(3);}
-  section('Electronic Signature and Consent');
-  const consent='I have reviewed the complete Registration and Release Agreement, understand its terms, and agree that my electronic signature is legally binding.';
-  line((record.electronicSignatureConsent===true?'[X]':'[ ]')+' '+consent,10);
+  section('Loan & Release Agreement');
+  for(const sec of agreementSections(d)){
+    if(sec.release){gap(2);conspicuousBox(sec.title,sec.text);continue;}
+    line(sec.title,10,true);
+    line(sec.text);
+    gap(5);
+  }
+  section('Acknowledgments and Electronic Signature');
+  const v5=Number(record.version)>=5;
+  if(v5)line((record.releaseAccepted===true?'[X]':'[ ]')+' '+RELEASE_ACK,10,true);
+  gap(3);
+  line((record.electronicSignatureConsent===true?'[X]':'[ ]')+' '+CONSENT_TEXT,10);
   gap(8);
   ensureSpace(155);
   line('Signature:',10,true);
@@ -109,6 +134,8 @@ export async function createWaiverPdf(record, signedImage = null, mime = '', nat
   line('Reviewed PDF SHA-256: '+(audit.reviewedPdfSha256||'Pending review'),8);
   line('Document Reviewed At (UTC): '+(audit.reviewedAt||'Pending review'),9);
   line('Electronic Consent: '+(record.electronicSignatureConsent===true?'Checked and accepted':'Not yet accepted'));
+  line('Release of Liability Acknowledged: '+(record.releaseAccepted===true?'Checked and accepted':'Not yet accepted'));
+  if(record.agreementVersion)line('Agreement Version: '+record.agreementVersion,9);
   if(signedImage){
     let img;
     if(mime==='image/png')img=await pdf.embedPng(signedImage);
