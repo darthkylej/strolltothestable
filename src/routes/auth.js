@@ -6,42 +6,78 @@ import {
 import { sendCredentialsEmail, sendForgotLoginEmail } from '../lib/email.js';
 import { json, error } from '../lib/util.js';
 import { getSiteSettings } from '../lib/siteSettings.js';
+import { clientIp, consume, isBlocked, recordFailure, clearFailures } from '../lib/rateLimit.js';
+
+const EMAIL_RE = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]{2,}$/;
+const TOO_MANY = 'Too many attempts. Please wait a while and try again.';
 
 export async function register(request, env) {
-  const { name, phone, email } = await request.json();
-  if (!name?.trim() || !phone?.trim() || !email?.trim()) {
+  const body = await request.json();
+  const name = String(body?.name ?? '').trim();
+  const phone = String(body?.phone ?? '').trim();
+  const email = String(body?.email ?? '').trim();
+  if (!name || !phone || !email) {
     return error('Name, phone, and email are all required.');
   }
+  if (name.length > 100 || phone.length > 40 || email.length > 254) {
+    return error('One of the fields is too long.');
+  }
+  if (!EMAIL_RE.test(email)) return error('Enter a valid email address.');
 
   const sql = db(env);
-  const lastName = name.trim().split(/\s+/).pop();
+  // Registration sends an email, so cap it per address and per client.
+  const okEmail = await consume(sql, `register:email:${email.toLowerCase()}`, 3, 3600);
+  const okIp = await consume(sql, `register:ip:${clientIp(request)}`, 20, 3600);
+  if (!okEmail || !okIp) return error(TOO_MANY, 429);
+
+  const lastName = name.split(/\s+/).pop();
   const username = await nextUsername(sql, lastName);
   const password = generateShortPassword(5);
   const passwordHash = await hashPassword(password);
 
   const rows = await sql`
     INSERT INTO users (username, name, phone, email, password_hash)
-    VALUES (${username}, ${name.trim()}, ${phone.trim()}, ${email.trim()}, ${passwordHash})
+    VALUES (${username}, ${name}, ${phone}, ${email}, ${passwordHash})
     RETURNING id
   `;
 
   const settings = await getSiteSettings(env);
-  await sendCredentialsEmail(env, { to: email.trim(), name: name.trim(), username, password, settings });
+  try {
+    await sendCredentialsEmail(env, { to: email, name, username, password, settings });
+  } catch (err) {
+    // Without the email the person has no way to learn their password, so do
+    // not leave an unreachable account behind.
+    console.error('Credentials email failed:', err);
+    await sql`DELETE FROM users WHERE id = ${rows[0].id}`;
+    return error('We could not send your login email. Check the address and try again.', 502);
+  }
 
   const token = await createSessionToken(env, { kind: 'user', userId: rows[0].id });
   return json({ ok: true, username }, { headers: { 'Set-Cookie': sessionCookieHeader(token) } });
 }
 
 export async function login(request, env) {
-  const { username, password } = await request.json();
-  if (!username?.trim() || !password?.trim()) return error('Username and password are required.');
+  const body = await request.json();
+  const username = String(body?.username ?? '').trim().toLowerCase().slice(0, 64);
+  const password = String(body?.password ?? '').trim();
+  if (!username || !password) return error('Username and password are required.');
 
   const sql = db(env);
-  const rows = await sql`SELECT id, password_hash FROM users WHERE username = ${username.trim().toLowerCase()}`;
-  if (rows.length === 0) return error('Username or password is incorrect.', 401);
+  // Passwords are short by design, so online guessing must be throttled.
+  const userKey = `login-fail:user:${username}`;
+  const ipKey = `login-fail:ip:${clientIp(request)}`;
+  if (await isBlocked(sql, userKey, 8, 900) || await isBlocked(sql, ipKey, 30, 900)) {
+    return error('Too many failed attempts. Wait 15 minutes, or use "forgot login" to get back in.', 429);
+  }
 
-  const ok = await verifyPassword(password.trim(), rows[0].password_hash);
-  if (!ok) return error('Username or password is incorrect.', 401);
+  const rows = await sql`SELECT id, password_hash FROM users WHERE username = ${username}`;
+  const ok = rows.length > 0 && await verifyPassword(password, rows[0].password_hash);
+  if (!ok) {
+    await recordFailure(sql, userKey);
+    await recordFailure(sql, ipKey);
+    return error('Username or password is incorrect.', 401);
+  }
+  await clearFailures(sql, userKey);
 
   const token = await createSessionToken(env, { kind: 'user', userId: rows[0].id });
   return json({ ok: true }, { headers: { 'Set-Cookie': sessionCookieHeader(token) } });
@@ -56,21 +92,24 @@ export async function logout() {
 }
 
 export async function forgotLogin(request, env) {
-  const { email } = await request.json();
-  if (!email?.trim()) return error('Enter the email you registered with.');
+  const body = await request.json();
+  const email = String(body?.email ?? '').trim();
+  if (!email) return error('Enter the email you registered with.');
 
   const sql = db(env);
   const rows = await sql`
     SELECT id, name, username
     FROM users
-    WHERE lower(email) = lower(${email.trim()})
+    WHERE lower(email) = lower(${email})
     ORDER BY id
     LIMIT 1
   `;
 
-  // Always return ok, whether or not we found an account — don't leak
-  // which emails are registered.
-  if (rows.length > 0) {
+  // Always return ok, whether or not we found an account (or were throttled),
+  // so nothing leaks about which emails are registered.
+  const allowed = (await consume(sql, `forgot:email:${email.toLowerCase().slice(0, 254)}`, 3, 3600))
+    && (await consume(sql, `forgot:ip:${clientIp(request)}`, 10, 3600));
+  if (rows.length > 0 && allowed) {
     const recoveryToken = await createSessionToken(
       env,
       { kind: 'recovery', userId: rows[0].id },
@@ -79,7 +118,7 @@ export async function forgotLogin(request, env) {
     const recoveryUrl = `${new URL(request.url).origin}/recover.html?token=${encodeURIComponent(recoveryToken)}`;
     const settings = await getSiteSettings(env);
     await sendForgotLoginEmail(env, {
-      to: email.trim(),
+      to: email,
       name: rows[0].name,
       username: rows[0].username,
       recoveryUrl,

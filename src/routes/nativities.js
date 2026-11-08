@@ -3,6 +3,21 @@ import { nextSubmissionNumber } from '../lib/auth.js';
 import { sendPreregistrationEmail } from '../lib/email.js';
 import { json, error, requireUser } from '../lib/util.js';
 import { getSiteSettings, submissionsAreOpen } from '../lib/siteSettings.js';
+import { readImageUpload } from '../lib/images.js';
+
+// Photos a participant attaches must be ones they uploaded themselves. Without
+// this check a user could point a nativity at any storage key (including other
+// people's files or internal data), which admin "delete" would later remove.
+function ownPhotoKey(session, key) {
+  if (key === undefined || key === null || key === '') return null;
+  const pattern = new RegExp(`^${session.userId}/[0-9a-f-]{36}\\.(jpg|png|webp|gif)$`);
+  if (typeof key !== 'string' || !pattern.test(key)) throw error('Invalid photo reference.', 400);
+  return key;
+}
+
+const MAX_STORY = 5000;
+const MAX_PIECES = 100;
+const MAX_PIECE_TEXT = 2000;
 
 function currentEventYear() {
   return new Date().getFullYear();
@@ -41,12 +56,14 @@ export async function create(request, env, session) {
   requireUser(session);
   await requireSubmissionsOpen(env);
 
-  const { photoKey, story } = await request.json();
+  const body = await request.json();
+  const photoKey = ownPhotoKey(session, body?.photoKey);
+  const story = typeof body?.story === 'string' ? body.story.slice(0, MAX_STORY) : null;
   const sql = db(env);
   const eventYear = currentEventYear();
   const rows = await sql`
     INSERT INTO nativities (submission_number, owner_user_id, event_year, photo_key, story, status, include_in_tour)
-    VALUES (${'DRAFT-' + crypto.randomUUID()}, ${session.userId}, ${eventYear}, ${photoKey || null}, ${story || null}, 'pending', ${true})
+    VALUES (${'DRAFT-' + crypto.randomUUID()}, ${session.userId}, ${eventYear}, ${photoKey}, ${story || null}, 'pending', ${true})
     RETURNING id
   `;
   return json({ id: rows[0].id });
@@ -70,15 +87,21 @@ export async function submitPieces(request, env, session, id) {
   requireUser(session);
   const { pieces } = await request.json();
   if (!Array.isArray(pieces) || pieces.length === 0) return error('Add at least one piece.');
+  if (pieces.length > MAX_PIECES) return error(`A submission can have at most ${MAX_PIECES} pieces.`);
   for (const p of pieces) {
-    if (!p.description?.trim() || !p.condition_notes?.trim()) {
+    if (!p || typeof p.description !== 'string' || typeof p.condition_notes !== 'string'
+        || !p.description.trim() || !p.condition_notes.trim()) {
       return error('Every piece needs a description and a condition note.');
     }
+    if (p.description.length > MAX_PIECE_TEXT || p.condition_notes.length > MAX_PIECE_TEXT) {
+      return error('A piece description or condition note is too long.');
+    }
+    p.photoKey = ownPhotoKey(session, p.photoKey);
   }
 
   const sql = db(env);
   const owned = await sql`
-    SELECT n.id, n.photo_key, n.story, n.display_photo_key, n.submission_number,
+    SELECT n.id, n.photo_key, n.story, n.display_photo_key, n.submission_number, n.status, n.waiver_signed,
            u.name AS owner_name, u.email AS owner_email
     FROM nativities n
     JOIN users u ON u.id = n.owner_user_id
@@ -86,8 +109,16 @@ export async function submitPieces(request, env, session, id) {
   `;
   if (owned.length === 0) return error('Nativity not found.', 404);
 
-  const eventYear = currentEventYear();
-  const submissionNumber = await nextSubmissionNumber(sql, eventYear);
+  // Once a waiver is signed or an admin has checked the nativity in, the
+  // inventory is a legal record and can only be changed by an admin.
+  if (owned[0].status !== 'pending' || owned[0].waiver_signed) {
+    return error('This submission is locked because its waiver is signed or it has been checked in. Please contact us to make changes.', 409);
+  }
+
+  // Keep the number if one was already issued; only drafts get a new one.
+  const submissionNumber = String(owned[0].submission_number).startsWith('DRAFT-')
+    ? await nextSubmissionNumber(sql, currentEventYear())
+    : owned[0].submission_number;
 
   await sql`DELETE FROM nativity_pieces WHERE nativity_id = ${id}`;
   for (let i = 0; i < pieces.length; i++) {
@@ -160,9 +191,8 @@ export async function resubmit(request, env, session, sourceId) {
 // piece's optional photo. Expects raw image bytes with a Content-Type header.
 export async function uploadPhoto(request, env, session) {
   requireUser(session);
-  const contentType = request.headers.get('Content-Type') || 'image/jpeg';
-  const key = `${session.userId}/${crypto.randomUUID()}.jpg`;
-  const bytes = await request.arrayBuffer();
-  await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType } });
+  const { bytes, type, ext } = await readImageUpload(request);
+  const key = `${session.userId}/${crypto.randomUUID()}.${ext}`;
+  await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType: type } });
   return json({ key });
 }

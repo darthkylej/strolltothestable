@@ -9,6 +9,52 @@ import * as messages from './routes/messages.js';
 import { getTour } from './routes/tour.js';
 import { error } from './lib/util.js';
 
+const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
+// Headers for every response. The CSP still allows inline scripts/styles
+// because the pages use them; it blocks third-party scripts, framing by other
+// sites, plugin content and form posts to other origins.
+const PAGE_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src https://fonts.gstatic.com",
+  "img-src 'self' data: blob:",
+  "media-src 'self' blob:",
+  "connect-src 'self'",
+  "frame-src 'self' blob:",
+  "object-src 'self' blob:",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join('; ');
+
+function withSecurityHeaders(response) {
+  // Responses from assets/HTMLRewriter can have immutable headers, so copy.
+  const res = new Response(response.body, response);
+  const h = res.headers;
+  h.set('X-Content-Type-Options', 'nosniff');
+  h.set('X-Frame-Options', 'SAMEORIGIN');
+  h.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  h.set('Strict-Transport-Security', 'max-age=31536000');
+  h.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (!h.has('Content-Security-Policy') && (h.get('Content-Type') || '').includes('text/html')) {
+    h.set('Content-Security-Policy', PAGE_CSP);
+  }
+  return res;
+}
+
+// Anything served from the photo bucket is user-supplied, so it is locked down
+// even if an old non-image object is still stored there.
+function lockDownUserContent(headers, contentType) {
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('Content-Security-Policy', "default-src 'none'; sandbox");
+  if (!IMAGE_TYPES.has(contentType) && !/^video\/(mp4|webm|quicktime)$/.test(contentType)) {
+    headers.set('Content-Type', 'application/octet-stream');
+    headers.set('Content-Disposition', 'attachment');
+  }
+}
+
 const HOME_NAV_HTML = `
   <nav class="site-nav" aria-label="Site navigation">
     <a class="site-home-link" href="/" aria-label="Go to Stroll to the Stable home page">
@@ -95,6 +141,7 @@ async function serveTourMedia(request, env, path) {
 
   const headers = new Headers();
   object.writeHttpMetadata(headers);
+  lockDownUserContent(headers, (headers.get('Content-Type') || '').toLowerCase());
   headers.set('etag', object.httpEtag);
   headers.set('Accept-Ranges', 'bytes');
 
@@ -116,6 +163,20 @@ async function serveTourMedia(request, env, path) {
 
 export default {
   async fetch(request, env) {
+    return withSecurityHeaders(await handle(request, env));
+  },
+
+  async email(message, env, ctx) {
+    try {
+      await messages.handleIncomingEmail(message, env);
+    } catch (err) {
+      console.error('Incoming email processing failed:', err);
+      throw err;
+    }
+  },
+};
+
+async function handle(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
@@ -132,6 +193,7 @@ export default {
         if (!obj) return new Response('Not found', { status: 404 });
         const headers = new Headers();
         obj.writeHttpMetadata(headers);
+        lockDownUserContent(headers, (headers.get('Content-Type') || '').toLowerCase());
         headers.set('Cache-Control', 'public, max-age=3600');
         headers.set('etag', obj.httpEtag);
         return new Response(method === 'HEAD' ? null : obj.body, { status: 200, headers });
@@ -148,9 +210,10 @@ export default {
         if (key.startsWith('_')) return new Response('Not found', { status: 404 });
         const obj = await env.PHOTOS.get(key);
         if (!obj) return new Response('Not found', { status: 404 });
-        return new Response(obj.body, {
-          headers: { 'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=31536000' },
-        });
+        const type = String(obj.httpMetadata?.contentType || '').toLowerCase();
+        const headers = new Headers({ 'Content-Type': type || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000' });
+        lockDownUserContent(headers, type);
+        return new Response(obj.body, { headers });
       }
 
       if (!path.startsWith('/api/')) {
@@ -289,17 +352,9 @@ export default {
       return error('Not found', 404);
     } catch (err) {
       if (err instanceof Response) return err;
+      // request.json() on a malformed body is a client error, not a server fault.
+      if (err instanceof SyntaxError && /JSON/i.test(err.message)) return error('Invalid request body.', 400);
       console.error(err);
       return error('Something went wrong. Please try again.', 500);
     }
-  },
-
-  async email(message, env, ctx) {
-    try {
-      await messages.handleIncomingEmail(message, env);
-    } catch (err) {
-      console.error('Incoming email processing failed:', err);
-      throw err;
-    }
-  },
-};
+}
