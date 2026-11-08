@@ -221,7 +221,13 @@ export async function deleteNativity(request, env, session, id) {
   await sql`UPDATE nativities SET cloned_from_id = NULL WHERE cloned_from_id = ${id}`;
   await sql`DELETE FROM nativities WHERE id = ${id}`;
 
-  const keys = [rows[0].photo_key, rows[0].display_photo_key, ...pieceRows.map((p) => p.photo_key)].filter(Boolean);
+  // Also remove the signed-waiver records and drafts, so no personal data is
+  // left behind for a submission that no longer exists.
+  const waiverKeys = [
+    `_waivers/${id}.json`, `_waivers/${id}.pdf`, `_waivers/${id}-draft.json`,
+    `_waivers/${id}-review.json`, `_waivers/${id}-review.pdf`,
+  ];
+  const keys = [rows[0].photo_key, rows[0].display_photo_key, ...pieceRows.map((p) => p.photo_key), ...waiverKeys].filter(Boolean);
   try {
     await Promise.all([
       ...keys.map((key) => env.PHOTOS.delete(key)),

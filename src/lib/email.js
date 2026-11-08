@@ -17,6 +17,27 @@ const DEFAULT_FROM = {
   name: 'Stroll to the Stable',
 };
 
+function toBase64(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
+// Cloudflare Email Service expects { filename, type, disposition, content }
+// with base64 text content. Callers may pass { contentType, content: bytes }.
+function normalizeAttachments(attachments) {
+  return attachments.map((a) => ({
+    filename: a.filename,
+    type: a.type || a.contentType || 'application/octet-stream',
+    disposition: a.disposition || 'attachment',
+    content: typeof a.content === 'string'
+      ? a.content
+      : toBase64(a.content instanceof ArrayBuffer ? new Uint8Array(a.content) : a.content),
+  }));
+}
+
 async function send(env, { to, cc, from = DEFAULT_FROM, replyTo = DEFAULT_FROM.email, subject, html, text, headers, attachments }) {
   if (!env.EMAIL) throw new Error('Cloudflare Email Sending is not configured.');
 
@@ -29,7 +50,7 @@ async function send(env, { to, cc, from = DEFAULT_FROM, replyTo = DEFAULT_FROM.e
     html,
     ...(text ? { text } : {}),
     ...(headers ? { headers } : {}),
-    ...(attachments ? { attachments } : {}),
+    ...(attachments ? { attachments: normalizeAttachments(attachments) } : {}),
   });
 }
 
@@ -267,7 +288,6 @@ export async function sendClaimTicketEmail(env, { to, name, nativity, pieces, se
 
   await send(env, {
     to,
-    cc: 'submissions@strolltothestable.com',
     subject: `Nativity checked in — claim number ${nativity.submission_number}`,
     html: emailShell({
       eyebrow: 'Stroll to the Stable',
