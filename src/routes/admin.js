@@ -27,15 +27,17 @@ export async function listNativities(request, env, session) {
 
   const sql = db(env);
   const rows = await sql`
-    SELECT id, submission_number, status, event_year, owner_name, owner_phone, owner_email
-    FROM nativity_search
-    WHERE (${status}::text IS NULL OR status = ${status})
+    SELECT s.id, s.submission_number, s.status, s.event_year, s.owner_name, s.owner_phone, s.owner_email,
+           n.waiver_signed, n.piece_count
+    FROM nativity_search s
+    JOIN nativities n ON n.id = s.id
+    WHERE (${status}::text IS NULL OR s.status = ${status})
       AND (
         ${like}::text IS NULL
-        OR owner_name ILIKE ${like} OR owner_phone ILIKE ${like} OR owner_email ILIKE ${like}
-        OR piece_text ILIKE ${like} OR submission_number ILIKE ${like}
+        OR s.owner_name ILIKE ${like} OR s.owner_phone ILIKE ${like} OR s.owner_email ILIKE ${like}
+        OR s.piece_text ILIKE ${like} OR s.submission_number ILIKE ${like}
       )
-    ORDER BY id DESC
+    ORDER BY s.id DESC
   `;
 
   const countRows = await sql`
@@ -144,6 +146,10 @@ export async function updateNativity(request, env, session, id) {
   const rows = await sql`SELECT id, owner_user_id FROM nativities WHERE id = ${id}`;
   if (rows.length === 0) return error('Not found.', 404);
   const ownerUserId = rows[0].owner_user_id;
+  const emailTaken = await sql`
+    SELECT 1 FROM users WHERE lower(email) = lower(${owner.email.trim()}) AND id <> ${ownerUserId} LIMIT 1
+  `;
+  if (emailTaken.length) return error('Another account already uses that email address.', 409);
 
   await sql`
     UPDATE users

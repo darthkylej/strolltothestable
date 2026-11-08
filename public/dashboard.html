@@ -13,6 +13,10 @@
   .process-step p { margin:0; color:var(--wood); line-height:1.45; }
   .process-day { margin-top:4px; color:var(--wood); line-height:1.45; }
   .process-location { margin-top:5px; color:var(--muted); font-size:13px; }
+  .next-step { margin:12px 0; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.03); line-height:1.5; }
+  .next-step.ready { border-color:rgba(123,203,140,.35); background:rgba(123,203,140,.08); }
+  .next-step strong { color:var(--gold-bright); }
+  .next-step .process-day { margin-top:2px; }
 </style>
 </head>
 <body>
@@ -37,6 +41,8 @@
 <script>
 const CURRENT_YEAR = new Date().getFullYear();
 let submissionsOpen = false;
+let siteSettings = {};
+const ADDRESS = '101 E Nolte St, Seguin, TX 78155';
 
 function formatDateTime(value) {
   if (!value) return '';
@@ -94,6 +100,7 @@ async function load() {
     ]);
     const { nativities } = submissionData;
     submissionsOpen = settings.submissionsOpen;
+    siteSettings = settings;
     renderSchedule(settings);
     document.getElementById('newSubmissionAction').style.display = submissionsOpen ? 'flex' : 'none';
 
@@ -102,33 +109,69 @@ async function load() {
       list.innerHTML = '<div class="empty-state">You haven\'t submitted a nativity yet.</div>';
       return;
     }
-    list.innerHTML = nativities.map((n) => `
+    list.innerHTML = nativities.map(cardHtml).join('');
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// One clear status and next step per submission.
+function cardState(n) {
+  const draft = n.submission_number.startsWith('DRAFT');
+  const number = esc(n.submission_number);
+  if (draft) return {
+    pill: 'Not finished', cls: 'action',
+    body: `<div class="next-step"><strong>Next:</strong> finish listing your pieces, then sign the waiver.</div>`,
+    button: `<a class="btn btn-primary" href="/lend-pieces.html?id=${n.id}&review=1">Continue Registration</a>`,
+  };
+  if (n.status === 'pending' && !n.waiver_signed) return {
+    pill: 'Waiver needed', cls: 'action',
+    body: `<div class="next-step"><strong>Next:</strong> sign the waiver to finish your registration.</div>`,
+    button: `<a class="btn btn-primary" href="/waiver.html?id=${n.id}">Sign Waiver</a>`,
+  };
+  const waiverLink = `<a class="btn btn-secondary" href="/api/nativities/${n.id}/waiver-pdf">View Signed Waiver</a>`;
+  if (n.status === 'pending') return {
+    pill: 'Ready for drop-off', cls: 'ready',
+    body: `<div class="next-step ready"><strong>You're all set.</strong> Bring your nativity and submission number <strong>${number}</strong> to ${ADDRESS} during drop-off:${dailyScheduleHtml(siteSettings.dropoffDays)}</div>`,
+    button: waiverLink,
+  };
+  if (n.status === 'submitted') return {
+    pill: 'Checked in', cls: 'submitted',
+    body: `<div class="next-step"><strong>Your nativity is in our care.</strong> Pick it up at ${ADDRESS}, bringing number <strong>${number}</strong>:${dailyScheduleHtml(siteSettings.pickupDays)}</div>`,
+    button: waiverLink,
+  };
+  return { pill: 'Returned', cls: 'returned', body: '', button: waiverLink };
+}
+
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' })[c]);
+}
+
+function cardHtml(n) {
+  const st = cardState(n);
+  const draft = n.submission_number.startsWith('DRAFT');
+  return `
       <div class="card" style="padding:14px 18px;margin-bottom:10px">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px">
           <div>
-            <div class="eyebrow">${n.event_year}</div>
-            <h2>${n.submission_number.startsWith('DRAFT') ? 'Not finished' : n.submission_number}</h2>
+            <div class="eyebrow">${n.event_year}${draft ? '' : ` · ${n.piece_count} piece${n.piece_count === 1 ? '' : 's'}`}</div>
+            <h2>${draft ? 'Not finished' : esc(n.submission_number)}</h2>
           </div>
-          <span class="status-pill status-${n.status}">${n.status}</span>
+          <span class="status-pill status-${st.cls}">${st.pill}</span>
         </div>
-        <p style="color:var(--wood)">${n.piece_count} piece${n.piece_count === 1 ? '' : 's'}</p>
-        <div style="display:flex; align-items:center; gap:10px; margin:12px 0">
+        ${st.body}
+        ${st.button}
+        ${submissionsOpen && n.status === 'returned' && Number(n.event_year) < CURRENT_YEAR
+          ? `<button class="btn btn-secondary" onclick="resubmit(${n.id})">Submit Again This Year</button>`
+          : ''}
+        <div style="display:flex; align-items:center; gap:10px; margin:12px 0 0">
           <label class="switch" style="margin:0">
             <input type="checkbox" ${n.include_in_tour ? 'checked' : ''} onchange="toggleTour(${n.id}, this.checked)">
             <span class="track"></span>
           </label>
           <span style="font-size:14px; color:var(--wood)">Show in public virtual tour</span>
         </div>
-        ${n.submission_number.startsWith('DRAFT') ? `<a class="btn btn-primary" href="/lend-pieces.html?id=${n.id}&review=1">Continue Registration</a>` : ''}
-        ${!n.submission_number.startsWith('DRAFT') ? `<a class="btn btn-secondary" href="${n.waiver_signed ? `/api/nativities/${n.id}/waiver-pdf` : `/waiver.html?id=${n.id}`}">${n.waiver_signed ? "View Signed Waiver" : "Complete Waiver"}</a>` : ''}
-        ${submissionsOpen && n.status === 'returned' && Number(n.event_year) < CURRENT_YEAR
-          ? `<button class="btn btn-secondary" onclick="resubmit(${n.id})">Submit Again This Year</button>`
-          : ''}
-      </div>
-    `).join('');
-  } catch (err) {
-    showError(err.message);
-  }
+      </div>`;
 }
 
 async function resubmit(id) {

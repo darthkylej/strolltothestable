@@ -345,6 +345,18 @@ a.link:hover {
   border-color: rgba(123, 203, 140, 0.22);
 }
 
+.status-ready {
+  background: rgba(123, 203, 140, 0.16);
+  color: #c9f1cf;
+  border-color: rgba(123, 203, 140, 0.3);
+}
+
+.status-action {
+  background: rgba(255, 158, 139, 0.14);
+  color: #ffd1c8;
+  border-color: rgba(255, 158, 139, 0.3);
+}
+
 .status-returned {
   background: rgba(190, 198, 212, 0.10);
   color: #e2e7ef;
