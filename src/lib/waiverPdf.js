@@ -1,5 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { agreementSections, RELEASE_ACK, CONSENT_TEXT, DEFAULT_EVENT } from './waiverText.js';
+import { agreementSections, RELEASE_ACK, CONSENT_TEXT, DEFAULT_EVENT, RELEASE_SECTION } from './waiverText.js';
 
 const labels = [
  ['name','Name'],['address','Address'],['cityStateZip','City/State/ZIP'],['phone','Phone'],['email','Email'],
@@ -67,7 +67,7 @@ export async function createWaiverPdf(record, signedImage = null, mime = '', nat
   line('Pick-up Deadline: '+date(d.pickupDeadline));
   line('Event Location: Nolte Building (formerly Wells Fargo) at 101 E. Nolte in downtown Seguin');
   gap(6);
-  line('IMPORTANT: This agreement contains a RELEASE OF LIABILITY (section 3) that gives up claims, including claims for negligence. Read it before signing.',10,true);
+  line('IMPORTANT: This agreement contains a RELEASE OF LIABILITY (section '+RELEASE_SECTION+') that gives up claims, including claims for negligence. Read it before signing.',10,true);
   section('Participant Information');
   for(const [key,label] of labels.slice(0,5))line(label+': '+(record.fields[key]||''));
   section('Nativity Information');
