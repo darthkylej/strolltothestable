@@ -8,7 +8,7 @@ const labels = [
 const date = value => value ? new Date(value+'T12:00:00Z').toLocaleDateString('en-US',{timeZone:'UTC',month:'long',day:'numeric',year:'numeric'}) : 'Not scheduled';
 function clean(value) { return String(value ?? '').replace(/[\u2018\u2019]/g,"'").replace(/[\u201c\u201d]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/[^\x20-\x7E]/g,' '); }
 
-export async function createWaiverPdf(record, signedImage = null, mime = '') {
+export async function createWaiverPdf(record, signedImage = null, mime = '', nativityPhoto = null) {
   const pdf=await PDFDocument.create();
   const regular=await pdf.embedFont(StandardFonts.Helvetica);
   const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -48,6 +48,22 @@ export async function createWaiverPdf(record, signedImage = null, mime = '') {
   line('Event Year: '+(n.eventYear||record.year||''));
   line('Story / Origin: '+(n.story||'Not provided'));
   line('Total Pieces: '+(n.pieceCount??''));
+  if(nativityPhoto){
+    let photo;
+    try {
+      const bytes=nativityPhoto instanceof Uint8Array?nativityPhoto:new Uint8Array(nativityPhoto);
+      if(bytes[0]===0x89 && bytes[1]===0x50) photo=await pdf.embedPng(bytes);
+      else if(bytes[0]===0xff && bytes[1]===0xd8) photo=await pdf.embedJpg(bytes);
+    } catch(e) { console.error('Could not embed nativity photo in waiver:',e); }
+    if(photo){
+      section('Nativity Photograph');
+      const scale=Math.min(420/photo.width,240/photo.height);
+      const w=photo.width*scale,h=photo.height*scale;
+      ensureSpace(h+16);
+      page.drawImage(photo,{x:left+(width-w)/2,y:y-h,width:w,height:h});
+      y-=h+12;
+    }
+  }
   if(n.photoKey)line('Nativity Photo Reference: '+n.photoKey,9);
   if(n.displayPhotoKey)line('Display Photo Reference: '+n.displayPhotoKey,9);
   section('Individual Pieces');
