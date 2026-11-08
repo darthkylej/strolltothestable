@@ -18,7 +18,15 @@
   .admin-card .admin-card-action { display:none; }
   .admin-card-head { display:flex; justify-content:space-between; gap:10px; align-items:center; width:100%; }
   .pending-badge { display:none; min-width:30px; height:30px; align-items:center; justify-content:center; padding:0 9px; border-radius:999px; background:#f2c76e; color:#10172a; font-weight:900; font-size:13px; }
+  .primary-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .primary-card { display:block; text-decoration:none; padding:20px; border:1px solid rgba(242,199,110,.45); border-radius:16px; background:linear-gradient(180deg, rgba(40,33,18,.55), rgba(10,18,33,.8)); transition:.15s ease; }
+  .primary-card:hover { transform:translateY(-2px); border-color:var(--gold); }
+  .primary-card h2 { margin:0 0 6px; color:var(--gold-bright); font-size:1.35rem; }
+  .primary-count { font-family:'Fraunces',Georgia,serif; font-size:2.4rem; line-height:1; color:#fff; }
+  .primary-detail { color:var(--wood); font-size:14px; margin-top:6px; }
+  .section-label { color:var(--muted); font-size:.78rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; margin:20px 2px 8px; }
   @media (max-width:700px) {
+    .primary-grid { grid-template-columns:1fr; }
     .admin-home-header { display:block; }
     .admin-home-header .btn { margin-top:14px; }
     .admin-grid { grid-template-columns:1fr; }
@@ -36,61 +44,53 @@
     <div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn btn-outline" href="/admin-participant.html">My Nativities</a><button class="btn btn-outline" id="logoutBtn">Log Out</button></div>
   </div>
 
+  <div class="primary-grid">
+    <a class="primary-card" href="/admin-submissions.html?status=pending">
+      <h2>Check In Nativities</h2>
+      <div class="primary-count" id="checkInCount">—</div>
+      <div class="primary-detail" id="checkInDetail">waiting to be checked in</div>
+    </a>
+    <a class="primary-card" href="/admin-submissions.html?status=submitted">
+      <h2>Return Nativities</h2>
+      <div class="primary-count" id="returnCount">—</div>
+      <div class="primary-detail">checked in, waiting for pick-up</div>
+    </a>
+  </div>
+
   <div class="admin-grid">
     <a class="admin-card" href="/admin-messages.html">
       <div class="admin-card-head">
         <h2>Messages</h2>
         <span class="pending-badge" id="messagePendingBadge"></span>
       </div>
-      <p>Read incoming questions, see what still needs a reply, and respond from the Stroll address.</p>
-      <span class="admin-card-action" id="messageCardAction">Open Message Center →</span>
+      <span class="admin-card-action" id="messageCardAction"></span>
     </a>
+    <a class="admin-card" href="/admin-submissions.html"><h2>All Submissions</h2></a>
+  </div>
 
-    <a class="admin-card" href="/admin-schedule.html">
-      <h2>Set Scheduling</h2>
-      <p>Set the preregistration deadline and the daily drop-off and pickup hours.</p>
-      <span class="admin-card-action">Open Scheduling →</span>
-    </a>
-
-    <a class="admin-card" href="/admin-submissions.html?status=pending">
-      <h2>Check In Nativities</h2>
-      <p>See pending submissions, verify details and waivers, and finalize check-in.</p>
-      <span class="admin-card-action">Open Check-In →</span>
-    </a>
-
-    <a class="admin-card" href="/admin-submissions.html?status=submitted">
-      <h2>Return Nativities</h2>
-      <p>See checked-in nativities and mark them returned to their owners.</p>
-      <span class="admin-card-action">Open Returns →</span>
-    </a>
-
-    <a class="admin-card" href="/admin-tour-media.html">
-      <h2>Add Photos for Virtual Tour</h2>
-      <p>Add artwork, photographs, and videos to Scroll to the Stable.</p>
-      <span class="admin-card-action">Open Tour Media →</span>
-    </a>
-
-    <a class="admin-card" href="/admin-submissions.html">
-      <h2>All Nativity Submissions</h2>
-      <p>Search and manage every submission regardless of status.</p>
-      <span class="admin-card-action">View All Submissions →</span>
-    </a>
-
-    <a class="admin-card" href="/admin-background.html">
-      <h2>Site Background</h2>
-      <p>Upload or replace the image used behind the main Stroll to the Stable landing page.</p>
-      <span class="admin-card-action">Manage Background →</span>
-    </a>
-
-    <a class="admin-card" href="/admin-manage.html">
-      <h2>Manage Admins</h2>
-      <p>Add or remove people who can access the administration tools.</p>
-      <span class="admin-card-action">Manage Admins →</span>
-    </a>
+  <p class="section-label">Setup</p>
+  <div class="admin-grid">
+    <a class="admin-card" href="/admin-schedule.html"><h2>Set Scheduling</h2></a>
+    <a class="admin-card" href="/admin-tour-media.html"><h2>Virtual Tour Photos</h2></a>
+    <a class="admin-card" href="/admin-background.html"><h2>Site Background</h2></a>
+    <a class="admin-card" href="/admin-manage.html"><h2>Manage Admins</h2></a>
   </div>
 </div>
 <script src="/js/app.js"></script>
 <script>
+(async function loadSubmissionCounts() {
+  try {
+    const { nativities, counts } = await api('/api/admin/nativities');
+    const pending = nativities.filter((n) => n.status === 'pending');
+    const ready = pending.filter((n) => n.waiver_signed && !String(n.submission_number).startsWith('DRAFT-')).length;
+    document.getElementById('checkInCount').textContent = counts.pending;
+    document.getElementById('checkInDetail').textContent = counts.pending
+      ? `waiting to be checked in · ${ready} ready with signed waiver`
+      : 'nothing waiting to be checked in';
+    document.getElementById('returnCount').textContent = counts.submitted;
+  } catch (_) {}
+})();
+
 (async function loadMessageCount() {
   try {
     const data = await api('/api/admin/messages?status=pending');

@@ -25,6 +25,11 @@ export async function register(request, env) {
   if (!EMAIL_RE.test(email)) return error('Enter a valid email address.');
 
   const sql = db(env);
+  // One account per email: the email address is the login.
+  const existing = await sql`SELECT 1 FROM users WHERE lower(email) = lower(${email}) LIMIT 1`;
+  if (existing.length) {
+    return error('An account with this email already exists. Log in with your email and password, or use "Forgot your login?" to get a login link.', 409);
+  }
   // Registration sends an email, so cap it per address and per client.
   const okEmail = await consume(sql, `register:email:${email.toLowerCase()}`, 3, 3600);
   const okIp = await consume(sql, `register:ip:${clientIp(request)}`, 20, 3600);
@@ -35,11 +40,17 @@ export async function register(request, env) {
   const password = generateShortPassword(5);
   const passwordHash = await hashPassword(password);
 
+  // Internal username is still generated (the column is required), but people
+  // log in with their email. NOT EXISTS closes the race between two requests.
   const rows = await sql`
     INSERT INTO users (username, name, phone, email, password_hash)
-    VALUES (${username}, ${name}, ${phone}, ${email}, ${passwordHash})
+    SELECT ${username}, ${name}, ${phone}, ${email}, ${passwordHash}
+    WHERE NOT EXISTS (SELECT 1 FROM users WHERE lower(email) = lower(${email}))
     RETURNING id
   `;
+  if (!rows.length) {
+    return error('An account with this email already exists. Log in with your email and password.', 409);
+  }
 
   const settings = await getSiteSettings(env);
   try {
@@ -53,33 +64,42 @@ export async function register(request, env) {
   }
 
   const token = await createSessionToken(env, { kind: 'user', userId: rows[0].id });
-  return json({ ok: true, username }, { headers: { 'Set-Cookie': sessionCookieHeader(token) } });
+  return json({ ok: true }, { headers: { 'Set-Cookie': sessionCookieHeader(token) } });
 }
 
 export async function login(request, env) {
   const body = await request.json();
-  const username = String(body?.username ?? '').trim().toLowerCase().slice(0, 64);
+  // Email is the login. Older usernames are still accepted for anyone who
+  // kept their original registration email.
+  const login = String(body?.email ?? body?.username ?? '').trim().toLowerCase().slice(0, 254);
   const password = String(body?.password ?? '').trim();
-  if (!username || !password) return error('Username and password are required.');
+  if (!login || !password) return error('Email and password are required.');
 
   const sql = db(env);
   // Passwords are short by design, so online guessing must be throttled.
-  const userKey = `login-fail:user:${username}`;
+  const userKey = `login-fail:user:${login}`;
   const ipKey = `login-fail:ip:${clientIp(request)}`;
   if (await isBlocked(sql, userKey, 8, 900) || await isBlocked(sql, ipKey, 30, 900)) {
     return error('Too many failed attempts. Wait 15 minutes, or use "forgot login" to get back in.', 429);
   }
 
-  const rows = await sql`SELECT id, password_hash FROM users WHERE username = ${username}`;
-  const ok = rows.length > 0 && await verifyPassword(password, rows[0].password_hash);
-  if (!ok) {
+  // Accounts created before emails were unique may share an address, so the
+  // password decides which one is being logged into.
+  const candidates = login.includes('@')
+    ? await sql`SELECT id, password_hash FROM users WHERE lower(email) = ${login} ORDER BY id DESC LIMIT 20`
+    : await sql`SELECT id, password_hash FROM users WHERE username = ${login}`;
+  let matched = null;
+  for (const row of candidates) {
+    if (await verifyPassword(password, row.password_hash)) { matched = row; break; }
+  }
+  if (!matched) {
     await recordFailure(sql, userKey);
     await recordFailure(sql, ipKey);
-    return error('Username or password is incorrect.', 401);
+    return error('Email or password is incorrect.', 401);
   }
   await clearFailures(sql, userKey);
 
-  const token = await createSessionToken(env, { kind: 'user', userId: rows[0].id });
+  const token = await createSessionToken(env, { kind: 'user', userId: matched.id });
   return json({ ok: true }, { headers: { 'Set-Cookie': sessionCookieHeader(token) } });
 }
 

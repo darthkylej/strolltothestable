@@ -37,6 +37,27 @@
   .admin-note-badge { display:inline-block; margin-bottom:8px; padding:4px 8px; border-radius:999px; background:rgba(242,199,110,.13); color:var(--gold-bright); font-size:.76rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
   .save-bar { position:sticky; bottom:12px; z-index:20; display:flex; justify-content:flex-end; margin-top:18px; pointer-events:none; }
   .save-bar .btn { width:auto; min-width:210px; margin:0; box-shadow:0 12px 38px rgba(0,0,0,.42); pointer-events:auto; }
+  .detail-sub { color:var(--wood); margin:4px 0 0; }
+  .desk-card h2 { margin:0; font-size:1.15rem; }
+  .desk-contact { display:flex; flex-wrap:wrap; gap:6px 16px; margin-bottom:12px; }
+  .desk-contact a { color:var(--gold-bright); }
+  .desk-row { padding:10px 12px; border-radius:12px; margin:8px 0; line-height:1.45; border:1px solid var(--border); }
+  .desk-row.ok { background:rgba(123,203,140,.10); border-color:rgba(123,203,140,.35); color:#d7f7df; }
+  .desk-row.bad { background:rgba(255,158,139,.10); border-color:rgba(255,158,139,.35); color:#ffd1c8; }
+  .desk-row.note { background:rgba(242,199,110,.10); border-color:rgba(242,199,110,.32); color:#ffe7b5; }
+  .desk-row a { color:inherit; font-weight:700; margin-left:6px; }
+  .desk-pieces-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:16px 0 6px; }
+  .link-btn { background:none; border:0; color:var(--gold-bright); text-decoration:underline; cursor:pointer; font:inherit; padding:4px; width:auto; margin:0; }
+  .desk-pieces { list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+  .desk-piece { display:grid; grid-template-columns:28px 26px 1fr auto; gap:8px; align-items:center; padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:rgba(8,16,31,.5); cursor:pointer; }
+  .desk-piece input { width:22px; height:22px; margin:0; }
+  .desk-piece.checked { border-color:rgba(123,203,140,.45); background:rgba(123,203,140,.07); }
+  .desk-num { color:var(--muted); font-weight:700; text-align:right; }
+  .desk-desc { font-weight:700; }
+  .desk-cond { color:var(--wood); font-size:14px; }
+  .desk-thumb { width:42px; height:42px; object-fit:cover; border-radius:8px; border:1px solid var(--border); }
+  .desk-hint { color:var(--muted); font-size:14px; margin:10px 0 0; }
+  details.card > summary { cursor:pointer; font-size:1.1rem; font-weight:700; }
   @media (max-width:700px) {
     .detail-topbar { display:block; }
     .detail-grid, .detail-grid.three { grid-template-columns:1fr; }
@@ -53,6 +74,7 @@
       <a class="detail-back" id="backToSubmissions" href="/admin-submissions.html">← Back to submissions</a>
       <p class="eyebrow">Stroll to the Stable · Admin</p>
       <h1 id="title">Loading…</h1>
+      <p class="detail-sub" id="subtitle"></p>
       <div class="detail-status"><span class="status-pill" id="statusPill"></span></div>
     </div>
   </div>
@@ -60,17 +82,24 @@
   <div class="error-banner" data-error-banner></div>
   <div class="admin-success" id="successBanner"></div>
 
-  <div class="card action-card">
-    <h2>Check-In Status</h2>
-    <p id="waiverRecordInfo" class="section-note">Loading waiver record…</p><a id="waiverPdfDownload" class="btn btn-secondary" style="display:none" href="#">Download Signed PDF</a><div class="action-row" style="margin-top:16px">
-      <button class="btn btn-primary detail-primary-action" id="finalizeBtn">Finalize Check-In</button>
-      <button class="btn btn-secondary detail-primary-action" id="returnBtn" style="display:none">Mark Returned to Owner</button>
+  <div class="card desk-card" id="deskCard">
+    <div class="desk-contact" id="deskContact"></div>
+    <div class="desk-row" id="waiverRow">Loading…</div>
+    <div class="desk-row note" id="deskNote" style="display:none"></div>
+    <div class="desk-pieces-head">
+      <h2 id="deskTitle">Pieces</h2>
+      <button type="button" class="link-btn" id="checkAllBtn">Check all</button>
+    </div>
+    <ol class="desk-pieces" id="deskPieces"></ol>
+    <p class="desk-hint" id="deskHint"></p>
+    <div class="action-row" style="margin-top:12px">
+      <button class="btn btn-primary detail-primary-action" id="finalizeBtn" style="display:none">Finalize Check-In</button>
+      <button class="btn btn-primary detail-primary-action" id="returnBtn" style="display:none">Mark Returned to Owner</button>
     </div>
   </div>
 
-  <details class="card edit-card" id="submissionEditor"><summary style="cursor:pointer;font-size:1.2rem;font-weight:700">Review and edit submission details, pieces and photos</summary>
-    <h2>Edit Submission</h2>
-    <p class="section-note">Admins can correct all information entered by the donor before or after check-in.</p>
+  <details class="card edit-card" id="submissionEditor"><summary>Edit submission: donor info, pieces, photos, private notes</summary>
+    <p class="section-note">Admins can correct anything the donor entered, before or after check-in.</p>
 
     <section class="edit-section">
       <h3>Donor Information</h3>
@@ -140,21 +169,21 @@
       </div>
       <div id="pieces"></div>
     </section>
-  </div>
 
-  </details><div class="card admin-note-card">
-    <span class="admin-note-badge">Admin Only</span>
-    <h2>Private Notes</h2>
-    <p class="section-note">These notes are never shown to the donor or in the Virtual Tour.</p>
-    <textarea id="adminNote" rows="5" placeholder="Example: Friend Jerry is authorized to pick this up for the donor."></textarea>
-  </div>
+    <section class="edit-section">
+      <span class="admin-note-badge">Admin Only</span>
+      <h3>Private Notes</h3>
+      <p class="section-note">Never shown to the donor or in the Virtual Tour. Shown at the top of this page during check-in and pick-up.</p>
+      <textarea id="adminNote" rows="4" placeholder="Example: Friend Jerry is authorized to pick this up for the donor."></textarea>
+    </section>
 
-  <div class="save-bar">
-    <button class="btn btn-primary" id="saveChangesBtn" type="button">Save Submission Changes</button>
-  </div>
+    <div class="save-bar">
+      <button class="btn btn-primary" id="saveChangesBtn" type="button">Save Submission Changes</button>
+    </div>
+  </details>
 
-  <div class="card" style="margin-top:16px">
-    <h2>Display Photo</h2>
+  <details class="card" style="margin-top:16px">
+    <summary>Virtual Tour display photo</summary>
     <p class="section-note">This is the final-display photo shown in the public Virtual Tour when one has been uploaded.</p>
     <img id="displayPhoto" class="photo-frame" alt="Nativity display photo">
     <p id="noDisplayPhoto" class="section-note">No display photo yet.</p>
@@ -163,7 +192,7 @@
       <button class="btn btn-secondary" id="uploadDisplayBtn">Upload / Replace Display Photo</button>
       <button class="btn btn-danger" id="clearDisplayBtn" style="display:none">Remove Display Photo</button>
     </div>
-  </div>
+  </details>
 
   <div class="card danger-zone">
     <h2>Delete Submission</h2>
@@ -277,9 +306,12 @@ async function load() {
     const { nativity, pieces, adminNote } = await api(`/api/admin/nativities/${id}`);
     current = nativity;
     currentPieces = pieces;
-    document.getElementById('submissionEditor').open = nativity.status === 'pending';
 
-    document.getElementById('title').textContent = nativity.submission_number;
+    const isDraft = String(nativity.submission_number).startsWith('DRAFT-');
+    document.getElementById('title').textContent = nativity.owner_name || 'Unknown donor';
+    document.getElementById('subtitle').textContent = (isDraft ? 'Unfinished draft' : nativity.submission_number)
+      + ` · ${pieces.length} piece${pieces.length === 1 ? '' : 's'} · ${nativity.event_year}`;
+    document.title = `${nativity.owner_name || 'Submission'} — Stroll to the Stable Admin`;
     const statusPill = document.getElementById('statusPill');
     statusPill.textContent = statusLabel(nativity.status);
     statusPill.className = `status-pill status-${nativity.status}`;
@@ -297,33 +329,86 @@ async function load() {
     renderPhotos(nativity);
     renderPieces(pieces);
 
-    document.getElementById('waiverPdfDownload').href = '/api/admin/nativities/'+id+'/waiver-pdf';
-    document.getElementById('waiverPdfDownload').style.display = nativity.waiver_signed ? 'inline-block' : 'none';
-    try {
-      const waiverData = await api(`/api/admin/nativities/${id}/waiver-record`);
-      const w = waiverData.waiver;
-      document.getElementById('waiverRecordInfo').textContent = w
-        ? 'Waiver method: ' + ({digital:'Digitally signed',print:'Print and bring',onsite:'Complete onsite'}[w.method] || w.method) + '. ' + (nativity.waiver_signed ? 'Received.' : 'Awaiting signed form.') + ' Event dates recorded: ' + (w.dates?.start || 'Not set') + ' to ' + (w.dates?.end || 'Not set') + '.'
-        : waiverData.draft ? 'Waiver in progress. Participant information has been saved. Staff can help the participant finish and sign at check-in.' : 'No signed digital waiver yet. Ask the participant to sign online or offer help at check-in.';
-    } catch { document.getElementById('waiverRecordInfo').textContent = 'Waiver record unavailable.'; }
-    const finalizeBtn = document.getElementById('finalizeBtn');
-    const returnBtn = document.getElementById('returnBtn');
-
-    if (nativity.status === 'pending') {
-      finalizeBtn.style.display = 'inline-block';
-      finalizeBtn.disabled = !nativity.waiver_signed;
-      returnBtn.style.display = 'none';
-    } else if (nativity.status === 'submitted') {
-      finalizeBtn.style.display = 'none';
-      returnBtn.style.display = 'inline-block';
-    } else {
-      finalizeBtn.style.display = 'none';
-      returnBtn.style.display = 'none';
-    }
+    renderDesk(nativity, pieces, adminNote, isDraft);
   } catch (err) {
     showError(err.message);
   }
 }
+
+function fmtDate(v) {
+  return v ? new Date(v).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) : '';
+}
+
+// The desk panel: everything needed at the check-in or pick-up table.
+function renderDesk(n, pieces, note, isDraft) {
+  document.getElementById('deskContact').innerHTML =
+    `<a href="tel:${esc(n.owner_phone)}">${esc(n.owner_phone)}</a><a href="mailto:${esc(n.owner_email)}">${esc(n.owner_email)}</a>`;
+
+  const waiver = document.getElementById('waiverRow');
+  if (isDraft) {
+    waiver.className = 'desk-row bad';
+    waiver.textContent = '✗ Not finished. The donor has not saved their piece list or signed the waiver.';
+  } else if (n.waiver_signed) {
+    waiver.className = 'desk-row ok';
+    waiver.innerHTML = `✓ Waiver signed ${esc(fmtDate(n.waiver_signed_at))}<a href="/api/admin/nativities/${esc(n.id)}/waiver-pdf" target="_blank" rel="noopener">View PDF</a>`;
+  } else {
+    waiver.className = 'desk-row bad';
+    waiver.textContent = '✗ Waiver not signed. The donor can sign on their phone from My Nativities before you check this in.';
+  }
+
+  const noteEl = document.getElementById('deskNote');
+  noteEl.style.display = note ? 'block' : 'none';
+  noteEl.textContent = note ? `Note: ${note}` : '';
+
+  const verifiable = (n.status === 'pending' && !isDraft) || n.status === 'submitted';
+  document.getElementById('deskTitle').textContent =
+    n.status === 'pending' ? 'Check in: match each piece to the box'
+    : n.status === 'submitted' ? 'Pick-up: confirm each piece is going home'
+    : `Returned ${fmtDate(n.returned_at)}`;
+  document.getElementById('checkAllBtn').style.display = verifiable && pieces.length ? 'inline' : 'none';
+  document.getElementById('deskPieces').innerHTML = pieces.length ? pieces.map((p, i) => `
+    <li><label class="desk-piece">
+      ${verifiable ? '<input type="checkbox" class="verify">' : '<span></span>'}
+      <span class="desk-num">${i + 1}.</span>
+      <span><span class="desk-desc">${esc(p.description)}</span><br><span class="desk-cond">${esc(p.condition_notes)}</span></span>
+      ${p.photo_key ? `<a href="/photos/${esc(p.photo_key)}" target="_blank" rel="noopener"><img class="desk-thumb" src="/photos/${esc(p.photo_key)}" alt="Piece ${i + 1}"></a>` : '<span></span>'}
+    </label></li>`).join('') : '<li class="desk-hint">No pieces listed yet.</li>';
+
+  document.getElementById('finalizeBtn').style.display = n.status === 'pending' ? 'inline-block' : 'none';
+  document.getElementById('returnBtn').style.display = n.status === 'submitted' ? 'inline-block' : 'none';
+  updateDeskButtons();
+}
+
+function updateDeskButtons() {
+  if (!current) return;
+  const boxes = [...document.querySelectorAll('#deskPieces .verify')];
+  boxes.forEach((b) => b.closest('.desk-piece').classList.toggle('checked', b.checked));
+  const remaining = boxes.filter((b) => !b.checked).length;
+  const isDraft = String(current.submission_number).startsWith('DRAFT-');
+  const hint = document.getElementById('deskHint');
+  const finalize = document.getElementById('finalizeBtn');
+  const ret = document.getElementById('returnBtn');
+  const left = remaining ? `${remaining} piece${remaining === 1 ? '' : 's'} left to check.` : '';
+  if (current.status === 'pending') {
+    const blockers = [];
+    if (isDraft) blockers.push('Submission is not finished.');
+    else if (!current.waiver_signed) blockers.push('Waiver must be signed.');
+    if (left) blockers.push(left);
+    finalize.disabled = blockers.length > 0 || !boxes.length;
+    hint.textContent = blockers.length ? blockers.join(' ') : 'All pieces checked. Finalizing emails the donor their claim ticket.';
+  } else if (current.status === 'submitted') {
+    ret.disabled = remaining > 0 || !boxes.length;
+    hint.textContent = left || 'All pieces checked. Ready to hand back.';
+  } else {
+    hint.textContent = '';
+  }
+}
+
+document.getElementById('deskPieces').addEventListener('change', updateDeskButtons);
+document.getElementById('checkAllBtn').addEventListener('click', () => {
+  document.querySelectorAll('#deskPieces .verify').forEach((b) => { b.checked = true; });
+  updateDeskButtons();
+});
 
 function collectPieces() {
   return [...document.querySelectorAll('.piece-edit')].map((card) => ({
@@ -457,12 +542,14 @@ document.getElementById('finalizeBtn').addEventListener('click', async () => {
   btn.textContent = 'Finalizing…';
   try {
     await api(`/api/admin/nativities/${id}/finalize`, { method: 'POST' });
-    showSuccess('Check-in finalized and claim ticket sent.');
+    showSuccess('Checked in. The claim ticket was emailed to the donor.');
     await load();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {
     showError(err.message);
   } finally {
     btn.textContent = 'Finalize Check-In';
+    updateDeskButtons();
   }
 });
 
@@ -472,8 +559,9 @@ document.getElementById('returnBtn').addEventListener('click', async () => {
   if (!confirmed) return;
   try {
     await api(`/api/admin/nativities/${id}/returned`, { method: 'POST' });
-    showSuccess('Submission marked returned.');
+    showSuccess('Marked returned to owner.');
     await load();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {
     showError(err.message);
   }

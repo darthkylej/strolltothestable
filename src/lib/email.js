@@ -117,9 +117,9 @@ export async function sendCredentialsEmail(env, { to, name, username, password, 
     html: `
       <p>Hi ${escapeHtml(name)},</p>
       <p>You're registered for Stroll to the Stable nativity check-in. Here's your login:</p>
-      <p style="font-size:18px"><b>Username:</b> ${escapeHtml(username)}<br>
+      <p style="font-size:18px"><b>Log in with your email:</b> ${escapeHtml(to)}<br>
       <b>Password:</b> ${escapeHtml(password)}</p>
-      <p>Keep this email — you'll use these to log back in and see your nativities each year.</p>
+      <p>Keep this email. You'll use this email address and password to log back in and see your nativities each year.</p>
       ${scheduleHtml(settings)}
     `,
   });
@@ -132,8 +132,7 @@ export async function sendForgotLoginEmail(env, { to, name, username, recoveryUr
     html: `
       <p>Hi ${escapeHtml(name)},</p>
       <p>You asked for help getting back into your Stroll to the Stable account.</p>
-      <p><b>Username:</b> ${escapeHtml(username)}</p>
-      <p>Your existing password has not been changed.</p>
+      <p>You log in with this email address. Your existing password has not been changed.</p>
       <p><a href="${escapeHtml(recoveryUrl)}" style="display:inline-block;padding:12px 18px;background:#203a5f;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700">Log In to My Account</a></p>
       <p style="font-size:13px;color:#666">This secure link expires in 30 minutes. If you did not request it, you can ignore this email.</p>
       ${scheduleHtml(settings)}

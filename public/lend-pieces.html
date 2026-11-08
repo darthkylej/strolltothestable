@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lend a Nativity — Stroll to the Stable</title>
 <link rel="stylesheet" href="/style.css">
+<style>
+  .piece-help { color:var(--wood); font-size:14px; margin:0 0 10px; line-height:1.45; }
+  .piece-row { display:grid; grid-template-columns:30px 1fr 44px; gap:8px; align-items:start; padding:10px; margin:6px 0; border:1px solid var(--border); border-radius:12px; background:rgba(8,16,31,.5); }
+  .piece-row .piece-number { margin:6px 0 0; }
+  .piece-fields { display:grid; gap:6px; min-width:0; }
+  .piece-fields input { margin:0; padding:10px 12px; font-size:16px; }
+  .piece-side { display:grid; gap:6px; }
+  .piece-icon { width:44px; height:42px; padding:0; margin:0; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,.04); color:var(--text); font-size:18px; cursor:pointer; }
+  .piece-icon.has-photo { border-color:rgba(123,203,140,.5); background:rgba(123,203,140,.12); }
+  .piece-icon.remove { font-size:20px; color:var(--muted); }
+  .piece-tools { display:flex; gap:10px; flex-wrap:wrap; margin:8px 0 14px; }
+  .piece-tools .btn { width:auto; margin:0; padding:10px 14px; }
+  @media (min-width:640px) { .piece-fields { grid-template-columns:1fr 1fr; } }
+</style>
 </head>
 <body>
 <div class="page">
@@ -22,7 +36,12 @@
   </div>
 
   <form id="piecesForm" style="display:none">
+    <p class="piece-help">For each piece, describe it and note its condition (any chips, cracks or repairs). 📷 adds an optional photo.</p>
     <div id="pieceList"></div>
+    <div class="piece-tools">
+      <button type="button" class="btn btn-outline" id="addPieceBtn">+ Add a piece</button>
+      <button type="button" class="btn btn-outline" id="noDamageBtn">Fill blank conditions with "No damage"</button>
+    </div>
     <button type="submit" class="btn btn-primary" id="submitBtn">Save Nativity &amp; Continue to Waiver</button>
   </form>
 
@@ -35,42 +54,64 @@ const nativityId = params.get('id');
 const isReview = params.get('review') === '1';
 let existingPieces = [];
 
-function pieceCardHtml(i, existing) {
-  const desc = existing ? existing.description : '';
-  const cond = existing ? existing.condition_notes : '';
-  const photoNote = existing?.photo_key ? '<p class="hint">Existing photo on file — add a new one only if it needs updating.</p>' : '';
+function escAttr(v) { return String(v ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+// One compact row per piece: description, condition, optional photo.
+function pieceRowHtml(existing) {
+  const key = existing?.photo_key || '';
   return `
-    <div class="piece-card" style="padding:12px;margin:8px 0">
-      <label><span class="piece-number">${i + 1}</span>Piece ${i + 1}</label>
-      <div class="field" style="margin-top:12px">
-        <label>Description</label>
-        <input type="text" class="piece-desc" data-i="${i}" value="${desc.replace(/"/g, '&quot;')}" placeholder="e.g. Shepherd holding a lamb" required>
+    <div class="piece-row" data-photo-key="${escAttr(key)}">
+      <span class="piece-number"></span>
+      <div class="piece-fields">
+        <input type="text" class="piece-desc" value="${escAttr(existing?.description)}" placeholder="Piece, e.g. Shepherd with lamb" required>
+        <input type="text" class="piece-cond" value="${escAttr(existing?.condition_notes)}" placeholder="Condition, e.g. No damage" required>
       </div>
-      <div class="field">
-        <label>Condition (note any cracks, chips, repairs)</label>
-        <input type="text" class="piece-cond" data-i="${i}" value="${cond.replace(/"/g, '&quot;')}" placeholder="e.g. No damage, or: small chip on base" required>
+      <div class="piece-side">
+        <button type="button" class="piece-icon photo${key ? ' has-photo' : ''}" title="Add a photo (optional)">📷</button>
+        <button type="button" class="piece-icon remove" title="Remove this piece">×</button>
       </div>
-      <details class="field"><summary style="cursor:pointer">Add photo of this piece (optional)</summary>
-        <div style="display:flex; gap:10px; flex-wrap:wrap">
-          <button type="button" class="btn" onclick="this.closest('.field').querySelector('.piece-photo').click()">Take Photo</button>
-          <button type="button" class="btn" onclick="this.closest('.field').querySelector('.piece-existing-photo').click()">Upload Existing Photo</button>
-        </div>
-        <input type="file" class="piece-photo" data-i="${i}" accept="image/*" capture="environment" style="display:none">
-        <input type="file" class="piece-existing-photo" data-i="${i}" accept="image/*" style="display:none">
-        ${photoNote}
-      </details>
-    </div>
-  `;
+      <input type="file" class="piece-file" accept="image/*" style="display:none">
+    </div>`;
+}
+
+function renumber() {
+  const rows = [...document.querySelectorAll('.piece-row')];
+  rows.forEach((row, i) => {
+    row.querySelector('.piece-number').textContent = i + 1;
+    row.querySelector('.piece-desc').setAttribute('aria-label', `Piece ${i + 1} description`);
+    row.querySelector('.piece-cond').setAttribute('aria-label', `Piece ${i + 1} condition`);
+    row.querySelector('.remove').style.visibility = rows.length > 1 ? 'visible' : 'hidden';
+  });
 }
 
 function renderPieces(count) {
-  const list = document.getElementById('pieceList');
   let html = '';
-  for (let i = 0; i < count; i++) html += pieceCardHtml(i, existingPieces[i]);
-  list.innerHTML = html;
+  for (let i = 0; i < count; i++) html += pieceRowHtml(existingPieces[i]);
+  document.getElementById('pieceList').innerHTML = html;
+  renumber();
   document.getElementById('countStep').style.display = 'none';
   document.getElementById('piecesForm').style.display = 'block';
 }
+
+document.getElementById('pieceList').addEventListener('click', (e) => {
+  const row = e.target.closest('.piece-row'); if (!row) return;
+  if (e.target.closest('.photo')) row.querySelector('.piece-file').click();
+  if (e.target.closest('.remove') && document.querySelectorAll('.piece-row').length > 1) { row.remove(); renumber(); }
+});
+document.getElementById('pieceList').addEventListener('change', (e) => {
+  if (!e.target.classList.contains('piece-file')) return;
+  const row = e.target.closest('.piece-row');
+  row.querySelector('.photo').classList.toggle('has-photo', !!e.target.files[0] || !!row.dataset.photoKey);
+});
+document.getElementById('addPieceBtn').addEventListener('click', () => {
+  document.getElementById('pieceList').insertAdjacentHTML('beforeend', pieceRowHtml(null));
+  renumber();
+  const rows = document.querySelectorAll('.piece-row');
+  rows[rows.length - 1].querySelector('.piece-desc').focus();
+});
+document.getElementById('noDamageBtn').addEventListener('click', () => {
+  document.querySelectorAll('.piece-cond').forEach((input) => { if (!input.value.trim()) input.value = 'No damage'; });
+});
 
 document.getElementById('generateBtn').addEventListener('click', () => {
   hideError();
@@ -98,23 +139,19 @@ document.getElementById('piecesForm').addEventListener('submit', async (e) => {
   btn.disabled = true;
   btn.textContent = 'Submitting…';
   try {
-    const descs = [...document.querySelectorAll('.piece-desc')];
-    const conds = [...document.querySelectorAll('.piece-cond')];
-    const photos = [...document.querySelectorAll('.piece-photo')];
-    const existingPhotos = [...document.querySelectorAll('.piece-existing-photo')];
     const pieces = [];
-    for (let i = 0; i < descs.length; i++) {
-      let photoKey = existingPieces[i]?.photo_key || null;
-      const selectedPhoto = existingPhotos[i].files[0] || photos[i].files[0];
-      if (selectedPhoto) photoKey = await uploadPhoto(selectedPhoto);
-      pieces.push({ description: descs[i].value, condition_notes: conds[i].value, photoKey });
+    for (const row of document.querySelectorAll('.piece-row')) {
+      let photoKey = row.dataset.photoKey || null;
+      const file = row.querySelector('.piece-file').files[0];
+      if (file) photoKey = await uploadPhoto(file);
+      pieces.push({ description: row.querySelector('.piece-desc').value, condition_notes: row.querySelector('.piece-cond').value, photoKey });
     }
     await api(`/api/nativities/${nativityId}/pieces`, { method: 'POST', body: { pieces } });
     window.location.href = '/waiver.html?id=' + encodeURIComponent(nativityId);
   } catch (err) {
     showError(err.message);
     btn.disabled = false;
-    btn.textContent = 'Submit Nativity';
+    btn.textContent = 'Save Nativity & Continue to Waiver';
   }
 });
 

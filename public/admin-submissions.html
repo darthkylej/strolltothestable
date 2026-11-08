@@ -24,6 +24,7 @@
   .submission-list { display:grid; gap:10px; }
   .submission-row { display:flex; align-items:stretch; gap:10px; }
   .submission-link { flex:1; min-width:0; text-decoration:none; display:flex; justify-content:space-between; gap:18px; align-items:center; padding:17px 18px; border:1px solid var(--border); border-radius:16px; background:rgba(10,19,35,.78); transition:.15s ease; }
+  .row-badges { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
   .submission-link:hover { border-color:var(--border-strong); background:rgba(14,25,44,.92); transform:translateY(-1px); }
   .submission-name { font-weight:700; color:var(--gold-bright); overflow-wrap:anywhere; }
   .submission-meta { color:var(--muted); font-size:14px; margin-top:3px; overflow-wrap:anywhere; }
@@ -115,20 +116,20 @@ async function load() {
     document.getElementById('activeFilter').textContent=bits.length?`Showing ${bits.join(' · ')}`:'Showing all submissions';
     const list=document.getElementById('list');
     if(!nativities.length){list.innerHTML='<div class="empty-state">No submissions match this view.</div>';return;}
-    list.innerHTML=nativities.map(n=>`
-      <div class="submission-row">
-        <a class="submission-link" href="/admin-detail.html?id=${n.id}&from=${encodeURIComponent(currentStatus)}">
-          <div>
-            <div class="submission-name">${esc(n.owner_name)} <span style="color:var(--muted);font-weight:500">· ${esc(n.submission_number)}</span></div>
-            <div class="submission-meta">${esc(n.owner_phone)} · ${esc(n.owner_email)} · ${esc(n.event_year)}</div>
-          </div>
-          <span class="status-pill status-${n.status}">${statusLabel(n.status)}</span>
-        </a>
-        ${currentStatus === 'submitted'
-          ? `<button class="btn btn-secondary submission-action" data-return-id="${n.id}">Mark Returned</button>`
-          : `<button class="btn btn-danger submission-action" data-delete-id="${n.id}">Delete</button>`}
-
-      </div>`).join('');
+    list.innerHTML=nativities.map(n=>{
+      const draft=String(n.submission_number).startsWith('DRAFT-');
+      const badge=n.status!=='pending'?''
+        :draft?'<span class="status-pill status-action">Not finished</span>'
+        :n.waiver_signed?'<span class="status-pill status-ready">Waiver ✓</span>'
+        :'<span class="status-pill status-action">No waiver</span>';
+      return `
+      <a class="submission-link" href="/admin-detail.html?id=${n.id}&from=${encodeURIComponent(currentStatus)}">
+        <div>
+          <div class="submission-name">${esc(n.owner_name)} <span style="color:var(--muted);font-weight:500">· ${draft?'draft':esc(n.submission_number)}</span></div>
+          <div class="submission-meta">${esc(n.owner_phone)} · ${Number(n.piece_count)||0} piece${Number(n.piece_count)===1?'':'s'} · ${esc(n.event_year)}</div>
+        </div>
+        <span class="row-badges">${badge}<span class="status-pill status-${n.status}">${statusLabel(n.status)}</span></span>
+      </a>`;}).join('');
   }catch(err){showError(err.message);}
 }
 document.getElementById('search').addEventListener('input',debounce(load,300));
@@ -140,33 +141,6 @@ document.querySelectorAll('[data-status]').forEach(btn=>btn.addEventListener('cl
   history.replaceState(null,'',url);
   load();
 }));
-document.getElementById('list').addEventListener('click',async e=>{
-  const returnBtn=e.target.closest('[data-return-id]');
-  if(returnBtn){
-    const nativity=knownNativities.get(returnBtn.dataset.returnId);
-    if(!nativity)return;
-    hideError();
-    returnBtn.disabled=true;
-    returnBtn.textContent='Marking…';
-    try{
-      await api(`/api/admin/nativities/${nativity.id}/returned`,{method:'POST'});
-      showSuccess(`${nativity.submission_number} marked returned.`);
-      await load();
-    }catch(err){
-      showError(err.message);
-      returnBtn.disabled=false;
-      returnBtn.textContent='Mark Returned';
-    }
-    return;
-  }
-
-  const btn=e.target.closest('[data-delete-id]'); if(!btn)return;
-  const nativity=knownNativities.get(btn.dataset.deleteId); if(!nativity)return;
-  if(!window.confirm(`Permanently delete ${nativity.submission_number} from ${nativity.owner_name}?\n\nThis removes the submission, its piece records, and its stored photos. This cannot be undone.`))return;
-  hideError(); btn.disabled=true; btn.textContent='Deleting…';
-  try{await api(`/api/admin/nativities/${nativity.id}`,{method:'DELETE'});showSuccess(`${nativity.submission_number} was deleted.`);await load();}
-  catch(err){showError(err.message);btn.disabled=false;btn.textContent='Delete';}
-});
 function debounce(fn,ms){let t;return(...args)=>{clearTimeout(t);t=setTimeout(()=>fn(...args),ms);};}
 load();
 </script>
