@@ -55,10 +55,6 @@
       <h1 id="title">Loading…</h1>
       <div class="detail-status"><span class="status-pill" id="statusPill"></span></div>
     </div>
-    <div class="action-row">
-      <a class="btn btn-outline" href="/admin-tour-media.html">Tour Media</a>
-      <a class="btn btn-outline" href="/admin-manage.html">Manage Admins</a>
-    </div>
   </div>
 
   <div class="error-banner" data-error-banner></div>
@@ -72,7 +68,7 @@
     </div>
   </div>
 
-  <details class="card edit-card"><summary style="cursor:pointer;font-size:1.2rem;font-weight:700">Edit submission details, pieces and photos</summary>
+  <details class="card edit-card" id="submissionEditor"><summary style="cursor:pointer;font-size:1.2rem;font-weight:700">Review and edit submission details, pieces and photos</summary>
     <h2>Edit Submission</h2>
     <p class="section-note">Admins can correct all information entered by the donor before or after check-in.</p>
 
@@ -281,6 +277,7 @@ async function load() {
     const { nativity, pieces, adminNote } = await api(`/api/admin/nativities/${id}`);
     current = nativity;
     currentPieces = pieces;
+    document.getElementById('submissionEditor').open = nativity.status === 'pending';
 
     document.getElementById('title').textContent = nativity.submission_number;
     const statusPill = document.getElementById('statusPill');
