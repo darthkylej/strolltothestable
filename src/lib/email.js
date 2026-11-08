@@ -17,25 +17,23 @@ const DEFAULT_FROM = {
   name: 'Stroll to the Stable',
 };
 
-function toBase64(bytes) {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(binary);
-}
-
-// Cloudflare Email Service expects { filename, type, disposition, content }
-// with base64 text content. Callers may pass { contentType, content: bytes }.
+// Cloudflare Email Service takes { filename, type, disposition, content }.
+// Binary content must be passed as bytes: a string is sent as text, so a
+// base64 string arrives as a corrupt file (verified on a live PDF email).
+// Callers may pass { contentType, content: Uint8Array|ArrayBuffer }.
 function normalizeAttachments(attachments) {
-  return attachments.map((a) => ({
-    filename: a.filename,
-    type: a.type || a.contentType || 'application/octet-stream',
-    disposition: a.disposition || 'attachment',
-    content: typeof a.content === 'string'
-      ? a.content
-      : toBase64(a.content instanceof ArrayBuffer ? new Uint8Array(a.content) : a.content),
-  }));
+  return attachments.map((a) => {
+    let content = a.content;
+    if (ArrayBuffer.isView(content)) {
+      content = content.buffer.slice(content.byteOffset, content.byteOffset + content.byteLength);
+    }
+    return {
+      filename: a.filename,
+      type: a.type || a.contentType || 'application/octet-stream',
+      disposition: a.disposition || 'attachment',
+      content,
+    };
+  });
 }
 
 async function send(env, { to, cc, from = DEFAULT_FROM, replyTo = DEFAULT_FROM.email, subject, html, text, headers, attachments }) {
