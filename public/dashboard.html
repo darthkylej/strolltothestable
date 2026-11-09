@@ -136,7 +136,7 @@ function cardState(n) {
   const waiverLink = `<a class="btn btn-secondary" href="/api/nativities/${n.id}/waiver-pdf">View Signed Waiver</a>`;
   if (n.status === 'pending') return {
     pill: 'Ready for drop-off', cls: 'ready',
-    body: `<div class="next-step ready"><strong>You're all set.</strong> Bring your nativity and submission number <strong>${number}</strong> to ${ADDRESS} during drop-off:${dailyScheduleHtml(siteSettings.dropoffDays)}</div>`,
+    body: '',
     button: waiverLink,
   };
   if (n.status === 'submitted') return {
