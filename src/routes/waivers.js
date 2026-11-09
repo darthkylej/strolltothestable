@@ -11,6 +11,10 @@ const reviewKey = n => `_waivers/${n.id}-review.json`;
 const reviewPdfKey = n => `_waivers/${n.id}-review.pdf`;
 async function sha256(bytes){const hash=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('');}
 const pdfKey = n => `_waivers/${n.id}.pdf`;
+const paperKey = n => `_waivers/${n.id}-paper.json`;
+async function paperChoice(env,n){const o=await env.PHOTOS.get(paperKey(n));return o?JSON.parse(await o.text()):null;}
+// Printable copy for a donor who chose to sign on paper, built from current data.
+async function paperPdf(env,n,paper,extra={}){const record=await waiverRecord(env,n,paper.fields,{method:'paper',signerName:paper.fields.name,signingDate:'',...extra});return createWaiverPdf(record,null,'',await nativityPhoto(env,record));}
 const formatDay = d => { const x = String(d || '').slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : ''; };
 function eventDates(settings) {
   const drop = (settings.dropoffDays || []).filter(x => x.available !== false).map(x => formatDay(x.date)).filter(Boolean).sort();
@@ -48,7 +52,8 @@ export async function getWaiver(request,env,session,id) {
   const submissions=[{submission_number:n.submission_number,story:n.story,piece_count:n.piece_count,pieces}];
   const settings=await getSiteSettings(env);
   const dates=eventDates(settings);
-  return json({ waiver:existing, draft, signed:!!existing, owner:{name:n.owner_name,phone:n.owner_phone,email:n.owner_email}, prefill, submissions, year:n.event_year, dates, organizer:'City of Seguin', agreement:{version:AGREEMENT_VERSION,sections:agreementSections(dates),releaseAck:RELEASE_ACK,consentText:CONSENT_TEXT} },{headers:{'Cache-Control':'no-store'}});
+  const paper=existing?null:await paperChoice(env,n);
+  return json({ waiver:existing, draft, signed:!!existing, paper:paper?{requestedAt:paper.requestedAt}:null, owner:{name:n.owner_name,phone:n.owner_phone,email:n.owner_email}, prefill, submissions, year:n.event_year, dates, organizer:'City of Seguin', agreement:{version:AGREEMENT_VERSION,sections:agreementSections(dates),releaseAck:RELEASE_ACK,consentText:CONSENT_TEXT} },{headers:{'Cache-Control':'no-store'}});
 }
 export async function saveWaiverDraft(request,env,session,id) {
   requireUser(session);
@@ -96,13 +101,13 @@ export async function saveWaiver(request,env,session,id) {
   const previous=await saved(env,n);
   if(previous) return error("This nativity's waiver is already signed.");
   const body=await request.json();
-  if(body.method!=='digital') return error('Digital signing is required.');
+  if(!['digital','paper'].includes(body.method)) return error('Choose how to sign the waiver.');
   const f=body.fields || {};
   const fields={name:String(f.name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
   if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all required waiver fields.');
-  if(body.releaseAccepted!==true) return error('Confirm that you have read and accept the Release of Liability.',400);
+  if(body.method==='digital' && body.releaseAccepted!==true) return error('Confirm that you have read and accept the Release of Liability.',400);
   if(body.method==='digital' && (!body.agreed || body.electronicSignatureConsent!==true || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(body.signatureImage||'') || (body.signatureImage||'').length>300000)) return error('Read the agreement and draw your signature.');
-  const signerName=String(body.signerName||'').trim(), signingDate=String(body.signingDate||'').trim();
+  const signerName=body.method==='paper'?fields.name:String(body.signerName||'').trim(), signingDate=body.method==='paper'?new Date().toISOString().slice(0,10):String(body.signingDate||'').trim();
   if(!signerName || !/^\d{4}-\d{2}-\d{2}$/.test(signingDate) || !Number.isFinite(Date.parse(signingDate+'T12:00:00Z'))) return error('Enter your printed name and signing date.',400);
   if(signerName.toLowerCase()!==fields.name.toLowerCase()) return error('Printed signing name must match the participant name.',400);
   const settings=await getSiteSettings(env);
@@ -118,6 +123,17 @@ export async function saveWaiver(request,env,session,id) {
   const current=await waiverRecord(env,n,fields,{signerName:'',signingDate:''});
   if(JSON.stringify(current)!==JSON.stringify(review.record)) return error('The waiver information changed. Review the updated PDF before signing.',409);
   const signedAt=new Date().toISOString();
+  if(body.method==='paper') {
+    if(await paperChoice(env,n)) return error('You already chose to sign a paper copy at drop-off.',409);
+    const paper={fields,requestedAt:signedAt,audit:{requestedAt:signedAt,authenticatedUserId:session.userId,ipAddress:request.headers.get('CF-Connecting-IP')||null,userAgent:request.headers.get('User-Agent')||null,reviewedPdfSha256:review.hash,reviewedAt:review.createdAt,agreementVersion:AGREEMENT_VERSION}};
+    await env.PHOTOS.put(paperKey(n),JSON.stringify(paper),{httpMetadata:{contentType:'application/json'}});
+    await env.PHOTOS.delete(draftKey(n)); await env.PHOTOS.delete(reviewKey(n)); await env.PHOTOS.delete(reviewPdfKey(n));
+    await sql`UPDATE nativities SET waiver_method='paper',updated_at=now() WHERE id=${n.id}`;
+    let emailSent=false;
+    try { await sendWaiverPdfEmail(env,{to:n.owner_email,name:n.owner_name,submissionNumber:n.submission_number,pdf:new Uint8Array(await paperPdf(env,n,paper)),settings,paper:true}); emailSent=true; }
+    catch(e){ console.error('Paper waiver confirmation email failed:',e); }
+    return json({ok:true,paper:true,emailSent});
+  }
   const record={...review.record,signatureImage:body.signatureImage,signerName,signingDate,agreed:true,electronicSignatureConsent:true,releaseAccepted:true,completedAt:signedAt,
     audit:{signedAt,authenticatedUserId:session.userId,ipAddress:request.headers.get('CF-Connecting-IP')||null,userAgent:request.headers.get('User-Agent')||null,reviewToken:review.token,reviewedPdfSha256:review.hash,reviewedAt:review.createdAt,consentText:CONSENT_TEXT,releaseAcknowledgment:RELEASE_ACK,agreementVersion:AGREEMENT_VERSION}};
   if(body.method==='digital') {
@@ -128,8 +144,9 @@ export async function saveWaiver(request,env,session,id) {
   await env.PHOTOS.delete(draftKey(n));
   await env.PHOTOS.delete(reviewKey(n));
   await env.PHOTOS.delete(reviewPdfKey(n));
+  await env.PHOTOS.delete(paperKey(n));
   await env.PHOTOS.put(key(n),JSON.stringify(record),{httpMetadata:{contentType:'application/json'}});
-  if(body.method==='digital') { await sql`UPDATE nativities SET waiver_signed=true,waiver_signed_by='Digital signature',waiver_signed_at=now(),updated_at=now() WHERE id=${n.id}`; }
+  if(body.method==='digital') { await sql`UPDATE nativities SET waiver_signed=true,waiver_signed_by='Digital signature',waiver_method='digital',waiver_signed_at=now(),updated_at=now() WHERE id=${n.id}`; }
   let emailSent = null;
   if(body.method==='digital') {
     const pdfObject=await env.PHOTOS.get(pdfKey(n));
@@ -144,8 +161,30 @@ export async function saveWaiver(request,env,session,id) {
 export async function downloadWaiverPdf(request,env,session,id) {
   if(session?.kind==='admin') requireAdmin(session); else requireUser(session);
   const n=await owned(env,session,id,session.kind==='admin');
-  if(!(await saved(env,n))) return error('Signed waiver has not been received.',404);
+  if(!(await saved(env,n))) {
+    const paper=await paperChoice(env,n);
+    if(!paper) return error('Signed waiver has not been received.',404);
+    return new Response(await paperPdf(env,n,paper),{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="Stroll-to-the-Stable-Waiver-'+n.submission_number.replace(/[^a-zA-Z0-9_-]/g,'')+'-to-sign.pdf"','Cache-Control':'private, no-store'}});
+  }
   const object=await env.PHOTOS.get(pdfKey(n));
   if(!object) return error('Signed waiver PDF is not yet available.',404);
   return new Response(object.body,{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="Stroll-to-the-Stable-Waiver-'+n.submission_number.replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf"','Cache-Control':'private, no-store'}});
+}
+
+// Admin: the donor signed the printed copy at drop-off.
+export async function markPaperSigned(request,env,session,id) {
+  requireAdmin(session);
+  const n=await owned(env,session,id,true);
+  if(n.waiver_signed||await saved(env,n)) return error('This waiver is already signed.',409);
+  const paper=await paperChoice(env,n);
+  if(!paper) return error('This donor has not chosen to sign on paper.',400);
+  const verifiedAt=new Date().toISOString();
+  const extra={paperVerifiedBy:session.email,paperVerifiedAt:verifiedAt,completedAt:verifiedAt,audit:{...paper.audit,paperVerifiedBy:session.email,paperVerifiedAt:verifiedAt}};
+  const record=await waiverRecord(env,n,paper.fields,{method:'paper',signerName:paper.fields.name,signingDate:'',...extra});
+  const pdf=await createWaiverPdf(record,null,'',await nativityPhoto(env,record));
+  await env.PHOTOS.put(pdfKey(n),pdf,{httpMetadata:{contentType:'application/pdf'}});
+  await env.PHOTOS.put(key(n),JSON.stringify(record),{httpMetadata:{contentType:'application/json'}});
+  await env.PHOTOS.delete(paperKey(n));
+  await db(env)`UPDATE nativities SET waiver_signed=true,waiver_method='paper',waiver_signed_by=${'Paper signature, verified by '+session.email},waiver_signed_at=now(),updated_at=now() WHERE id=${n.id}`;
+  return json({ok:true});
 }

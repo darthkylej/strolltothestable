@@ -1,15 +1,19 @@
-export async function sendWaiverPdfEmail(env,{to,name,submissionNumber,pdf,settings}) {
+export async function sendWaiverPdfEmail(env,{to,name,submissionNumber,pdf,settings,paper=false}) {
   return send(env,{
     to,
     subject:'Nativity preregistration complete - '+submissionNumber,
     html:emailShell({
       eyebrow:'Stroll to the Stable',
       title:'Your nativity registration is complete',
-      intro:'<p>Hello '+escapeHtml(name)+',</p><p>Thank you for preregistering your nativity. Your waiver has been digitally signed and your registration is complete.</p><p><b>Submission number: '+escapeHtml(submissionNumber)+'</b></p>',
-      body:'<p>Your signed registration and release form is attached as a PDF. It includes your participant information, nativity details, piece inventory, and signed agreement. Keep this email and bring your submission number when dropping off your nativity.</p>'+
+      intro:'<p>Hello '+escapeHtml(name)+',</p><p>Thank you for preregistering your nativity. '+(paper
+        ?'Your registration is complete. You chose to sign the waiver in person: a volunteer will have it printed for you to sign when you drop off your nativity.'
+        :'Your waiver has been digitally signed and your registration is complete.')+'</p><p><b>Submission number: '+escapeHtml(submissionNumber)+'</b></p>',
+      body:(paper
+        ?'<p>A copy of your registration and release form is attached for your reference. It includes your participant information, nativity details and piece inventory. Keep this email and bring your submission number when dropping off your nativity.</p>'
+        :'<p>Your signed registration and release form is attached as a PDF. It includes your participant information, nativity details, piece inventory, and signed agreement. Keep this email and bring your submission number when dropping off your nativity.</p>')+
         schedulePanel('Drop-off times',settings?.dropoffDays,settings?.dropoffStart,settings?.dropoffEnd)
     }),
-    attachments:[{filename:'Stroll-to-the-Stable-Waiver-'+submissionNumber+'.pdf',contentType:'application/pdf',content:pdf}]
+    attachments:[{filename:'Stroll-to-the-Stable-Waiver-'+submissionNumber+(paper?'-copy':'')+'.pdf',contentType:'application/pdf',content:pdf}]
   });
 }
 const DEFAULT_FROM = {

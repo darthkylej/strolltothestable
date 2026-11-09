@@ -121,6 +121,7 @@ async function load() {
       const badge=n.status!=='pending'?''
         :draft?'<span class="status-pill status-action">Not finished</span>'
         :n.waiver_signed?'<span class="status-pill status-ready">Waiver ✓</span>'
+        :n.waiver_method==='paper'?'<span class="status-pill status-action">Paper waiver</span>'
         :'<span class="status-pill status-action">No waiver</span>';
       return `
       <a class="submission-link" href="/admin-detail.html?id=${n.id}&from=${encodeURIComponent(currentStatus)}">

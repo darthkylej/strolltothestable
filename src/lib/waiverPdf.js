@@ -108,35 +108,65 @@ export async function createWaiverPdf(record, signedImage = null, mime = '', nat
     line(sec.text);
     gap(5);
   }
-  section('Acknowledgments and Electronic Signature');
-  const v5=Number(record.version)>=5;
-  if(v5)line((record.releaseAccepted===true?'[X]':'[ ]')+' '+RELEASE_ACK,10,true);
-  gap(3);
-  line((record.electronicSignatureConsent===true?'[X]':'[ ]')+' '+CONSENT_TEXT,10);
-  gap(8);
-  ensureSpace(155);
-  line('Signature:',10,true);
-  if(record.signatureImage){
-    const bytes=Uint8Array.from(atob(record.signatureImage.split(',')[1]),c=>c.charCodeAt(0));
-    const image=await pdf.embedPng(bytes);
-    const w=Math.min(310,image.width*0.7),h=Math.min(105,image.height*w/image.width);
-    if(y-h<contentBottom)newPage();
-    page.drawImage(image,{x:left,y:y-h,width:w,height:h});
-    y-=h+8;
-  } else line(record.signature||'________________________________');
-  line('Date: '+(record.signingDate?date(record.signingDate):record.completedAt?new Date(record.completedAt).toLocaleDateString('en-US',{timeZone:'UTC'}):'________________'));
-  line('Printed Name of Signer: '+(record.signerName||'________________'));
-  section('Electronic Signing Audit Trail');
-  const audit=record.audit||{};
-  line('Server Timestamp (UTC): '+(audit.signedAt||'Pending signature'));
-  line('IP Address: '+(audit.ipAddress||'Not available'));
-  line('Browser / User Agent: '+(audit.userAgent||'Not available'),9);
-  line('Authenticated Account ID: '+(audit.authenticatedUserId??'Not yet signed'),9);
-  line('Reviewed PDF SHA-256: '+(audit.reviewedPdfSha256||'Pending review'),8);
-  line('Document Reviewed At (UTC): '+(audit.reviewedAt||'Pending review'),9);
-  line('Electronic Consent: '+(record.electronicSignatureConsent===true?'Checked and accepted':'Not yet accepted'));
-  line('Release of Liability Acknowledged: '+(record.releaseAccepted===true?'Checked and accepted':'Not yet accepted'));
-  if(record.agreementVersion)line('Agreement Version: '+record.agreementVersion,9);
+  if(record.method==='paper'){
+    // Printed copy, signed by hand at drop-off.
+    ensureSpace(240); // keep the acknowledgment and signature lines together
+    section('Acknowledgment and Signature');
+    line('[   ] '+RELEASE_ACK,10,true);
+    gap(18);
+    const sigLine=(label,value='')=>{
+      page.drawText(label,{x:left,y,size:10,font:bold,color:rgb(0.12,0.16,0.21)});
+      const x0=left+bold.widthOfTextAtSize(label,10)+8;
+      if(value)page.drawText(clean(value),{x:x0,y:y+2,size:11,font:regular,color:rgb(0.12,0.16,0.21)});
+      page.drawLine({start:{x:x0,y:y-3},end:{x:left+width*0.75,y:y-3},thickness:0.8,color:rgb(0.3,0.3,0.3)});
+      y-=34;
+    };
+    sigLine('Signature:');
+    sigLine('Printed Name:',record.signerName||'');
+    sigLine('Date:');
+    section('Paper Signing');
+    if(record.paperVerifiedBy){
+      line('Signed on paper at drop-off. Verified by '+record.paperVerifiedBy+' on '+new Date(record.paperVerifiedAt).toLocaleString('en-US',{timeZone:'America/Chicago'})+' (Central).');
+    } else {
+      line('To be signed in person at drop-off.');
+      gap(14);
+      sigLine('Staff initials:');
+    }
+    const audit=record.audit||{};
+    if(audit.requestedAt)line('Paper signing chosen online (UTC): '+audit.requestedAt,9);
+    if(audit.reviewedPdfSha256)line('Reviewed PDF SHA-256: '+audit.reviewedPdfSha256,8);
+    if(record.agreementVersion)line('Agreement Version: '+record.agreementVersion,9);
+  } else {
+    section('Acknowledgments and Electronic Signature');
+    const v5=Number(record.version)>=5;
+    if(v5)line((record.releaseAccepted===true?'[X]':'[ ]')+' '+RELEASE_ACK,10,true);
+    gap(3);
+    line((record.electronicSignatureConsent===true?'[X]':'[ ]')+' '+CONSENT_TEXT,10);
+    gap(8);
+    ensureSpace(155);
+    line('Signature:',10,true);
+    if(record.signatureImage){
+      const bytes=Uint8Array.from(atob(record.signatureImage.split(',')[1]),c=>c.charCodeAt(0));
+      const image=await pdf.embedPng(bytes);
+      const w=Math.min(310,image.width*0.7),h=Math.min(105,image.height*w/image.width);
+      if(y-h<contentBottom)newPage();
+      page.drawImage(image,{x:left,y:y-h,width:w,height:h});
+      y-=h+8;
+    } else line(record.signature||'________________________________');
+    line('Date: '+(record.signingDate?date(record.signingDate):record.completedAt?new Date(record.completedAt).toLocaleDateString('en-US',{timeZone:'UTC'}):'________________'));
+    line('Printed Name of Signer: '+(record.signerName||'________________'));
+    section('Electronic Signing Audit Trail');
+    const audit=record.audit||{};
+    line('Server Timestamp (UTC): '+(audit.signedAt||'Pending signature'));
+    line('IP Address: '+(audit.ipAddress||'Not available'));
+    line('Browser / User Agent: '+(audit.userAgent||'Not available'),9);
+    line('Authenticated Account ID: '+(audit.authenticatedUserId??'Not yet signed'),9);
+    line('Reviewed PDF SHA-256: '+(audit.reviewedPdfSha256||'Pending review'),8);
+    line('Document Reviewed At (UTC): '+(audit.reviewedAt||'Pending review'),9);
+    line('Electronic Consent: '+(record.electronicSignatureConsent===true?'Checked and accepted':'Not yet accepted'));
+    line('Release of Liability Acknowledged: '+(record.releaseAccepted===true?'Checked and accepted':'Not yet accepted'));
+    if(record.agreementVersion)line('Agreement Version: '+record.agreementVersion,9);
+  }
   if(signedImage){
     let img;
     if(mime==='image/png')img=await pdf.embedPng(signedImage);

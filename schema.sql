@@ -68,6 +68,7 @@ CREATE TABLE nativities (
                         CHECK (status IN ('pending', 'submitted', 'returned')),
     include_in_tour    BOOLEAN NOT NULL DEFAULT TRUE, -- owner's opt-out of the public virtual tour
     display_photo_key  TEXT,                       -- worker-uploaded "glamour shot" in the final display spot; takes priority over photo_key in the tour
+    waiver_method      TEXT CHECK (waiver_method IN ('digital','paper')), -- how the waiver is (or will be) signed
     waiver_signed      BOOLEAN NOT NULL DEFAULT FALSE,
     waiver_signed_by   TEXT,                      -- admin email who toggled it
     waiver_signed_at   TIMESTAMPTZ,

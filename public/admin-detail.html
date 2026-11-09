@@ -356,9 +356,17 @@ function renderDesk(n, pieces, note, isDraft) {
   if (isDraft) {
     waiver.className = 'desk-row bad';
     waiver.textContent = '✗ Not finished. The donor has not saved their piece list or signed the waiver.';
+  } else if (!n.waiver_signed && n.waiver_method === 'paper') {
+    waiver.className = 'desk-row note';
+    waiver.innerHTML = `✎ Paper waiver. Print it, have the donor sign, then mark it signed.
+      <div class="action-row" style="margin-top:8px">
+        <a class="btn btn-secondary" style="width:auto;margin:0" href="/api/admin/nativities/${esc(n.id)}/waiver-pdf" target="_blank" rel="noopener">Print Waiver</a>
+        <button type="button" class="btn btn-primary" style="width:auto;margin:0" id="paperSignedBtn">Mark Paper Waiver Signed</button>
+      </div>`;
+    document.getElementById('paperSignedBtn').addEventListener('click', markPaperSigned);
   } else if (n.waiver_signed) {
     waiver.className = 'desk-row ok';
-    waiver.innerHTML = `✓ Waiver signed ${esc(fmtDate(n.waiver_signed_at))}<a href="/api/admin/nativities/${esc(n.id)}/waiver-pdf" target="_blank" rel="noopener">View PDF</a>`;
+    waiver.innerHTML = `✓ Waiver signed${n.waiver_method === 'paper' ? ' on paper' : ''} ${esc(fmtDate(n.waiver_signed_at))}<a href="/api/admin/nativities/${esc(n.id)}/waiver-pdf" target="_blank" rel="noopener">View PDF</a>`;
   } else {
     waiver.className = 'desk-row bad';
     waiver.textContent = '✗ Waiver not signed. The donor can sign on their phone from My Nativities before you check this in.';
@@ -387,6 +395,20 @@ function renderDesk(n, pieces, note, isDraft) {
   updateDeskButtons();
 }
 
+async function markPaperSigned() {
+  if (!confirm('Confirm the donor has signed the printed waiver.')) return;
+  const btn = document.getElementById('paperSignedBtn');
+  btn.disabled = true;
+  try {
+    await api(`/api/admin/nativities/${id}/paper-waiver-signed`, { method: 'POST', body: {} });
+    showSuccess('Paper waiver marked signed. Keep the signed copy with the submission.');
+    await load();
+  } catch (err) {
+    showError(err.message);
+    btn.disabled = false;
+  }
+}
+
 function updateDeskButtons() {
   if (!current) return;
   const boxes = [...document.querySelectorAll('#deskPieces .verify')];
@@ -400,7 +422,7 @@ function updateDeskButtons() {
   if (current.status === 'pending') {
     const blockers = [];
     if (isDraft) blockers.push('Submission is not finished.');
-    else if (!current.waiver_signed) blockers.push('Waiver must be signed.');
+    else if (!current.waiver_signed) blockers.push(current.waiver_method === 'paper' ? 'Mark the paper waiver signed first.' : 'Waiver must be signed.');
     if (left) blockers.push(left);
     finalize.disabled = blockers.length > 0 || !boxes.length;
     hint.textContent = blockers.length ? blockers.join(' ') : 'All pieces checked. Finalizing emails the donor their claim ticket.';

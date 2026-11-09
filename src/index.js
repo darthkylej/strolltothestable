@@ -269,6 +269,7 @@ async function handle(request, env) {
       if ((m = path.match(/^\/api\/nativities\/(\d+)\/waiver-pdf$/)) && method === 'GET') return await waivers.downloadWaiverPdf(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/waiver-pdf$/)) && method === 'GET') return await waivers.downloadWaiverPdf(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/waiver-record$/)) && method === 'GET') return await waivers.getWaiver(request,env,session,m[1]);
+      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/paper-waiver-signed$/)) && method === 'POST') return await waivers.markPaperSigned(request,env,session,m[1]);
 
       if ((m = path.match(/^\/api\/nativities\/(\d+)$/)) && method === 'GET') {
         return await nativities.getOne(request, env, session, m[1]);

@@ -1,6 +1,5 @@
 import { db } from '../lib/db.js';
 import { nextSubmissionNumber } from '../lib/auth.js';
-import { sendPreregistrationEmail } from '../lib/email.js';
 import { json, error, requireUser } from '../lib/util.js';
 import { getSiteSettings, submissionsAreOpen } from '../lib/siteSettings.js';
 import { readImageUpload } from '../lib/images.js';
@@ -34,7 +33,7 @@ export async function listMine(request, env, session) {
   requireUser(session);
   const sql = db(env);
   const nativities = await sql`
-    SELECT id, submission_number, event_year, status, piece_count, photo_key, description, story, include_in_tour, waiver_signed, created_at
+    SELECT id, submission_number, event_year, status, piece_count, photo_key, description, story, include_in_tour, waiver_signed, waiver_method, created_at
     FROM nativities WHERE owner_user_id = ${session.userId}
     ORDER BY event_year DESC, created_at DESC
   `;
@@ -102,7 +101,7 @@ export async function submitPieces(request, env, session, id) {
 
   const sql = db(env);
   const owned = await sql`
-    SELECT n.id, n.photo_key, n.story, n.display_photo_key, n.submission_number, n.status, n.waiver_signed,
+    SELECT n.id, n.photo_key, n.story, n.display_photo_key, n.submission_number, n.status, n.waiver_signed, n.waiver_method,
            u.name AS owner_name, u.email AS owner_email
     FROM nativities n
     JOIN users u ON u.id = n.owner_user_id
@@ -112,8 +111,8 @@ export async function submitPieces(request, env, session, id) {
 
   // Once a waiver is signed or an admin has checked the nativity in, the
   // inventory is a legal record and can only be changed by an admin.
-  if (owned[0].status !== 'pending' || owned[0].waiver_signed) {
-    return error('This submission is locked because its waiver is signed or it has been checked in. Please contact us to make changes.', 409);
+  if (owned[0].status !== 'pending' || owned[0].waiver_signed || owned[0].waiver_method === 'paper') {
+    return error('This submission is locked because its registration is complete or it has been checked in. Please contact us to make changes.', 409);
   }
 
   // Keep the number if one was already issued; only drafts get a new one.
@@ -134,21 +133,9 @@ export async function submitPieces(request, env, session, id) {
     WHERE id = ${id}
   `;
 
-  let emailSent=true;
-  try {
-    const settings=await getSiteSettings(env);
-    await sendPreregistrationEmail(env,{
-      to:owned[0].owner_email,
-      name:owned[0].owner_name,
-      nativity:{...owned[0],submission_number:submissionNumber},
-      pieces:pieces.map((p,i)=>({piece_number:i+1,description:p.description,condition_notes:p.condition_notes})),
-      settings
-    });
-  } catch(e) {
-    emailSent=false;
-    console.error('Nativity preregistration confirmation email failed:',e);
-  }
-  return json({ ok: true, submissionNumber, emailSent });
+  // No email here: the single confirmation email is sent when the waiver is
+  // signed online or the donor chooses to sign a paper copy at drop-off.
+  return json({ ok: true, submissionNumber });
 }
 
 // One-click resubmit creates a new current-year submission, so it is disabled
