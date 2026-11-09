@@ -34,7 +34,7 @@ export async function listMine(request, env, session) {
   requireUser(session);
   const sql = db(env);
   const nativities = await sql`
-    SELECT id, submission_number, event_year, status, piece_count, photo_key, story, include_in_tour, waiver_signed, created_at
+    SELECT id, submission_number, event_year, status, piece_count, photo_key, description, story, include_in_tour, waiver_signed, created_at
     FROM nativities WHERE owner_user_id = ${session.userId}
     ORDER BY event_year DESC, created_at DESC
   `;
@@ -59,11 +59,12 @@ export async function create(request, env, session) {
   const body = await request.json();
   const photoKey = ownPhotoKey(session, body?.photoKey);
   const story = typeof body?.story === 'string' ? body.story.slice(0, MAX_STORY) : null;
+  const description = typeof body?.description === 'string' ? body.description.trim().slice(0, MAX_STORY) : '';
   const sql = db(env);
   const eventYear = currentEventYear();
   const rows = await sql`
-    INSERT INTO nativities (submission_number, owner_user_id, event_year, photo_key, story, status, include_in_tour)
-    VALUES (${'DRAFT-' + crypto.randomUUID()}, ${session.userId}, ${eventYear}, ${photoKey}, ${story || null}, 'pending', ${true})
+    INSERT INTO nativities (submission_number, owner_user_id, event_year, photo_key, description, story, status, include_in_tour)
+    VALUES (${'DRAFT-' + crypto.randomUUID()}, ${session.userId}, ${eventYear}, ${photoKey}, ${description || null}, ${story || null}, 'pending', ${true})
     RETURNING id
   `;
   return json({ id: rows[0].id });
@@ -170,8 +171,8 @@ export async function resubmit(request, env, session, sourceId) {
 
   const submissionNumber = await nextSubmissionNumber(sql, eventYear);
   const inserted = await sql`
-    INSERT INTO nativities (submission_number, owner_user_id, event_year, photo_key, story, piece_count, status, include_in_tour, cloned_from_id)
-    VALUES (${submissionNumber}, ${session.userId}, ${eventYear}, ${src.photo_key}, ${src.story}, ${src.piece_count}, 'pending', ${src.include_in_tour}, ${src.id})
+    INSERT INTO nativities (submission_number, owner_user_id, event_year, photo_key, description, story, piece_count, status, include_in_tour, cloned_from_id)
+    VALUES (${submissionNumber}, ${session.userId}, ${eventYear}, ${src.photo_key}, ${src.description}, ${src.story}, ${src.piece_count}, 'pending', ${src.include_in_tour}, ${src.id})
     RETURNING id
   `;
   const newId = inserted[0].id;

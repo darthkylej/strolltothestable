@@ -84,6 +84,7 @@
 
   <div class="card desk-card" id="deskCard">
     <div class="desk-contact" id="deskContact"></div>
+    <p class="desk-hint" id="deskDescription" style="display:none;margin:0 0 8px;color:var(--wood)"></p>
     <div class="desk-row" id="waiverRow">Loading…</div>
     <div class="desk-row note" id="deskNote" style="display:none"></div>
     <div class="desk-pieces-head">
@@ -136,6 +137,8 @@
         </div>
       </div>
       <div class="field">
+        <label for="descriptionInput">Description (materials, colors, size)</label>
+        <textarea id="descriptionInput" rows="3" placeholder="Example: hand-painted ceramic, white and gold, about 18 inches wide"></textarea>
         <label for="storyInput">Story</label>
         <textarea id="storyInput" rows="5" placeholder="Optional story or description"></textarea>
       </div>
@@ -323,6 +326,7 @@ async function load() {
     document.getElementById('eventYear').value = nativity.event_year || '';
     document.getElementById('pieceCount').value = nativity.piece_count || 0;
     document.getElementById('storyInput').value = nativity.story || '';
+    document.getElementById('descriptionInput').value = nativity.description || '';
     document.getElementById('tourToggle').checked = !!nativity.include_in_tour;
     document.getElementById('adminNote').value = adminNote || '';
 
@@ -343,6 +347,10 @@ function fmtDate(v) {
 function renderDesk(n, pieces, note, isDraft) {
   document.getElementById('deskContact').innerHTML =
     `<a href="tel:${esc(n.owner_phone)}">${esc(n.owner_phone)}</a><a href="mailto:${esc(n.owner_email)}">${esc(n.owner_email)}</a>`;
+
+  const descEl = document.getElementById('deskDescription');
+  descEl.style.display = n.description ? 'block' : 'none';
+  descEl.textContent = n.description || '';
 
   const waiver = document.getElementById('waiverRow');
   if (isDraft) {
@@ -433,6 +441,7 @@ document.getElementById('saveChangesBtn').addEventListener('click', async () => 
           email: document.getElementById('ownerEmail').value,
         },
         story: document.getElementById('storyInput').value,
+        description: document.getElementById('descriptionInput').value,
         includeInTour: document.getElementById('tourToggle').checked,
         adminNote: document.getElementById('adminNote').value,
         pieces: collectPieces(),

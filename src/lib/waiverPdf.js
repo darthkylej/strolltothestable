@@ -74,6 +74,7 @@ export async function createWaiverPdf(record, signedImage = null, mime = '', nat
   const n=record.nativity||{};
   line('Submission Number: '+(n.submissionNumber||record.submissionNumber||''));
   line('Event Year: '+(n.eventYear||record.year||''));
+  if(n.description)line('Description: '+n.description);
   line('Story / Origin: '+(n.story||'Not provided'));
   line('Total Pieces: '+(n.pieceCount??''));
   if(nativityPhoto){

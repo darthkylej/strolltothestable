@@ -160,6 +160,7 @@ export async function updateNativity(request, env, session, id) {
   await sql`
     UPDATE nativities
     SET story = ${body.story?.trim() || null},
+        description = ${typeof body.description === 'string' ? (body.description.trim().slice(0, 5000) || null) : null},
         include_in_tour = ${body.includeInTour !== false},
         updated_at = now()
     WHERE id = ${id}

@@ -13,6 +13,10 @@
   .process-step p { margin:0; color:var(--wood); line-height:1.45; }
   .process-day { margin-top:4px; color:var(--wood); line-height:1.45; }
   .process-location { margin-top:5px; color:var(--muted); font-size:13px; }
+  .nat-head { display:flex; gap:12px; align-items:flex-start; }
+  .nat-thumb { width:76px; height:76px; flex-shrink:0; object-fit:cover; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,.04); }
+  .nat-title { flex:1; min-width:0; }
+  .nat-desc { color:var(--wood); font-size:14px; margin:10px 0 0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
   .next-step { margin:12px 0; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.03); line-height:1.5; }
   .next-step.ready { border-color:rgba(123,203,140,.35); background:rgba(123,203,140,.08); }
   .next-step strong { color:var(--gold-bright); }
@@ -152,13 +156,15 @@ function cardHtml(n) {
   const draft = n.submission_number.startsWith('DRAFT');
   return `
       <div class="card" style="padding:14px 18px;margin-bottom:10px">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px">
-          <div>
-            <div class="eyebrow">${n.event_year}${draft ? '' : ` · ${n.piece_count} piece${n.piece_count === 1 ? '' : 's'}`}</div>
-            <h2>${draft ? 'Not finished' : esc(n.submission_number)}</h2>
+        <div class="nat-head">
+          ${n.photo_key ? `<img class="nat-thumb" src="/photos/${esc(n.photo_key)}" alt="Your nativity" loading="lazy">` : ''}
+          <div class="nat-title">
+            <span class="status-pill status-${st.cls}">${st.pill}</span>
+            <h2 style="margin:6px 0 0">${draft ? 'Not finished' : esc(n.submission_number)}</h2>
+            <div class="eyebrow" style="margin-top:2px">${n.event_year}${draft ? '' : ` · ${n.piece_count} piece${n.piece_count === 1 ? '' : 's'}`}</div>
           </div>
-          <span class="status-pill status-${st.cls}">${st.pill}</span>
         </div>
+        ${n.description ? `<p class="nat-desc">${esc(n.description)}</p>` : ''}
         ${st.body}
         ${st.button}
         ${submissionsOpen && n.status === 'returned' && Number(n.event_year) < CURRENT_YEAR
