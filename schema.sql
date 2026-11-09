@@ -161,3 +161,23 @@ CREATE TABLE IF NOT EXISTS auth_attempts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_auth_attempts_key ON auth_attempts (key, created_at);
+
+-- ── Submission numbers are never reused ───────────────────────────────
+-- The counter may only go up. Deleting a submission does not free its
+-- number, and the counter cannot be lowered or deleted, even by hand.
+CREATE OR REPLACE FUNCTION prevent_submission_number_rewind() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'Submission number counters cannot be deleted: issued numbers are never reused.';
+  END IF;
+  IF NEW.next_seq < OLD.next_seq THEN
+    RAISE EXCEPTION 'Submission number counter for % cannot go backward (% to %): issued numbers are never reused.',
+      OLD.event_year, OLD.next_seq, NEW.next_seq;
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS submission_number_no_rewind ON submission_number_sequences;
+CREATE TRIGGER submission_number_no_rewind
+  BEFORE UPDATE OR DELETE ON submission_number_sequences
+  FOR EACH ROW EXECUTE FUNCTION prevent_submission_number_rewind();

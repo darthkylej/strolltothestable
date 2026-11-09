@@ -32,11 +32,13 @@
   function adjustLandingActions() {
     const actions = document.querySelector('.landing-actions');
     const submit = document.getElementById('submitNativity');
+    const view = document.getElementById('viewSubmissions');
     const tour = actions?.querySelector('a[href="/tour.html"]');
     if (!actions || !tour) return;
 
     tour.textContent = '“Scroll” to the Stable';
     if (submit) actions.insertBefore(submit, tour);
+    if (view) actions.insertBefore(view, tour);
   }
 
   async function applySubmissionSetting() {
@@ -49,6 +51,7 @@
       const settings = await response.json();
       if (settings.submissionsOpen === false) {
         document.getElementById('submitNativity')?.remove();
+        document.getElementById('viewSubmissions')?.remove();
         document.getElementById('submitDialog')?.remove();
       }
     } catch {
