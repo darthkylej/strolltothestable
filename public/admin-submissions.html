@@ -24,10 +24,10 @@
   .submission-list { display:grid; gap:10px; }
   .submission-row { display:flex; align-items:stretch; gap:10px; }
   .submission-link { flex:1; min-width:0; text-decoration:none; display:flex; justify-content:space-between; gap:18px; align-items:center; padding:17px 18px; border:1px solid var(--border); border-radius:16px; background:rgba(10,19,35,.78); transition:.15s ease; }
-  .row-right { display:flex; align-items:center; gap:12px; flex-shrink:0; }
   .row-thumb { width:64px; height:64px; object-fit:cover; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,.04); flex-shrink:0; }
-  @media (max-width:520px) { .row-right { flex-direction:column-reverse; align-items:flex-end; gap:6px; } .row-badges { flex-direction:column; align-items:flex-end; gap:4px; } .row-badges .status-pill { font-size:.66rem; padding:4px 8px; } .row-thumb { width:56px; height:56px; } }
-  .row-badges { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  @media (max-width:520px) { .row-badges .status-pill { font-size:.66rem; padding:4px 8px; } .row-thumb { width:56px; height:56px; } }
+  .row-badges { display:flex; gap:6px; flex-wrap:nowrap; margin-top:8px; }
+  .submission-link > div:first-child { flex:1; min-width:0; }
   .submission-link:hover { border-color:var(--border-strong); background:rgba(14,25,44,.92); transform:translateY(-1px); }
   .submission-name { font-weight:700; color:var(--gold-bright); overflow-wrap:anywhere; }
   .submission-meta { color:var(--muted); font-size:14px; margin-top:3px; overflow-wrap:anywhere; }
@@ -132,11 +132,9 @@ async function load() {
         <div>
           <div class="submission-name">${esc(n.owner_name)} <span style="color:var(--muted);font-weight:500">· ${draft?'draft':esc(n.submission_number)}</span></div>
           <div class="submission-meta">${esc(n.owner_phone)} · ${Number(n.piece_count)||0} piece${Number(n.piece_count)===1?'':'s'} · ${esc(n.event_year)}</div>
+          <div class="row-badges">${badge}<span class="status-pill status-${n.status}">${statusLabel(n.status)}</span></div>
         </div>
-        <span class="row-right">
-          <span class="row-badges">${badge}<span class="status-pill status-${n.status}">${statusLabel(n.status)}</span></span>
-          ${n.photo_key ? `<img class="row-thumb" src="/photos/${esc(n.photo_key)}" alt="" loading="lazy">` : ''}
-        </span>
+        ${n.photo_key ? `<img class="row-thumb" src="/photos/${esc(n.photo_key)}" alt="" loading="lazy">` : ''}
       </a>`;}).join('');
   }catch(err){showError(err.message);}
 }
