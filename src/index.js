@@ -274,6 +274,8 @@ async function handle(request, env) {
       if ((m = path.match(/^\/api\/nativities\/(\d+)$/)) && method === 'GET') {
         return await nativities.getOne(request, env, session, m[1]);
       }
+      if ((m = path.match(/^\/api\/nativities\/(\d+)$/)) && method === 'PATCH') return await nativities.updateDetails(request, env, session, m[1]);
+      if ((m = path.match(/^\/api\/nativities\/(\d+)$/)) && method === 'DELETE') return await nativities.deleteMine(request, env, session, m[1]);
       if ((m = path.match(/^\/api\/nativities\/(\d+)\/pieces$/)) && method === 'POST') {
         return await nativities.submitPieces(request, env, session, m[1]);
       }

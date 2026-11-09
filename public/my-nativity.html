@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Nativity — Stroll to the Stable</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .nat-photo { width:100%; max-height:320px; object-fit:cover; border-radius:14px; border:1px solid var(--border); display:block; }
+  .head-row { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin:14px 0 6px; }
+  .head-row h1 { margin:0; font-size:1.7rem; }
+  .muted { color:var(--wood); }
+  .notice { padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.03); margin:12px 0; line-height:1.45; }
+  .notice.warn { border-color:rgba(242,199,110,.4); background:rgba(242,199,110,.10); }
+  .piece-list { list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+  .piece-list li { display:grid; grid-template-columns:28px 1fr auto; gap:8px; align-items:center; padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:rgba(8,16,31,.5); }
+  .piece-list .num { color:var(--muted); font-weight:700; text-align:right; }
+  .piece-list .desc { font-weight:700; }
+  .piece-list .cond { color:var(--wood); font-size:14px; }
+  .piece-list img { width:44px; height:44px; object-fit:cover; border-radius:8px; border:1px solid var(--border); }
+  .section { margin-top:22px; }
+  .section h2 { margin:0 0 8px; }
+  .actions { display:grid; gap:10px; margin-top:12px; }
+  .actions .btn { margin:0; }
+  .danger-zone { margin-top:28px; padding-top:16px; border-top:1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="page">
+  <p><a class="link" href="/dashboard.html">‹ My Nativities</a></p>
+  <div class="error-banner" data-error-banner></div>
+  <div class="notice" id="successMsg" style="display:none;border-color:rgba(123,203,140,.35);background:rgba(123,203,140,.08)"></div>
+
+  <div id="content" style="display:none">
+    <img class="nat-photo" id="photo" alt="Your nativity">
+    <div class="head-row">
+      <div>
+        <span class="status-pill" id="pill"></span>
+        <h1 id="number" style="margin-top:8px"></h1>
+        <p class="eyebrow" id="meta" style="margin-top:4px"></p>
+      </div>
+    </div>
+    <p class="muted" id="descriptionText"></p>
+
+    <div class="actions" id="mainActions"></div>
+    <div class="notice" id="lockedNote" style="display:none">This nativity has been checked in. Changes can only be made by our team. Email submissions@strolltothestable.com if something needs correcting.</div>
+
+    <div class="section">
+      <h2>Pieces</h2>
+      <ol class="piece-list" id="pieces"></ol>
+    </div>
+
+    <div id="editArea" style="display:none">
+      <div class="section">
+        <h2>Edit Submission</h2>
+        <div class="notice warn" id="resetWarning" style="display:none">Saving any change clears your waiver. You'll review and sign a fresh one (or choose paper again) afterward.</div>
+        <div class="field">
+          <label>Photo of the nativity</label>
+          <button type="button" class="btn btn-secondary" id="replacePhotoBtn">Replace Photo</button>
+          <input type="file" id="photoFile" accept="image/*" style="display:none">
+          <p class="hint" id="photoStatus"></p>
+        </div>
+        <div class="field">
+          <label for="description">Describe your nativity</label>
+          <textarea id="description" rows="3" maxlength="2000" placeholder="Materials, colors and size. Example: hand-painted ceramic, white and gold, about 18 inches wide."></textarea>
+        </div>
+        <div class="field">
+          <label for="story">The story behind it (optional)</label>
+          <textarea id="story" rows="4" placeholder="Where did it come from? Why is it special to your family?"></textarea>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="saveDetailsBtn">Save Changes</button>
+          <a class="btn btn-secondary" id="editPiecesBtn">Edit Pieces and Piece Photos</a>
+        </div>
+      </div>
+
+      <div class="danger-zone">
+        <h2>Delete Submission</h2>
+        <p class="muted">Removes this submission and its photos. This cannot be undone.</p>
+        <button type="button" class="btn btn-danger" id="deleteBtn">Delete This Submission</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/app.js"></script>
+<script>
+const id = new URLSearchParams(location.search).get('id');
+let current = null, newPhotoKey = null;
+
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' })[c]);
+}
+function success(msg) {
+  const el = document.getElementById('successMsg');
+  el.textContent = msg; el.style.display = msg ? 'block' : 'none';
+  if (msg) window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function state(n) {
+  const draft = String(n.submission_number).startsWith('DRAFT-');
+  if (draft) return { pill: 'Not finished', cls: 'action' };
+  if (n.status === 'submitted') return { pill: 'Checked in', cls: 'submitted' };
+  if (n.status === 'returned') return { pill: 'Returned', cls: 'returned' };
+  if (n.waiver_signed || n.waiver_method === 'paper') return { pill: 'Ready for drop-off', cls: 'ready' };
+  return { pill: 'Waiver needed', cls: 'action' };
+}
+
+function render(n, pieces) {
+  current = n;
+  const draft = String(n.submission_number).startsWith('DRAFT-');
+  const pending = n.status === 'pending';
+  const st = state(n);
+  document.getElementById('photo').src = n.photo_key ? '/photos/' + n.photo_key : '';
+  document.getElementById('photo').style.display = n.photo_key ? 'block' : 'none';
+  document.getElementById('meta').textContent = `${n.event_year} · ${pieces.length} piece${pieces.length === 1 ? '' : 's'}`;
+  document.getElementById('number').textContent = draft ? 'Not finished' : n.submission_number;
+  const pill = document.getElementById('pill');
+  pill.textContent = st.pill; pill.className = 'status-pill status-' + st.cls;
+  document.getElementById('descriptionText').textContent = n.description || '';
+
+  // Main actions: next step first, then the waiver if there is one.
+  const actions = [];
+  if (draft) actions.push(`<a class="btn btn-primary" href="/lend-pieces.html?id=${n.id}&review=1">Continue Registration</a>`);
+  else if (pending && !n.waiver_signed && n.waiver_method !== 'paper') actions.push(`<a class="btn btn-primary" href="/waiver.html?id=${n.id}">Sign Waiver</a>`);
+  if (n.waiver_signed) actions.push(`<a class="btn btn-secondary" href="/api/nativities/${n.id}/waiver-pdf" target="_blank" rel="noopener">View Signed Waiver</a>`);
+  else if (n.waiver_method === 'paper') {
+    actions.push(`<div class="notice">You'll sign the waiver on paper at drop-off.</div>`);
+    actions.push(`<a class="btn btn-secondary" href="/api/nativities/${n.id}/waiver-pdf" target="_blank" rel="noopener">View Waiver Copy</a>`);
+    actions.push(`<a class="btn btn-secondary" href="/waiver.html?id=${n.id}">Sign Online Instead</a>`);
+  }
+  document.getElementById('mainActions').innerHTML = actions.join('');
+
+  document.getElementById('pieces').innerHTML = pieces.length ? pieces.map((p, i) => `
+    <li><span class="num">${i + 1}.</span>
+      <span><span class="desc">${esc(p.description)}</span><br><span class="cond">${esc(p.condition_notes)}</span></span>
+      ${p.photo_key ? `<img src="/photos/${esc(p.photo_key)}" alt="">` : '<span></span>'}</li>`).join('')
+    : '<li><span></span><span class="muted">No pieces listed yet.</span><span></span></li>';
+
+  document.getElementById('lockedNote').style.display = pending ? 'none' : 'block';
+  document.getElementById('editArea').style.display = pending ? 'block' : 'none';
+  if (pending) {
+    document.getElementById('resetWarning').style.display = (n.waiver_signed || n.waiver_method) ? 'block' : 'none';
+    document.getElementById('description').value = n.description || '';
+    document.getElementById('story').value = n.story || '';
+    document.getElementById('editPiecesBtn').href = `/lend-pieces.html?id=${n.id}&review=1`;
+    newPhotoKey = null;
+    document.getElementById('photoStatus').textContent = '';
+  }
+}
+
+async function load() {
+  hideError();
+  try {
+    if (!id) throw new Error('Missing nativity.');
+    const { nativity, pieces } = await api(`/api/nativities/${id}`);
+    render(nativity, pieces);
+    document.getElementById('content').style.display = 'block';
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+document.getElementById('replacePhotoBtn').addEventListener('click', () => document.getElementById('photoFile').click());
+document.getElementById('photoFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  hideError();
+  const status = document.getElementById('photoStatus');
+  status.textContent = 'Uploading photo…';
+  try {
+    newPhotoKey = await uploadPhoto(file);
+    document.getElementById('photo').src = URL.createObjectURL(file);
+    document.getElementById('photo').style.display = 'block';
+    status.textContent = 'New photo ready. Tap Save Changes to keep it.';
+  } catch (err) {
+    status.textContent = '';
+    showError(err.message);
+  }
+});
+
+document.getElementById('saveDetailsBtn').addEventListener('click', async () => {
+  hideError(); success('');
+  const hadWaiver = current.waiver_signed || current.waiver_method;
+  if (hadWaiver && !confirm('Saving changes will clear your waiver. You will need to review and sign it again. Continue?')) return;
+  const btn = document.getElementById('saveDetailsBtn');
+  btn.disabled = true;
+  try {
+    const body = { description: document.getElementById('description').value, story: document.getElementById('story').value };
+    if (newPhotoKey) body.photoKey = newPhotoKey;
+    const result = await api(`/api/nativities/${id}`, { method: 'PATCH', body });
+    await load();
+    success(!result.changed ? 'No changes to save.'
+      : result.waiverCleared ? 'Changes saved. Your waiver was cleared, so please sign a fresh one when you are ready.'
+      : 'Changes saved.');
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('editPiecesBtn').addEventListener('click', (e) => {
+  if ((current.waiver_signed || current.waiver_method)
+      && !confirm('Changing your pieces will clear your waiver when you save them. You will need to review and sign it again. Continue?')) {
+    e.preventDefault();
+  }
+});
+
+document.getElementById('deleteBtn').addEventListener('click', async () => {
+  if (!confirm('Delete this submission and its photos? This cannot be undone.')) return;
+  hideError();
+  const btn = document.getElementById('deleteBtn');
+  btn.disabled = true;
+  try {
+    await api(`/api/nativities/${id}`, { method: 'DELETE' });
+    window.location.href = '/dashboard.html';
+  } catch (err) {
+    showError(err.message);
+    btn.disabled = false;
+  }
+});
+
+load();
+</script>
+</body>
+</html>

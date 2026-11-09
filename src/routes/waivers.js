@@ -188,3 +188,19 @@ export async function markPaperSigned(request,env,session,id) {
   await db(env)`UPDATE nativities SET waiver_signed=true,waiver_method='paper',waiver_signed_by=${'Paper signature, verified by '+session.email},waiver_signed_at=now(),updated_at=now() WHERE id=${n.id}`;
   return json({ok:true});
 }
+
+// Clears the waiver after the donor edits a submission, returning it to the
+// "Sign Waiver" step. A signed waiver is moved to an archive (not shown to
+// anyone) rather than destroyed, so there is a record of what was signed.
+export async function resetWaiver(env, n) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  for (const [src, ext] of [[key(n), 'json'], [pdfKey(n), 'pdf']]) {
+    const obj = await env.PHOTOS.get(src);
+    if (obj) {
+      await env.PHOTOS.put(`_waivers/archive/${n.id}-${stamp}.${ext}`, await obj.arrayBuffer(), { httpMetadata: { contentType: ext === 'pdf' ? 'application/pdf' : 'application/json' } });
+      await env.PHOTOS.delete(src);
+    }
+  }
+  await Promise.all([paperKey(n), reviewKey(n), reviewPdfKey(n)].map((k) => env.PHOTOS.delete(k)));
+  await db(env)`UPDATE nativities SET waiver_signed=false, waiver_method=NULL, waiver_signed_by=NULL, waiver_signed_at=NULL, updated_at=now() WHERE id=${n.id}`;
+}

@@ -3,6 +3,7 @@ import { nextSubmissionNumber } from '../lib/auth.js';
 import { json, error, requireUser } from '../lib/util.js';
 import { getSiteSettings, submissionsAreOpen } from '../lib/siteSettings.js';
 import { readImageUpload } from '../lib/images.js';
+import { resetWaiver } from './waivers.js';
 
 // Photos a participant attaches must be ones they uploaded themselves. Without
 // this check a user could point a nativity at any storage key (including other
@@ -109,11 +110,12 @@ export async function submitPieces(request, env, session, id) {
   `;
   if (owned.length === 0) return error('Nativity not found.', 404);
 
-  // Once a waiver is signed or an admin has checked the nativity in, the
-  // inventory is a legal record and can only be changed by an admin.
-  if (owned[0].status !== 'pending' || owned[0].waiver_signed || owned[0].waiver_method === 'paper') {
-    return error('This submission is locked because its registration is complete or it has been checked in. Please contact us to make changes.', 409);
+  // After check-in the inventory can only be changed by an admin. Before
+  // check-in the donor may edit, which clears any waiver so it is re-signed.
+  if (owned[0].status !== 'pending') {
+    return error('This nativity has been checked in. Please contact us to make changes.', 409);
   }
+  if (owned[0].waiver_signed || owned[0].waiver_method) await resetWaiver(env, owned[0]);
 
   // Keep the number if one was already issued; only drafts get a new one.
   const submissionNumber = String(owned[0].submission_number).startsWith('DRAFT-')
@@ -183,4 +185,57 @@ export async function uploadPhoto(request, env, session) {
   const key = `${session.userId}/${crypto.randomUUID()}.${ext}`;
   await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType: type } });
   return json({ key });
+}
+
+// Deletes storage objects that no remaining nativity or piece still uses
+// (resubmitted nativities share photos with the original).
+export async function removeUnreferencedPhotos(sql, env, keys) {
+  const unique = [...new Set(keys.filter(Boolean))];
+  for (const k of unique) {
+    const used = await sql`
+      SELECT 1 FROM nativities WHERE photo_key = ${k} OR display_photo_key = ${k}
+      UNION ALL SELECT 1 FROM nativity_pieces WHERE photo_key = ${k} LIMIT 1`;
+    if (!used.length) await env.PHOTOS.delete(k).catch((e) => console.error('Could not delete', k, e));
+  }
+}
+
+async function ownedPending(sql, session, id) {
+  const rows = await sql`SELECT * FROM nativities WHERE id = ${id} AND owner_user_id = ${session.userId}`;
+  if (!rows.length) throw error('Nativity not found.', 404);
+  if (rows[0].status !== 'pending') throw error('This nativity has been checked in. Please contact us to make changes.', 409);
+  return rows[0];
+}
+
+// Donor edits description, story or main photo before check-in. Any change
+// clears the waiver so a fresh one is generated and signed.
+export async function updateDetails(request, env, session, id) {
+  requireUser(session);
+  const sql = db(env);
+  const n = await ownedPending(sql, session, id);
+  const body = await request.json();
+  const description = typeof body?.description === 'string' ? body.description.trim().slice(0, MAX_STORY) : n.description;
+  const story = typeof body?.story === 'string' ? body.story.trim().slice(0, MAX_STORY) : n.story;
+  const photoKey = body?.photoKey === undefined ? n.photo_key : ownPhotoKey(session, body.photoKey);
+  if (!photoKey) return error('A photo of the nativity is required.');
+  const changed = (description || null) !== (n.description || null) || (story || null) !== (n.story || null) || photoKey !== n.photo_key;
+  if (!changed) return json({ ok: true, changed: false });
+  await sql`UPDATE nativities SET description = ${description || null}, story = ${story || null}, photo_key = ${photoKey}, updated_at = now() WHERE id = ${n.id}`;
+  const waiverCleared = !!(n.waiver_signed || n.waiver_method);
+  if (waiverCleared) await resetWaiver(env, n);
+  if (photoKey !== n.photo_key) await removeUnreferencedPhotos(sql, env, [n.photo_key]);
+  return json({ ok: true, changed: true, waiverCleared });
+}
+
+// Donor deletes a submission before check-in. A signed waiver is archived.
+export async function deleteMine(request, env, session, id) {
+  requireUser(session);
+  const sql = db(env);
+  const n = await ownedPending(sql, session, id);
+  const pieces = await sql`SELECT photo_key FROM nativity_pieces WHERE nativity_id = ${n.id} AND photo_key IS NOT NULL`;
+  if (n.waiver_signed || n.waiver_method) await resetWaiver(env, n);
+  await env.PHOTOS.delete(`_waivers/${n.id}-draft.json`).catch(() => {});
+  await sql`UPDATE nativities SET cloned_from_id = NULL WHERE cloned_from_id = ${n.id}`;
+  await sql`DELETE FROM nativities WHERE id = ${n.id}`;
+  await removeUnreferencedPhotos(sql, env, [n.photo_key, n.display_photo_key, ...pieces.map((p) => p.photo_key)]);
+  return json({ ok: true });
 }
