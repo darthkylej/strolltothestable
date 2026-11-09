@@ -209,11 +209,14 @@
   }
 
   .landing-actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, max-content);
     gap: 12px;
     margin-top: 29px;
   }
+  /* Desktop: "View My Submissions" sits directly under "Submit your Nativity". */
+  #viewSubmissions { grid-column: 1; grid-row: 2; }
+  .landing-actions > .landing-btn { width: 100%; box-sizing: border-box; justify-content: center; text-align: center; }
 
   .landing-btn {
     appearance: none;
@@ -352,6 +355,7 @@
     .landing-title { font-size: clamp(2.55rem, 13vw, 4.1rem); }
     .hours-grid { grid-template-columns: 1fr; }
     .landing-actions { display: grid; grid-template-columns: 1fr; }
+    #viewSubmissions { grid-column: auto; grid-row: auto; }
     .landing-btn { width: 100%; }
   }
 
@@ -489,6 +493,7 @@
     <div class="landing-actions">
       <a class="landing-btn primary" href="/tour.html">Scroll to the Stable</a>
       <button class="landing-btn secondary" id="submitNativity" type="button">Submit your Nativity</button>
+      <a class="landing-btn secondary" id="viewSubmissions" href="/login.html">View My Submissions</a>
     </div>
 
     <p class="landing-contact">Interested in volunteering or have questions? Email <a href="mailto:info@strolltothestable.com">info@strolltothestable.com</a>.</p>
@@ -583,10 +588,19 @@
         stepHtml(3, 'Pick Up Your Nativity', dailyScheduleHtml(s.pickupDays), true);
 
       document.getElementById('submitNativity').style.display = s.submissionsOpen ? '' : 'none';
+      document.getElementById('viewSubmissions').style.display = s.submissionsOpen ? '' : 'none';
     } catch {}
   }
 
   loadNativitySchedule();
+
+  // Logged-in donors go straight to My Nativities; others log in first.
+  (async () => {
+    try {
+      const r = await fetch('/api/session-status', { cache: 'no-store' });
+      if (r.ok && (await r.json()).authenticated) document.getElementById('viewSubmissions').href = '/dashboard.html';
+    } catch {}
+  })();
 
   document.getElementById('submitNativity').addEventListener('click', async () => {
     const button=document.getElementById('submitNativity');
