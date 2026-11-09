@@ -60,9 +60,23 @@ const canvas=document.getElementById('signaturePad'),ctx=canvas.getContext('2d')
 let hasSignature=false,drawing=false,saveTimer=null,saveInFlight=Promise.resolve(),ready=false;
 function resizeCanvas(){const rect=canvas.getBoundingClientRect();if(!rect.width)return;const previous=hasSignature?canvas.toDataURL('image/png'):null;canvas.width=Math.round(rect.width*devicePixelRatio);canvas.height=Math.round(rect.height*devicePixelRatio);ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);ctx.fillStyle='#fff';ctx.fillRect(0,0,rect.width,rect.height);ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#111';if(previous){const img=new Image();img.onload=()=>ctx.drawImage(img,0,0,rect.width,rect.height);img.src=previous;}}
 function point(e){const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
-canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.setPointerCapture(e.pointerId);drawing=true;hasSignature=true;const p=point(e);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+.1,p.y+.1);ctx.stroke();});
-canvas.addEventListener('pointermove',e=>{if(!drawing)return;e.preventDefault();const p=point(e);ctx.lineTo(p.x,p.y);ctx.stroke();});
-for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,()=>drawing=false);
+// Signature capture: use every sample the device reports. Browsers bundle
+// touch/pen/mouse samples into one pointermove per frame; getCoalescedEvents()
+// returns all of them, typically 2-4x more points than one per event.
+// Each new piece is drawn on its own (not by re-stroking the whole path) and
+// smoothed through midpoints so curves stay round.
+let lastPt=null,lastMid=null;
+function drawTo(p){
+  const mid={x:(lastPt.x+p.x)/2,y:(lastPt.y+p.y)/2};
+  ctx.beginPath();ctx.moveTo(lastMid.x,lastMid.y);ctx.quadraticCurveTo(lastPt.x,lastPt.y,mid.x,mid.y);ctx.stroke();
+  lastMid=mid;lastPt=p;
+}
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.setPointerCapture(e.pointerId);drawing=true;hasSignature=true;const p=point(e);lastPt=p;lastMid=p;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+.1,p.y+.1);ctx.stroke();});
+canvas.addEventListener('pointermove',e=>{if(!drawing)return;e.preventDefault();const samples=(e.getCoalescedEvents&&e.getCoalescedEvents())||[];for(const ev of (samples.length?samples:[e]))drawTo(point(ev));});
+function endStroke(){if(drawing&&lastPt&&lastMid){ctx.beginPath();ctx.moveTo(lastMid.x,lastMid.y);ctx.lineTo(lastPt.x,lastPt.y);ctx.stroke();}drawing=false;lastPt=lastMid=null;}
+for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,endStroke);
+
+
 document.getElementById('clearSignature').addEventListener('click',()=>{hasSignature=false;resizeCanvas();});
 function getFields(){const result={};for(const [k] of fields)result[k]=document.getElementById('f_'+k).value;return result;}
 function saveDraft(){if(!ready||savedWaiver)return Promise.resolve();const snapshot=getFields();saveInFlight=saveInFlight.catch(()=>{}).then(async()=>{const res=await api('/api/nativities/'+id+'/waiver-draft',{method:'POST',body:{fields:snapshot}});document.getElementById('saveStatus').textContent='Information saved. You can return later or ask a volunteer for help.';return res;}).catch(e=>{document.getElementById('saveStatus').textContent='Could not save. Check your connection before leaving.';throw e;});return saveInFlight;}
