@@ -128,6 +128,11 @@ function cardState(n) {
     body: `<div class="next-step"><strong>Next:</strong> finish listing your pieces, then sign the waiver.</div>`,
     button: `<a class="btn btn-primary" href="/lend-pieces.html?id=${n.id}&review=1">Continue Registration</a>`,
   };
+  if (n.status === 'pending' && !n.waiver_signed && n.waiver_method === 'paper') return {
+    pill: 'Ready for drop-off', cls: 'ready',
+    body: `<div class="next-step">You'll sign the waiver on paper at drop-off. <a class="link" href="/waiver.html?id=${n.id}">Sign online instead</a></div>`,
+    button: `<a class="btn btn-secondary" href="/api/nativities/${n.id}/waiver-pdf">View Form Copy</a>`,
+  };
   if (n.status === 'pending' && !n.waiver_signed) return {
     pill: 'Waiver needed', cls: 'action',
     body: `<div class="next-step"><strong>Next:</strong> sign the waiver to finish your registration.</div>`,
@@ -141,7 +146,7 @@ function cardState(n) {
   };
   if (n.status === 'submitted') return {
     pill: 'Checked in', cls: 'submitted',
-    body: `<div class="next-step"><strong>Your nativity is in our care.</strong> Pick it up at ${ADDRESS}, bringing number <strong>${number}</strong>:${dailyScheduleHtml(siteSettings.pickupDays)}</div>`,
+    body: '',
     button: waiverLink,
   };
   return { pill: 'Returned', cls: 'returned', body: '', button: waiverLink };

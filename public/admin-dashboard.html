@@ -82,10 +82,10 @@
   try {
     const { nativities, counts } = await api('/api/admin/nativities');
     const pending = nativities.filter((n) => n.status === 'pending');
-    const ready = pending.filter((n) => n.waiver_signed && !String(n.submission_number).startsWith('DRAFT-')).length;
+    const ready = pending.filter((n) => (n.waiver_signed || n.waiver_method === 'paper') && !String(n.submission_number).startsWith('DRAFT-')).length;
     document.getElementById('checkInCount').textContent = counts.pending;
     document.getElementById('checkInDetail').textContent = counts.pending
-      ? `waiting to be checked in · ${ready} ready with signed waiver`
+      ? `waiting to be checked in · ${ready} ready (signed online or on paper)`
       : 'nothing waiting to be checked in';
     document.getElementById('returnCount').textContent = counts.submitted;
   } catch (_) {}

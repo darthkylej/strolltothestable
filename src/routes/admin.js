@@ -28,7 +28,7 @@ export async function listNativities(request, env, session) {
   const sql = db(env);
   const rows = await sql`
     SELECT s.id, s.submission_number, s.status, s.event_year, s.owner_name, s.owner_phone, s.owner_email,
-           n.waiver_signed, n.piece_count
+           n.waiver_signed, n.waiver_method, n.piece_count
     FROM nativity_search s
     JOIN nativities n ON n.id = s.id
     WHERE (${status}::text IS NULL OR s.status = ${status})
@@ -232,7 +232,7 @@ export async function deleteNativity(request, env, session, id) {
   // (_waivers/<id>.json and .pdf) are legal records and are kept; submission
   // ids are never reused, so they cannot be confused with a later submission.
   const waiverKeys = [
-    `_waivers/${id}-draft.json`, `_waivers/${id}-review.json`, `_waivers/${id}-review.pdf`,
+    `_waivers/${id}-draft.json`, `_waivers/${id}-review.json`, `_waivers/${id}-review.pdf`, `_waivers/${id}-paper.json`,
   ];
   const keys = [rows[0].photo_key, rows[0].display_photo_key, ...pieceRows.map((p) => p.photo_key), ...waiverKeys].filter(Boolean);
   try {

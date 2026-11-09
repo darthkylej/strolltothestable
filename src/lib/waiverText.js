@@ -1,7 +1,7 @@
 // Single source of truth for the waiver wording. The PDF and the signing
 // screen both render from this, so what people read is what they sign.
 // Change AGREEMENT_VERSION whenever the wording changes.
-export const AGREEMENT_VERSION = '2026-11-08.3';
+export const AGREEMENT_VERSION = '2026-11-09';
 export const ORGANIZER = 'City of Seguin';
 export const CONTACT_EMAIL = 'submissions@strolltothestable.com';
 
@@ -46,7 +46,7 @@ export function agreementSections(dates = {}) {
     },
     {
       title: '5. General Terms',
-      text: `My electronic signature is legally binding; I may instead request a paper version from ${CONTACT_EMAIL}. Texas law governs this agreement. If any part is unenforceable, the rest remains in effect. This is the entire agreement about the loan of the Property.`,
+      text: `My electronic signature is legally binding; I may instead choose to sign a paper copy in person at drop-off. Texas law governs this agreement. If any part is unenforceable, the rest remains in effect. This is the entire agreement about the loan of the Property.`,
     },
   ];
 }
