@@ -124,6 +124,14 @@ async function init() {
   if (!isReview) return;
   try {
     const { nativity, pieces } = await api(`/api/nativities/${nativityId}`);
+    if (nativity.status !== 'pending') { window.location.replace('/my-nativity.html?id=' + encodeURIComponent(nativityId)); return; }
+    if (nativity.waiver_signed || nativity.waiver_method) {
+      const warn = document.createElement('p');
+      warn.className = 'piece-help';
+      warn.style.cssText = 'padding:10px 12px;border:1px solid rgba(242,199,110,.4);border-radius:12px;background:rgba(242,199,110,.10)';
+      warn.textContent = 'Saving changes to your pieces clears your waiver. You will review and sign a fresh one afterward.';
+      document.getElementById('piecesForm').prepend(warn);
+    }
     existingPieces = pieces;
     document.getElementById('pieceCount').value = pieces.length;
     renderPieces(pieces.length);

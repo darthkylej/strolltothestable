@@ -17,6 +17,9 @@
   .nat-thumb { width:76px; height:76px; flex-shrink:0; object-fit:cover; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,.04); }
   .nat-title { flex:1; min-width:0; }
   .nat-desc { color:var(--wood); font-size:14px; margin:10px 0 0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .nat-card { cursor:pointer; transition:border-color .15s ease, transform .15s ease; }
+  .nat-card:hover { border-color:var(--border-strong); transform:translateY(-1px); }
+  .nat-more { margin-top:12px; color:var(--gold-bright); font-weight:700; font-size:14px; }
   .next-step { margin:12px 0; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.03); line-height:1.5; }
   .next-step.ready { border-color:rgba(123,203,140,.35); background:rgba(123,203,140,.08); }
   .next-step strong { color:var(--gold-bright); }
@@ -130,15 +133,15 @@ function cardState(n) {
   };
   if (n.status === 'pending' && !n.waiver_signed && n.waiver_method === 'paper') return {
     pill: 'Ready for drop-off', cls: 'ready',
-    body: `<div class="next-step">You'll sign the waiver on paper at drop-off. <a class="link" href="/waiver.html?id=${n.id}">Sign online instead</a></div>`,
-    button: `<a class="btn btn-secondary" href="/api/nativities/${n.id}/waiver-pdf">View Form Copy</a>`,
+    body: `<div class="next-step">You'll sign the waiver on paper at drop-off.</div>`,
+    button: '',
   };
   if (n.status === 'pending' && !n.waiver_signed) return {
     pill: 'Waiver needed', cls: 'action',
     body: `<div class="next-step"><strong>Next:</strong> sign the waiver to finish your registration.</div>`,
     button: `<a class="btn btn-primary" href="/waiver.html?id=${n.id}">Sign Waiver</a>`,
   };
-  const waiverLink = `<a class="btn btn-secondary" href="/api/nativities/${n.id}/waiver-pdf">View Signed Waiver</a>`;
+  const waiverLink = '';
   if (n.status === 'pending') return {
     pill: 'Ready for drop-off', cls: 'ready',
     body: '',
@@ -160,7 +163,7 @@ function cardHtml(n) {
   const st = cardState(n);
   const draft = n.submission_number.startsWith('DRAFT');
   return `
-      <div class="card" style="padding:14px 18px;margin-bottom:10px">
+      <div class="card nat-card" style="padding:14px 18px;margin-bottom:10px" data-href="/my-nativity.html?id=${n.id}" role="link" tabindex="0" aria-label="Open ${draft ? 'unfinished submission' : esc(n.submission_number)}">
         <div class="nat-head">
           ${n.photo_key ? `<img class="nat-thumb" src="/photos/${esc(n.photo_key)}" alt="Your nativity" loading="lazy">` : ''}
           <div class="nat-title">
@@ -172,11 +175,23 @@ function cardHtml(n) {
         ${n.description ? `<p class="nat-desc">${esc(n.description)}</p>` : ''}
         ${st.body}
         ${st.button}
+        <div class="nat-more">View details, waiver and edits ›</div>
         ${submissionsOpen && n.status === 'returned' && Number(n.event_year) < CURRENT_YEAR
           ? `<button class="btn btn-secondary" onclick="resubmit(${n.id})">Submit Again This Year</button>`
           : ''}
       </div>`;
 }
+
+// Tapping a card opens its page, except when tapping a button or link on it.
+document.addEventListener('click', (e) => {
+  const card = e.target.closest('.nat-card');
+  if (!card || e.target.closest('a, button, input, label')) return;
+  window.location.href = card.dataset.href;
+});
+document.addEventListener('keydown', (e) => {
+  const card = e.target.closest && e.target.closest('.nat-card');
+  if (card && e.target === card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); window.location.href = card.dataset.href; }
+});
 
 async function resubmit(id) {
   hideError();

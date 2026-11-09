@@ -2,6 +2,7 @@ import { db } from '../lib/db.js';
 import { json, error, requireAdmin } from '../lib/util.js';
 import { sendClaimTicketEmail } from '../lib/email.js';
 import { readImageUpload } from '../lib/images.js';
+import { removeUnreferencedPhotos } from './nativities.js';
 import {
   TOUR_MEDIA_PREFIX,
   MAX_TOUR_MEDIA_BYTES,
@@ -235,10 +236,10 @@ export async function deleteNativity(request, env, session, id) {
   const waiverKeys = [
     `_waivers/${id}-draft.json`, `_waivers/${id}-review.json`, `_waivers/${id}-review.pdf`, `_waivers/${id}-paper.json`,
   ];
-  const keys = [rows[0].photo_key, rows[0].display_photo_key, ...pieceRows.map((p) => p.photo_key), ...waiverKeys].filter(Boolean);
   try {
     await Promise.all([
-      ...keys.map((key) => env.PHOTOS.delete(key)),
+      ...waiverKeys.map((key) => env.PHOTOS.delete(key)),
+      removeUnreferencedPhotos(sql, env, [rows[0].photo_key, rows[0].display_photo_key, ...pieceRows.map((p) => p.photo_key)]),
       deleteAdminNote(env, id),
     ]);
   } catch (err) {
