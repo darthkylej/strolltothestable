@@ -28,7 +28,8 @@ export async function listNativities(request, env, session) {
   const sql = db(env);
   const rows = await sql`
     SELECT s.id, s.submission_number, s.status, s.event_year, s.owner_name, s.owner_phone, s.owner_email,
-           n.waiver_signed, n.waiver_method, n.piece_count
+           n.waiver_signed, n.waiver_method, n.piece_count,
+           COALESCE(n.display_photo_key, n.photo_key) AS photo_key
     FROM nativity_search s
     JOIN nativities n ON n.id = s.id
     WHERE (${status}::text IS NULL OR s.status = ${status})
