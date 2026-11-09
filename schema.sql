@@ -61,6 +61,7 @@ CREATE TABLE nativities (
     owner_user_id     BIGINT NOT NULL REFERENCES users(id),
     event_year        INT NOT NULL,
     photo_key         TEXT,                       -- R2 object key for the overall photo
+    description       TEXT,                       -- what it looks like: materials, colors, size
     story             TEXT,                       -- optional "why it's special"
     piece_count       INT NOT NULL DEFAULT 0,
     status            TEXT NOT NULL DEFAULT 'pending'

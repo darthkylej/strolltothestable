@@ -69,7 +69,7 @@ async function nativityPhoto(env,record) {
 async function waiverRecord(env,n,fields,extra={}) {
   const sql=db(env),settings=await getSiteSettings(env);
   const pieces=await sql`SELECT piece_number,description,condition_notes,photo_key FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
-  const nativity={submissionNumber:n.submission_number,eventYear:n.event_year,story:n.story||'',pieceCount:n.piece_count,photoKey:n.photo_key||'',displayPhotoKey:n.display_photo_key||'',includeInTour:n.include_in_tour,pieces};
+  const nativity={submissionNumber:n.submission_number,eventYear:n.event_year,description:n.description||'',story:n.story||'',pieceCount:n.piece_count,photoKey:n.photo_key||'',displayPhotoKey:n.display_photo_key||'',includeInTour:n.include_in_tour,pieces};
   return {version:5,agreementVersion:AGREEMENT_VERSION,nativity,year:n.event_year,organizer:'City of Seguin',event:'Stroll to the Stable',location:'Nolte Building, 101 E. Nolte St, Seguin, TX',dates:eventDates(settings),fields,method:'digital',submissionNumber:n.submission_number,...extra};
 }
 export async function previewWaiver(request,env,session,id) {

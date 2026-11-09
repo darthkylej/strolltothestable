@@ -26,6 +26,10 @@
       <img id="preview" class="photo-preview">
     </div>
     <div class="field">
+      <label for="description">Describe your nativity</label>
+      <textarea id="description" rows="3" maxlength="2000" placeholder="Materials, colors and size. Example: hand-painted ceramic, white and gold, about 18 inches wide."></textarea>
+    </div>
+    <div class="field">
       <label for="story">The story behind it (optional)</label>
       <textarea id="story" placeholder="Where did it come from? Why is it special to your family?"></textarea>
     </div>
@@ -76,6 +80,7 @@ document.getElementById('photoForm').addEventListener('submit', async (e) => {
       method: 'POST',
       body: {
         photoKey,
+        description: document.getElementById('description').value,
         story: document.getElementById('story').value,
         includeInTour: true,
       },
