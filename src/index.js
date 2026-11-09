@@ -279,9 +279,12 @@ async function handle(request, env) {
       if ((m = path.match(/^\/api\/nativities\/(\d+)\/resubmit$/)) && method === 'POST') {
         return await nativities.resubmit(request, env, session, m[1]);
       }
-      if ((m = path.match(/^\/api\/nativities\/(\d+)\/tour-visibility$/)) && method === 'POST') {
-        return await nativities.setTourVisibility(request, env, session, m[1]);
-      }
+      // Donor tour opt-out is disabled: once checked in, a nativity stays in the
+      // tour. Admins control visibility from the submission page. To restore,
+      // re-enable this route (handler: nativities.setTourVisibility).
+      // if ((m = path.match(/^\/api\/nativities\/(\d+)\/tour-visibility$/)) && method === 'POST') {
+      //   return await nativities.setTourVisibility(request, env, session, m[1]);
+      // }
 
       if (path === '/api/admin/settings' && method === 'GET') return await admin.getAdminSettings(request, env, session);
       if (path === '/api/admin/settings' && method === 'POST') return await admin.updateAdminSettings(request, env, session);

@@ -170,13 +170,6 @@ function cardHtml(n) {
         ${submissionsOpen && n.status === 'returned' && Number(n.event_year) < CURRENT_YEAR
           ? `<button class="btn btn-secondary" onclick="resubmit(${n.id})">Submit Again This Year</button>`
           : ''}
-        <div style="display:flex; align-items:center; gap:10px; margin:12px 0 0">
-          <label class="switch" style="margin:0">
-            <input type="checkbox" ${n.include_in_tour ? 'checked' : ''} onchange="toggleTour(${n.id}, this.checked)">
-            <span class="track"></span>
-          </label>
-          <span style="font-size:14px; color:var(--wood)">Show in public virtual tour</span>
-        </div>
       </div>`;
 }
 
@@ -190,15 +183,6 @@ async function resubmit(id) {
   }
 }
 
-async function toggleTour(id, checked) {
-  hideError();
-  try {
-    await api(`/api/nativities/${id}/tour-visibility`, { method: 'POST', body: { includeInTour: checked } });
-  } catch (err) {
-    showError(err.message);
-    load();
-  }
-}
 
 document.getElementById('logoutLink').addEventListener('click', async (e) => {
   e.preventDefault();
