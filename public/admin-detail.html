@@ -100,7 +100,7 @@
   </div>
 
   <details class="card edit-card" id="submissionEditor"><summary>Edit submission: donor info, pieces, photos, private notes</summary>
-    <p class="section-note">Admins can correct anything the donor entered, before or after check-in.</p>
+    <p class="section-note" id="editNote">Admins can correct anything the donor entered. Changing donor info, the description, story or pieces clears the donor's waiver, so they sign a fresh one.</p>
 
     <section class="edit-section">
       <h3>Donor Information</h3>
@@ -390,6 +390,13 @@ function renderDesk(n, pieces, note, isDraft) {
       ${p.photo_key ? `<a href="/photos/${esc(p.photo_key)}" target="_blank" rel="noopener"><img class="desk-thumb" src="/photos/${esc(p.photo_key)}" alt="Piece ${i + 1}"></a>` : '<span></span>'}
     </label></li>`).join('') : '<li class="desk-hint">No pieces listed yet.</li>';
 
+  // Checked in = final: the waiver can't be regenerated, so what it covers is locked.
+  const final = n.status !== 'pending';
+  document.querySelectorAll('#descriptionInput, #storyInput, #pieces input, #pieces textarea').forEach((el) => { el.readOnly = final; });
+  document.querySelectorAll('#addPieceBtn, #pieces [data-remove-piece]').forEach((el) => { el.style.display = final ? 'none' : ''; });
+  document.getElementById('editNote').textContent = final
+    ? 'This nativity is checked in, so its description, story and pieces are final. You can still update donor contact info, private notes and tour settings.'
+    : 'Admins can correct anything the donor entered. Changing donor info, the description, story or pieces clears the donor\'s waiver, so they sign a fresh one.';
   document.getElementById('finalizeBtn').style.display = n.status === 'pending' ? 'inline-block' : 'none';
   document.getElementById('returnBtn').style.display = n.status === 'submitted' ? 'inline-block' : 'none';
   updateDeskButtons();
@@ -450,11 +457,14 @@ function collectPieces() {
 
 document.getElementById('saveChangesBtn').addEventListener('click', async () => {
   hideError();
+  const hasWaiver = current && (current.waiver_signed || current.waiver_method);
+  if (current && current.status === 'pending' && hasWaiver
+      && !confirm('If you changed donor info, the description, story or pieces, the donor\'s waiver will be cleared and they will need to sign a fresh one. Save?')) return;
   const btn = document.getElementById('saveChangesBtn');
   btn.disabled = true;
   btn.textContent = 'Saving…';
   try {
-    await api(`/api/admin/nativities/${id}`, {
+    const result = await api(`/api/admin/nativities/${id}`, {
       method: 'PUT',
       body: {
         owner: {
@@ -469,8 +479,10 @@ document.getElementById('saveChangesBtn').addEventListener('click', async () => 
         pieces: collectPieces(),
       },
     });
-    showSuccess('Submission changes saved.');
     await load();
+    showSuccess(result.waiversCleared
+      ? `Changes saved. ${result.waiversCleared} waiver${result.waiversCleared === 1 ? ' was' : 's were'} cleared; the donor needs to sign again.`
+      : 'Submission changes saved.');
   } catch (err) {
     showError(err.message);
   } finally {

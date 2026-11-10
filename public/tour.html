@@ -18,8 +18,11 @@
     background-attachment: fixed, fixed, fixed, fixed;
   }
   .tour-card { overflow:hidden; }
-  .tour-media { width:100%; display:block; border-radius:12px; margin-bottom:14px; background:#02050d; }
-  video.tour-media { max-height:70vh; }
+  /* Space is reserved before each image loads (fixed 4:3 box, photo fitted
+     inside without cropping), so the page never jumps while scrolling. */
+  .tour-media { width:100%; height:auto; display:block; border-radius:12px; margin-bottom:14px; background:#02050d; aspect-ratio:4 / 3; object-fit:contain; }
+  video.tour-media { aspect-ratio:16 / 9; max-height:70vh; }
+  .tour-card { content-visibility:auto; contain-intrinsic-size:auto 520px; }
   .tour-title { color:var(--gold-bright); margin:0 0 8px; font-family:'Fraunces', Georgia, serif; }
   .tour-caption { color:var(--wood); margin:0; line-height:1.55; white-space:pre-wrap; }
   .tour-story { color:var(--wood); font-style:italic; margin:0; }
@@ -71,7 +74,7 @@ function renderItem(item) {
   if (item.type === 'media') {
     const media = item.mediaType === 'video'
       ? `<video class="tour-media" src="${escapeAttr(item.url)}" controls playsinline preload="metadata"></video>`
-      : `<img class="tour-media" src="${escapeAttr(item.url)}" alt="${escapeAttr(item.title || 'Artwork in the Stroll to the Stable collection')}">`;
+      : `<img class="tour-media" src="${escapeAttr(item.url)}" alt="${escapeAttr(item.title || 'Artwork in the Stroll to the Stable collection')}" loading="lazy" decoding="async" width="1200" height="900">`;
 
     return `
       <div class="card tour-card">
@@ -83,7 +86,7 @@ function renderItem(item) {
 
   return `
     <div class="card tour-card">
-      ${item.photoKey ? `<img class="tour-media" src="/photos/${escapeAttr(item.photoKey)}" alt="Nativity display">` : ''}
+      ${item.photoKey ? `<img class="tour-media" src="/photos/${escapeAttr(item.photoKey)}" alt="Nativity display" loading="lazy" decoding="async" width="1200" height="900">` : ''}
       ${item.story ? `<p class="tour-story">${escapeHtml(item.story)}</p>` : ''}
     </div>`;
 }

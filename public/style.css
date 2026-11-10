@@ -39,33 +39,7 @@ body {
   position: relative;
 }
 
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -2;
-  background:
-    radial-gradient(circle at 10% 10%, rgba(255,255,255,0.95) 0 1px, transparent 2px),
-    radial-gradient(circle at 17% 24%, rgba(255,255,255,0.78) 0 1.5px, transparent 2.5px),
-    radial-gradient(circle at 28% 7%, rgba(255,255,255,0.88) 0 1px, transparent 2px),
-    radial-gradient(circle at 36% 18%, rgba(255,255,255,0.92) 0 1.5px, transparent 2.5px),
-    radial-gradient(circle at 43% 8%, rgba(255,255,255,0.80) 0 1px, transparent 2px),
-    radial-gradient(circle at 50% 4%, rgba(255,232,174,1) 0 2px, transparent 4px),
-    radial-gradient(circle at 57% 14%, rgba(255,255,255,0.86) 0 1px, transparent 2px),
-    radial-gradient(circle at 63% 24%, rgba(255,255,255,0.72) 0 1.5px, transparent 2.5px),
-    radial-gradient(circle at 70% 10%, rgba(255,255,255,0.94) 0 1px, transparent 2px),
-    radial-gradient(circle at 79% 19%, rgba(255,255,255,0.76) 0 1.5px, transparent 2.5px),
-    radial-gradient(circle at 87% 11%, rgba(255,255,255,0.88) 0 1px, transparent 2px),
-    radial-gradient(circle at 92% 27%, rgba(255,255,255,0.68) 0 1px, transparent 2px),
-    radial-gradient(circle at 24% 32%, rgba(255,255,255,0.68) 0 1px, transparent 2px),
-    radial-gradient(circle at 41% 30%, rgba(255,255,255,0.75) 0 1px, transparent 2px),
-    radial-gradient(circle at 55% 29%, rgba(255,255,255,0.70) 0 1px, transparent 2px),
-    radial-gradient(circle at 72% 33%, rgba(255,255,255,0.65) 0 1px, transparent 2px),
-    radial-gradient(circle at 84% 37%, rgba(255,255,255,0.78) 0 1px, transparent 2px);
-  opacity: 0.9;
-  animation: twinkle 14s ease-in-out infinite alternate;
-}
+/* Star field and twinkle animation removed: pages use the background image. */
 
 body::after {
   content: "";
@@ -81,10 +55,6 @@ body::after {
     url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%201600%20320%27%20preserveAspectRatio%3D%27none%27%3E%0A%3Crect%20width%3D%271600%27%20height%3D%27320%27%20fill%3D%27none%27%2F%3E%0A%3Cpath%20d%3D%27M0%20320V250C70%20230%20150%20220%20230%20228c78%208%20132%2032%20202%2035%2087%204%20136-34%20223-34%2067%200%2096%2019%20160%2019%2080%200%20120-30%20202-29%2080%201%20114%2022%20171%2033%2061%2012%20155%206%20412-18V320Z%27%20fill%3D%27%23060a11%27%2F%3E%0A%3Cpath%20d%3D%27M0%20320V274c100-20%20175-6%20280-25%2083-15%20148-43%20236-39%2062%203%20112%2026%20165%2040%2055%2015%20111%2012%20166-6%2071-23%20120-59%20211-60%2067-1%20116%2018%20176%2033%2067%2018%20139%2018%20206-3%2081-25%20166-53%201600%200V320Z%27%20fill%3D%27%23090d16%27%2F%3E%0A%3Cg%20fill%3D%27%2302080f%27%3E%0A%3Cpath%20d%3D%27M651%20250%20744%20178%20837%20250Z%27%2F%3E%0A%3Crect%20x%3D%27682%27%20y%3D%27185%27%20width%3D%27124%27%20height%3D%2784%27%20rx%3D%272%27%2F%3E%0A%3Crect%20x%3D%27732%27%20y%3D%27217%27%20width%3D%2725%27%20height%3D%2752%27%2F%3E%0A%3Cpath%20d%3D%27M714%20250c11-18%2017-29%2030-29%2016%200%2023%2019%2030%2029Z%27%2F%3E%0A%3Ccircle%20cx%3D%27745%27%20cy%3D%27165%27%20r%3D%274%27%20fill%3D%27%23f7dfa0%27%2F%3E%0A%3Crect%20x%3D%27598%27%20y%3D%27230%27%20width%3D%2714%27%20height%3D%2745%27%20rx%3D%271%27%2F%3E%0A%3Ccircle%20cx%3D%27605%27%20cy%3D%27221%27%20r%3D%2712%27%2F%3E%0A%3Crect%20x%3D%27890%27%20y%3D%27220%27%20width%3D%2716%27%20height%3D%2755%27%20rx%3D%271%27%2F%3E%0A%3Ccircle%20cx%3D%27898%27%20cy%3D%27208%27%20r%3D%2714%27%2F%3E%0A%3Crect%20x%3D%27938%27%20y%3D%27232%27%20width%3D%2710%27%20height%3D%2734%27%20rx%3D%271%27%2F%3E%0A%3Ccircle%20cx%3D%27943%27%20cy%3D%27225%27%20r%3D%278%27%2F%3E%0A%3Crect%20x%3D%27958%27%20y%3D%27234%27%20width%3D%2710%27%20height%3D%2732%27%20rx%3D%271%27%2F%3E%0A%3Ccircle%20cx%3D%27963%27%20cy%3D%27227%27%20r%3D%278%27%2F%3E%0A%3Cpath%20d%3D%27M1028%20242c22-20%2038-26%2059-26%2024%200%2038%2015%2045%2034h-104c-1-2%200-5%200-8Z%27%2F%3E%0A%3Cpath%20d%3D%27M1060%20216c13-14%2028-20%2046-19%2018%201%2031%209%2040%2022%27%20fill%3D%27none%27%20stroke%3D%27%2302080f%27%20stroke-width%3D%2714%27%20stroke-linecap%3D%27round%27%2F%3E%0A%3Crect%20x%3D%271097%27%20y%3D%27233%27%20width%3D%2745%27%20height%3D%2717%27%20rx%3D%278%27%2F%3E%0A%3C%2Fg%3E%0A%3C%2Fsvg%3E") center bottom / cover no-repeat;
 }
 
-@keyframes twinkle {
-  from { opacity: 0.70; transform: translateY(0); }
-  to { opacity: 1; transform: translateY(-2px); }
-}
 
 h1, h2, .display {
   font-family: 'Fraunces', Georgia, serif;
@@ -122,7 +92,6 @@ a {
   box-shadow: var(--shadow);
   position: relative;
   overflow: hidden;
-  backdrop-filter: blur(10px);
 }
 
 .page::before {

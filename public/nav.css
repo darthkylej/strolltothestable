@@ -20,8 +20,6 @@ body.has-site-nav {
   background: linear-gradient(180deg, rgba(5, 11, 25, 0.97), rgba(5, 11, 25, 0.84));
   border-bottom: 1px solid rgba(255, 229, 158, 0.18);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
 }
 
 .site-home-link {

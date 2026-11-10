@@ -243,6 +243,9 @@ async function handle(request, env) {
       const session = await getSession(request, env);
 
       if (path === '/api/session-status' && method === 'GET') return await auth.sessionStatus(request,env,session);
+      if (path === '/api/account' && method === 'GET') return await auth.getAccount(request, env, session);
+      if (path === '/api/account' && method === 'PATCH') return await auth.updateAccount(request, env, session);
+      if (path === '/api/account/password' && method === 'POST') return await auth.changePassword(request, env, session);
       if (path === '/api/settings' && method === 'GET') return await settings.getPublicSettings(request, env);
 
       if (path === '/api/register' && method === 'POST') return await auth.register(request, env);
