@@ -4,7 +4,7 @@ function escText(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<'
 function renderAgreement(a){if(!a)return;document.getElementById('agreementText').innerHTML=a.sections.map(sec=>sec.release?'<div class="release-box"><h3>'+escText(sec.title)+'</h3><p>'+escText(sec.text)+'</p></div>':'<h3>'+escText(sec.title)+'</h3><p>'+escText(sec.text)+'</p>').join('');document.getElementById('releaseAckLabel').textContent=a.releaseAck;const c=document.querySelector('label[for=legalConsent]');if(c&&a.consentText)c.textContent=a.consentText;}
 const fields=[['name','Name'],['address','Address'],['cityStateZip','City/State/ZIP'],['phone','Phone'],['email','Email']];
 const fieldBox=document.getElementById('fields');
-fieldBox.innerHTML=fields.map(([k,label],i)=>'<div class="field"><label for="f_'+k+'">'+label+'</label>'+(k==='story'?'<textarea id="f_'+k+'"></textarea>':'<input id="f_'+k+'" type="text"'+((k==='phone'||k==='email')?' readonly title="From your account"':'')+'>')+'</div>').join('');
+fieldBox.innerHTML=fields.map(([k,label],i)=>'<div class="field"><label for="f_'+k+'">'+label+'</label>'+(k==='story'?'<textarea id="f_'+k+'"></textarea>':'<input id="f_'+k+'" type="text"'+((k==='name'||k==='phone'||k==='email')?' readonly title="From your account"':'')+'>')+'</div>').join('');
 let savedWaiver=null, dates=null, paperChosen=false;
 const fmt=s=>s?new Date(s+'T12:00:00').toLocaleDateString([],{year:'numeric',month:'long',day:'numeric'}):'Date not yet scheduled';
 function populate(f){for(const [k] of fields)document.getElementById('f_'+k).value=f?.[k]||'';}

@@ -136,7 +136,7 @@ export async function sendForgotLoginEmail(env, { to, name, username, recoveryUr
     html: `
       <p>Hi ${escapeHtml(name)},</p>
       <p>You asked for help getting back into your Stroll to the Stable account.</p>
-      <p>You log in with this email address. Your existing password has not been changed.</p>
+      <p>Use the button below to log in. You can then set a new password on the My Account page. You log in with this email address.</p>
       <p><a href="${escapeHtml(recoveryUrl)}" style="display:inline-block;padding:12px 18px;background:#203a5f;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700">Log In to My Account</a></p>
       <p style="font-size:13px;color:#666">This secure link expires in 30 minutes. If you did not request it, you can ignore this email.</p>
       ${scheduleHtml(settings)}

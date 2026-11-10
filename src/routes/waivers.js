@@ -47,12 +47,15 @@ export async function getWaiver(request,env,session,id) {
   const draftObj=existing?null:await env.PHOTOS.get(draftKey(n));
   const draft=draftObj?JSON.parse(await draftObj.text()):null;
   let prefill=existing?.fields||draft?.fields||null;
+  const accountFields={name:n.owner_name,phone:n.owner_phone,email:n.owner_email};
   if(!prefill){const prior=await sql`SELECT id FROM nativities WHERE owner_user_id=${n.owner_user_id} AND id<>${n.id} ORDER BY created_at DESC LIMIT 20`;for(const row of prior){const previous=await env.PHOTOS.get(`_waivers/${row.id}.json`);if(previous){const w=JSON.parse(await previous.text());if(w.fields){prefill=w.fields;break;}}}}
   const pieces=await sql`SELECT piece_number,description,condition_notes FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
   const submissions=[{submission_number:n.submission_number,story:n.story,piece_count:n.piece_count,pieces}];
   const settings=await getSiteSettings(env);
   const dates=eventDates(settings);
   const paper=existing?null:await paperChoice(env,n);
+  // Name, phone and email always come from the account (edited on My Account).
+  if(!existing) prefill={...(prefill||{}),...accountFields};
   return json({ waiver:existing, draft, signed:!!existing, paper:paper?{requestedAt:paper.requestedAt}:null, owner:{name:n.owner_name,phone:n.owner_phone,email:n.owner_email}, prefill, submissions, year:n.event_year, dates, organizer:'City of Seguin', agreement:{version:AGREEMENT_VERSION,sections:agreementSections(dates),releaseAck:RELEASE_ACK,consentText:CONSENT_TEXT} },{headers:{'Cache-Control':'no-store'}});
 }
 export async function saveWaiverDraft(request,env,session,id) {
@@ -84,7 +87,7 @@ export async function previewWaiver(request,env,session,id) {
   if(await saved(env,n)) return error('This waiver is already signed.',409);
   const body=await request.json();
   const f=body.fields||{};
-  const fields={name:String(f.name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
+  const fields={name:String(n.owner_name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
   if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all participant information before reviewing the PDF.',400);
   const record=await waiverRecord(env,n,fields,{signerName:'',signingDate:''});
   const pdf=await createWaiverPdf(record,null,'',await nativityPhoto(env,record));
@@ -103,7 +106,7 @@ export async function saveWaiver(request,env,session,id) {
   const body=await request.json();
   if(!['digital','paper'].includes(body.method)) return error('Choose how to sign the waiver.');
   const f=body.fields || {};
-  const fields={name:String(f.name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
+  const fields={name:String(n.owner_name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
   if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all required waiver fields.');
   if(body.method==='digital' && body.releaseAccepted!==true) return error('Confirm that you have read and accept the Release of Liability.',400);
   if(body.method==='digital' && (!body.agreed || body.electronicSignatureConsent!==true || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(body.signatureImage||'') || (body.signatureImage||'').length>300000)) return error('Read the agreement and draw your signature.');
@@ -203,4 +206,17 @@ export async function resetWaiver(env, n) {
   }
   await Promise.all([paperKey(n), reviewKey(n), reviewPdfKey(n)].map((k) => env.PHOTOS.delete(k)));
   await db(env)`UPDATE nativities SET waiver_signed=false, waiver_method=NULL, waiver_signed_by=NULL, waiver_signed_at=NULL, updated_at=now() WHERE id=${n.id}`;
+}
+
+// Clears the waivers of all of a donor's submissions that are not checked in
+// yet (used when the donor's name, phone or email changes). Checked-in
+// submissions keep the waiver they were checked in with.
+export async function resetWaiversForUser(env, userId) {
+  const rows = await db(env)`
+    SELECT n.*, u.name AS owner_name, u.phone AS owner_phone, u.email AS owner_email
+    FROM nativities n JOIN users u ON u.id = n.owner_user_id
+    WHERE n.owner_user_id = ${userId} AND n.status = 'pending'
+      AND (n.waiver_signed OR n.waiver_method IS NOT NULL)`;
+  for (const n of rows) await resetWaiver(env, n);
+  return rows.length;
 }

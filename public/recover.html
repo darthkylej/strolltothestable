@@ -28,7 +28,7 @@
   try {
     await api('/api/recover-login', { method: 'POST', body: { token } });
     document.getElementById('status').textContent = 'Success. Opening your account…';
-    window.location.replace('/dashboard.html');
+    window.location.replace('/account.html?reset=1');
   } catch (err) {
     document.getElementById('status').style.display = 'none';
     showError(err.message || 'This recovery link is invalid or has expired.');

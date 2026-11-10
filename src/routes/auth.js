@@ -6,6 +6,7 @@ import {
 import { sendCredentialsEmail, sendForgotLoginEmail } from '../lib/email.js';
 import { json, error } from '../lib/util.js';
 import { getSiteSettings } from '../lib/siteSettings.js';
+import { resetWaiversForUser } from './waivers.js';
 import { clientIp, consume, isBlocked, recordFailure, clearFailures } from '../lib/rateLimit.js';
 
 const EMAIL_RE = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]{2,}$/;
@@ -167,7 +168,9 @@ export async function recoverLogin(request, env) {
   const rows = await sql`SELECT id FROM users WHERE id = ${payload.userId}`;
   if (rows.length === 0) return error('This recovery link is invalid or has expired.', 401);
 
-  const sessionToken = await createSessionToken(env, { kind: 'user', userId: rows[0].id });
+  // recoveredAt lets the donor set a new password without the old one for a
+  // short time after following the emailed link.
+  const sessionToken = await createSessionToken(env, { kind: 'user', userId: rows[0].id, recoveredAt: Date.now() });
   return json(
     { ok: true },
     { headers: { 'Set-Cookie': sessionCookieHeader(sessionToken) } }
@@ -177,4 +180,64 @@ export async function recoverLogin(request, env) {
 export async function sessionStatus(request,env,session) {
   if(session?.kind==='user') return json({authenticated:true,role:'user'});
   return json({authenticated:false});
+}
+
+const RECOVERY_WINDOW_MS = 30 * 60 * 1000;
+
+export async function getAccount(request, env, session) {
+  if (session?.kind !== 'user') return error('Please log in.', 401);
+  const rows = await db(env)`SELECT name, phone, email FROM users WHERE id = ${session.userId}`;
+  if (!rows.length) return error('Please log in.', 401);
+  const canResetWithoutCurrent = !!session.recoveredAt && Date.now() - session.recoveredAt < RECOVERY_WINDOW_MS;
+  return json({ ...rows[0], canResetWithoutCurrent }, { headers: { 'Cache-Control': 'no-store' } });
+}
+
+// Donor edits their name, phone or email. Any change clears the waivers of
+// submissions that are not checked in yet, because the waiver shows them.
+export async function updateAccount(request, env, session) {
+  if (session?.kind !== 'user') return error('Please log in.', 401);
+  const body = await request.json();
+  const name = String(body?.name ?? '').trim();
+  const phone = String(body?.phone ?? '').trim();
+  const email = String(body?.email ?? '').trim();
+  if (!name || !phone || !email) return error('Name, phone, and email are all required.');
+  if (name.length > 100 || phone.length > 40 || email.length > 254) return error('One of the fields is too long.');
+  if (!EMAIL_RE.test(email)) return error('Enter a valid email address.');
+  const sql = db(env);
+  const rows = await sql`SELECT name, phone, email FROM users WHERE id = ${session.userId}`;
+  if (!rows.length) return error('Please log in.', 401);
+  const cur = rows[0];
+  if (cur.name === name && cur.phone === phone && cur.email.toLowerCase() === email.toLowerCase() && cur.email === email) {
+    return json({ ok: true, changed: false, waiversCleared: 0 });
+  }
+  const taken = await sql`SELECT 1 FROM users WHERE lower(email) = lower(${email}) AND id <> ${session.userId} LIMIT 1`;
+  if (taken.length) return error('Another account already uses that email address.', 409);
+  await sql`UPDATE users SET name = ${name}, phone = ${phone}, email = ${email} WHERE id = ${session.userId}`;
+  const waiversCleared = await resetWaiversForUser(env, session.userId);
+  return json({ ok: true, changed: true, waiversCleared });
+}
+
+export async function changePassword(request, env, session) {
+  if (session?.kind !== 'user') return error('Please log in.', 401);
+  const body = await request.json();
+  const next = String(body?.newPassword ?? '');
+  if (next.trim().length < 6) return error('Choose a password of at least 6 characters.');
+  if (next.length > 100) return error('That password is too long.');
+  const sql = db(env);
+  const rows = await sql`SELECT password_hash, email FROM users WHERE id = ${session.userId}`;
+  if (!rows.length) return error('Please log in.', 401);
+  const recovered = !!session.recoveredAt && Date.now() - session.recoveredAt < RECOVERY_WINDOW_MS;
+  if (!recovered) {
+    const failKey = `pwchange-fail:user:${session.userId}`;
+    if (await isBlocked(sql, failKey, 8, 900)) return error('Too many attempts. Wait 15 minutes and try again.', 429);
+    if (!(await verifyPassword(String(body?.currentPassword ?? '').trim(), rows[0].password_hash))) {
+      await recordFailure(sql, failKey);
+      return error('Your current password is incorrect. If you do not know it, use "Forgot your login?" to get a link.', 401);
+    }
+  }
+  await sql`UPDATE users SET password_hash = ${await hashPassword(next.trim())} WHERE id = ${session.userId}`;
+  await clearFailures(sql, `login-fail:user:${rows[0].email.toLowerCase()}`);
+  // Replace the recovery session with a normal one.
+  const token = await createSessionToken(env, { kind: 'user', userId: session.userId });
+  return json({ ok: true }, { headers: { 'Set-Cookie': sessionCookieHeader(token) } });
 }

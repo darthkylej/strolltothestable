@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Account — Stroll to the Stable</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .notice { padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.03); margin:12px 0; line-height:1.45; }
+  .notice.ok { border-color:rgba(123,203,140,.35); background:rgba(123,203,140,.08); }
+  .notice.warn { border-color:rgba(242,199,110,.4); background:rgba(242,199,110,.10); }
+  .section { margin-top:26px; }
+  .section h2 { margin:0 0 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <p><a class="link" href="/dashboard.html">‹ My Nativities</a></p>
+  <p class="eyebrow">Stroll to the Stable</p>
+  <h1>My Account</h1>
+  <div class="error-banner" data-error-banner></div>
+  <div class="notice ok" id="successMsg" style="display:none"></div>
+
+  <div class="notice warn" id="resetPrompt" style="display:none">You're logged in. Set a new password below so you can log in with it next time.</div>
+
+  <section class="section" id="passwordSection">
+    <h2>Change Password</h2>
+    <form id="passwordForm">
+      <div class="field" id="currentField">
+        <label for="currentPassword">Current password</label>
+        <input type="password" id="currentPassword" autocomplete="current-password">
+        <p class="hint">Don't know it? <a class="link" href="/forgot.html">Get a login link by email</a>.</p>
+      </div>
+      <div class="field">
+        <label for="newPassword">New password</label>
+        <input type="password" id="newPassword" autocomplete="new-password" minlength="6" required>
+        <p class="hint">At least 6 characters.</p>
+      </div>
+      <div class="field">
+        <label for="confirmPassword">Confirm new password</label>
+        <input type="password" id="confirmPassword" autocomplete="new-password" minlength="6" required>
+      </div>
+      <button type="submit" class="btn btn-primary" id="passwordBtn">Save New Password</button>
+    </form>
+  </section>
+
+  <section class="section">
+    <h2>My Information</h2>
+    <p class="hint" style="margin-top:0">Your email is also your login.</p>
+    <div class="notice warn" id="infoWarning">Your name, phone and email appear on your waivers. Changing them clears the waiver of any nativity that is not checked in yet, so you'll sign a fresh one. Checked-in nativities are not affected.</div>
+    <form id="infoForm">
+      <div class="field"><label for="name">Full name</label><input type="text" id="name" autocomplete="name" required></div>
+      <div class="field"><label for="phone">Phone</label><input type="tel" id="phone" autocomplete="tel" required></div>
+      <div class="field"><label for="email">Email</label><input type="email" id="email" autocomplete="email" inputmode="email" required></div>
+      <button type="submit" class="btn btn-primary" id="infoBtn">Save My Information</button>
+    </form>
+  </section>
+</div>
+<script src="/js/app.js"></script>
+<script>
+let account = null;
+function success(msg) {
+  const el = document.getElementById('successMsg');
+  el.textContent = msg; el.style.display = msg ? 'block' : 'none';
+  if (msg) window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function load() {
+  try {
+    account = await api('/api/account');
+    for (const k of ['name', 'phone', 'email']) document.getElementById(k).value = account[k] || '';
+    const recovering = account.canResetWithoutCurrent;
+    document.getElementById('currentField').style.display = recovering ? 'none' : 'block';
+    if (recovering && new URLSearchParams(location.search).get('reset') === '1') {
+      document.getElementById('resetPrompt').style.display = 'block';
+      document.getElementById('newPassword').focus();
+    }
+  } catch (err) {
+    if (/log in/i.test(err.message)) { window.location.replace('/login.html'); return; }
+    showError(err.message);
+  }
+}
+
+document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+  e.preventDefault(); hideError(); success('');
+  const next = document.getElementById('newPassword').value;
+  if (next !== document.getElementById('confirmPassword').value) { showError('The new passwords do not match.'); return; }
+  const btn = document.getElementById('passwordBtn'); btn.disabled = true;
+  try {
+    await api('/api/account/password', { method: 'POST', body: { currentPassword: document.getElementById('currentPassword').value, newPassword: next } });
+    e.target.reset();
+    document.getElementById('resetPrompt').style.display = 'none';
+    document.getElementById('currentField').style.display = 'block';
+    success('Password saved. Use it with your email next time you log in.');
+  } catch (err) { showError(err.message); }
+  finally { btn.disabled = false; }
+});
+
+document.getElementById('infoForm').addEventListener('submit', async (e) => {
+  e.preventDefault(); hideError(); success('');
+  const body = { name: document.getElementById('name').value, phone: document.getElementById('phone').value, email: document.getElementById('email').value };
+  const changed = ['name', 'phone', 'email'].some((k) => body[k].trim() !== (account[k] || ''));
+  if (!changed) { success('No changes to save.'); return; }
+  if (!confirm('Saving will clear the waiver of any nativity that is not checked in yet, so you will need to sign it again. Continue?')) return;
+  const btn = document.getElementById('infoBtn'); btn.disabled = true;
+  try {
+    const r = await api('/api/account', { method: 'PATCH', body });
+    await load();
+    success(r.waiversCleared
+      ? `Information saved. ${r.waiversCleared} waiver${r.waiversCleared === 1 ? ' was' : 's were'} cleared; please sign ${r.waiversCleared === 1 ? 'it' : 'them'} again from My Nativities.`
+      : 'Information saved.');
+  } catch (err) { showError(err.message); }
+  finally { btn.disabled = false; }
+});
+
+load();
+</script>
+</body>
+</html>

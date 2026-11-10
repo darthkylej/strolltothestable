@@ -3,6 +3,7 @@ import { json, error, requireAdmin } from '../lib/util.js';
 import { sendClaimTicketEmail } from '../lib/email.js';
 import { readImageUpload } from '../lib/images.js';
 import { removeUnreferencedPhotos } from './nativities.js';
+import { resetWaiver, resetWaiversForUser } from './waivers.js';
 import {
   TOUR_MEDIA_PREFIX,
   MAX_TOUR_MEDIA_BYTES,
@@ -145,9 +146,28 @@ export async function updateNativity(request, env, session, id) {
   }
 
   const sql = db(env);
-  const rows = await sql`SELECT id, owner_user_id FROM nativities WHERE id = ${id}`;
+  const rows = await sql`
+    SELECT n.*, u.name AS owner_name, u.phone AS owner_phone, u.email AS owner_email
+    FROM nativities n JOIN users u ON u.id = n.owner_user_id WHERE n.id = ${id}`;
   if (rows.length === 0) return error('Not found.', 404);
-  const ownerUserId = rows[0].owner_user_id;
+  const n = rows[0];
+  const ownerUserId = n.owner_user_id;
+
+  // What the waiver covers: donor info, description, story and pieces.
+  const norm = (v) => String(v ?? '').trim();
+  const newDescription = typeof body.description === 'string' ? (body.description.trim().slice(0, 5000) || null) : null;
+  const ownerChanged = norm(owner.name) !== norm(n.owner_name) || norm(owner.phone) !== norm(n.owner_phone)
+    || norm(owner.email).toLowerCase() !== norm(n.owner_email).toLowerCase();
+  const oldPieces = await sql`SELECT description, condition_notes FROM nativity_pieces WHERE nativity_id = ${id} ORDER BY piece_number`;
+  const piecesChanged = JSON.stringify(oldPieces.map((p) => [norm(p.description), norm(p.condition_notes)]))
+    !== JSON.stringify(pieces.map((p) => [norm(p.description), norm(p.condition_notes)]));
+  const contentChanged = piecesChanged || norm(body.story) !== norm(n.story) || norm(newDescription) !== norm(n.description);
+
+  // A checked-in submission is final: its waiver cannot be regenerated, so
+  // the information the waiver covers cannot change.
+  if (n.status !== 'pending' && contentChanged) {
+    return error('This nativity has been checked in, so its description, story and pieces are final.', 409);
+  }
   const emailTaken = await sql`
     SELECT 1 FROM users WHERE lower(email) = lower(${owner.email.trim()}) AND id <> ${ownerUserId} LIMIT 1
   `;
@@ -162,7 +182,7 @@ export async function updateNativity(request, env, session, id) {
   await sql`
     UPDATE nativities
     SET story = ${body.story?.trim() || null},
-        description = ${typeof body.description === 'string' ? (body.description.trim().slice(0, 5000) || null) : null},
+        description = ${newDescription},
         include_in_tour = ${body.includeInTour !== false},
         updated_at = now()
     WHERE id = ${id}
@@ -207,7 +227,15 @@ export async function updateNativity(request, env, session, id) {
   await sql`UPDATE nativities SET piece_count = ${pieces.length}, updated_at = now() WHERE id = ${id}`;
   await setAdminNote(env, id, body.adminNote || '', session.email);
 
-  return json({ ok: true });
+  // Like donor edits, admin edits clear waivers so a fresh one is signed.
+  let waiversCleared = 0;
+  if (contentChanged && n.status === 'pending' && (n.waiver_signed || n.waiver_method)) {
+    await resetWaiver(env, n);
+    waiversCleared++;
+  }
+  if (ownerChanged) waiversCleared += await resetWaiversForUser(env, ownerUserId);
+
+  return json({ ok: true, waiversCleared });
 }
 
 export async function deleteNativity(request, env, session, id) {
