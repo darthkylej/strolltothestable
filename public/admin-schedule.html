@@ -103,6 +103,16 @@
         </div>
         <div class="daily-schedule" id="pickupDays"></div>
       </div>
+      <div class="schedule-group">
+        <h3>4. Public Event Dates and Hours</h3>
+        <p class="schedule-help">Shown on the home page and the "What is A Stroll to the Stable?" page, and used for the event dates on waivers. Choose the event's first and last day, then set each day's public hours.</p>
+        <div class="range-row">
+          <div class="field"><label for="eventRangeStart">First day</label><input class="date-text" type="text" id="eventRangeStart" inputmode="numeric" placeholder="MM/DD/YYYY"></div>
+          <div class="field"><label for="eventRangeEnd">Last day</label><input class="date-text" type="text" id="eventRangeEnd" inputmode="numeric" placeholder="MM/DD/YYYY"></div>
+          <button class="btn btn-outline build-days-btn" type="button" id="buildEventDays">Set Daily Times</button>
+        </div>
+        <div class="daily-schedule" id="eventDays"></div>
+      </div>
     </div>
     <button class="btn btn-primary schedule-save" id="saveScheduleBtn">Save Schedule</button>
   </section>
@@ -187,7 +197,8 @@ async function loadSettings(){
     fillTimeSelect(document.getElementById('submissionEndTime'),end.time||'23:45');
     const dropoffDays=Array.isArray(settings.dropoffDays)?settings.dropoffDays:[];
     const pickupDays=Array.isArray(settings.pickupDays)?settings.pickupDays:[];
-    setRangeInputs('dropoff',dropoffDays); setRangeInputs('pickup',pickupDays);
+    const eventDays=Array.isArray(settings.eventDays)?settings.eventDays:[];
+    setRangeInputs('dropoff',dropoffDays); setRangeInputs('pickup',pickupDays); setRangeInputs('event',eventDays);
     if(!dropoffDays.length&&settings.dropoffStart&&settings.dropoffEnd){
       document.getElementById('dropoffRangeStart').value=formatDateInput(new Date(settings.dropoffStart));
       document.getElementById('dropoffRangeEnd').value=formatDateInput(new Date(settings.dropoffEnd));
@@ -196,7 +207,7 @@ async function loadSettings(){
       document.getElementById('pickupRangeStart').value=formatDateInput(new Date(settings.pickupStart));
       document.getElementById('pickupRangeEnd').value=formatDateInput(new Date(settings.pickupEnd));
     }
-    renderDays('dropoff',dropoffDays); renderDays('pickup',pickupDays);
+    renderDays('dropoff',dropoffDays); renderDays('pickup',pickupDays); renderDays('event',eventDays);
   }catch(err){showError(err.message);}
 }
 document.getElementById('submissionsToggle').addEventListener('change',async e=>{
@@ -206,13 +217,14 @@ document.getElementById('submissionsToggle').addEventListener('change',async e=>
 });
 document.getElementById('buildDropoffDays').addEventListener('click',()=>buildDays('dropoff'));
 document.getElementById('buildPickupDays').addEventListener('click',()=>buildDays('pickup'));
+document.getElementById('buildEventDays').addEventListener('click',()=>buildDays('event'));
 document.querySelector('.schedule-settings').addEventListener('change',e=>{if(e.target.matches('[data-available]'))e.target.closest('[data-day-row]').classList.toggle('unavailable',!e.target.checked);});
 document.getElementById('saveScheduleBtn').addEventListener('click',async()=>{
   hideError(); const btn=document.getElementById('saveScheduleBtn'); btn.disabled=true;
   try{
     const submissionEndDate=document.getElementById('submissionEndDate').value.trim();
-    const body={submissionStart:'',submissionEnd:submissionEndDate?partsToIso(submissionEndDate,document.getElementById('submissionEndTime').value,'deadline'):'',dropoffDays:collectDays('dropoff'),pickupDays:collectDays('pickup'),dropoffStart:'',dropoffEnd:'',pickupStart:'',pickupEnd:''};
-    for(const group of [body.dropoffDays,body.pickupDays]) for(const day of group) if(day.available&&day.start>=day.end) throw new Error('Each available day must end after it starts.');
+    const body={submissionStart:'',submissionEnd:submissionEndDate?partsToIso(submissionEndDate,document.getElementById('submissionEndTime').value,'deadline'):'',dropoffDays:collectDays('dropoff'),pickupDays:collectDays('pickup'),eventDays:collectDays('event'),dropoffStart:'',dropoffEnd:'',pickupStart:'',pickupEnd:''};
+    for(const group of [body.dropoffDays,body.pickupDays,body.eventDays]) for(const day of group) if(day.available&&day.start>=day.end) throw new Error('Each available day must end after it starts.');
     await api('/api/admin/settings',{method:'POST',body}); showSuccess('Nativity schedule saved.'); await loadSettings();
   }catch(err){showError(err.message);}finally{btn.disabled=false;}
 });

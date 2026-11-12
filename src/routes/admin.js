@@ -82,7 +82,7 @@ export async function updateAdminSettings(request, env, session) {
 
   const validDate = /^\d{4}-\d{2}-\d{2}$/;
   const validTime = /^([01]\d|2[0-3]):[0-5]\d$/;
-  for (const key of ['dropoffDays', 'pickupDays']) {
+  for (const key of ['dropoffDays', 'pickupDays', 'eventDays']) {
     if (body[key] === undefined) continue;
     if (!Array.isArray(body[key])) return error('Invalid daily schedule.');
     const normalized = [];
