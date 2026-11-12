@@ -630,6 +630,15 @@
   dialog.addEventListener('click', event => {
     if (event.target === dialog && typeof dialog.close === 'function') dialog.close();
   });
+
+  // Links like /index.html?submit=1 (from the About page) start the submit flow.
+  if (new URLSearchParams(location.search).get('submit') === '1') {
+    history.replaceState(null, '', location.pathname);
+    fetch('/api/settings', { cache: 'no-store' }).then((r) => r.json()).then((s) => {
+      const btn = document.getElementById('submitNativity');
+      if (s.submissionsOpen && btn) btn.click();
+    }).catch(() => {});
+  }
 </script>
 </body>
 </html>

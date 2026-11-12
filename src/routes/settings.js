@@ -15,6 +15,7 @@ export async function getPublicSettings(request, env) {
       pickupEnd: settings.pickupEnd,
       dropoffDays: Array.isArray(settings.dropoffDays) ? settings.dropoffDays : [],
       pickupDays: Array.isArray(settings.pickupDays) ? settings.pickupDays : [],
+      eventDays: Array.isArray(settings.eventDays) ? settings.eventDays : [],
       landingBackgroundUrl: settings.landingBackgroundKey
         ? `/site-background?v=${encodeURIComponent(settings.updatedAt || '')}`
         : '',

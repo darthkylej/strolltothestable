@@ -3,6 +3,7 @@ import { json, error, requireUser, requireAdmin } from '../lib/util.js';
 import { getSiteSettings } from '../lib/siteSettings.js';
 import { createWaiverPdf } from '../lib/waiverPdf.js';
 import { sendWaiverPdfEmail } from '../lib/email.js';
+import { openEventDays } from '../lib/eventSchedule.js';
 import { AGREEMENT_VERSION, DEFAULT_EVENT, agreementSections, RELEASE_ACK, CONSENT_TEXT } from '../lib/waiverText.js';
 
 const key = n => `_waivers/${n.id}.json`;
@@ -21,8 +22,8 @@ function eventDates(settings) {
   const pick = (settings.pickupDays || []).filter(x => x.available !== false).map(x => formatDay(x.date)).filter(Boolean).sort();
   const pickupDeadline = pick.at(-1) || formatDay(settings.pickupEnd);
   return {
-    eventStart: formatDay(settings.eventStart) || DEFAULT_EVENT.start,
-    eventEnd: formatDay(settings.eventEnd) || DEFAULT_EVENT.end,
+    eventStart: openEventDays(settings)[0]?.date || formatDay(settings.eventStart) || DEFAULT_EVENT.start,
+    eventEnd: openEventDays(settings).at(-1)?.date || formatDay(settings.eventEnd) || DEFAULT_EVENT.end,
     dropoffStart: drop[0] || formatDay(settings.dropoffStart),
     dropoffEnd: drop.at(-1) || formatDay(settings.dropoffEnd) || drop[0] || formatDay(settings.dropoffStart),
     pickupStart: pick[0] || formatDay(settings.pickupStart),

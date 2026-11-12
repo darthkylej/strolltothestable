@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS = {
   pickupEnd: '',
   dropoffDays: [],
   pickupDays: [],
+  eventDays: [],
   landingBackgroundKey: '',
   messageNotifications: null,
 };

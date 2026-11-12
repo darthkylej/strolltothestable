@@ -8,6 +8,8 @@ import * as settings from './routes/settings.js';
 import * as messages from './routes/messages.js';
 import { getTour } from './routes/tour.js';
 import { error } from './lib/util.js';
+import { getSiteSettings, submissionsAreOpen } from './lib/siteSettings.js';
+import { openEventDays, dateRangeText, hoursCardsHtml, hoursSentence } from './lib/eventSchedule.js';
 
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -94,29 +96,26 @@ class LandingSubtitleHandler {
   }
 }
 
-class LandingDescriptionHandler {
-  element(element) {
-    element.setAttribute('content', 'A Stroll to the Stable in Seguin, November 27 through December 6, 2026.');
-  }
+// Home and About pages show the public event dates and hours that admins set
+// on the scheduling page.
+class SetHtml {
+  constructor(html) { this.html = html; }
+  element(element) { element.setInnerContent(this.html, { html: true }); }
+}
+class SetAttr {
+  constructor(name, value) { this.name = name; this.value = value; }
+  element(element) { element.setAttribute(this.name, this.value); }
 }
 
-class LandingHoursHandler {
-  element(element) {
-    element.setInnerContent(`
-      <div class="hours-card">
-        <strong>Saturday</strong>
-        <span>9:00 AM – 9:00 PM</span>
-      </div>
-      <div class="hours-card">
-        <strong>Sunday</strong>
-        <span>12:00 PM – 6:00 PM</span>
-      </div>
-      <div class="hours-card">
-        <strong>Monday – Friday</strong>
-        <span>12:00 PM – 9:00 PM</span>
-      </div>
-    `, { html: true });
-  }
+function escHtml(v) {
+  return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[c]);
+}
+
+async function eventInfo(env) {
+  const settings = await getSiteSettings(env);
+  const days = openEventDays(settings);
+  const range = dateRangeText(days);
+  return { settings, days, range, open: submissionsAreOpen(settings) };
 }
 
 async function serveTourMedia(request, env, path) {
@@ -223,11 +222,29 @@ async function handle(request, env) {
 
         if (method === 'GET' && contentType.includes('text/html')) {
           if (isHome) {
+            const info = await eventInfo(env);
             return new HTMLRewriter()
               .on('head', new LandingHeadHandler())
               .on('.landing-subtitle', new LandingSubtitleHandler())
-              .on('meta[name="description"]', new LandingDescriptionHandler())
-              .on('.hours-grid', new LandingHoursHandler())
+              .on('meta[name="description"]', new SetAttr('content', info.range ? `A Stroll to the Stable in Seguin, ${info.range}.` : 'A Stroll to the Stable in Seguin.'))
+              .on('.event-date', new SetHtml(escHtml(info.range || 'Dates to be announced')))
+              .on('.hours-grid', new SetHtml(hoursCardsHtml(info.days)))
+              .transform(response);
+          }
+
+          if (path === '/about' || path === '/about.html') {
+            const info = await eventInfo(env);
+            const when = info.range
+              ? `${escHtml(info.range)}. ${escHtml(hoursSentence(info.days))}.`
+              : 'Dates and hours will be announced soon.';
+            const lend = info.open
+              ? 'Yes. <a href="/index.html?submit=1">Submit your Nativity</a> to preregister, then bring it during drop-off and pick it up after the event.'
+              : 'Sorry, submissions are currently closed. Please try again next year.';
+            return new HTMLRewriter()
+              .on('head', new NavHeadHandler())
+              .on('body', new NavBodyHandler())
+              .on('[data-event-when]', new SetHtml(when))
+              .on('[data-lend-answer]', new SetHtml(lend))
               .transform(response);
           }
 
