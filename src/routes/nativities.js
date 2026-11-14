@@ -1,5 +1,5 @@
 import { db } from '../lib/db.js';
-import { nextSubmissionNumber } from '../lib/auth.js';
+import { nextSubmissionNumber, ensureDonorCode } from '../lib/auth.js';
 import { json, error, requireUser } from '../lib/util.js';
 import { getSiteSettings, submissionsAreOpen } from '../lib/siteSettings.js';
 import { readImageUpload } from '../lib/images.js';
@@ -135,6 +135,7 @@ export async function submitPieces(request, env, session, id) {
     UPDATE nativities SET submission_number = ${submissionNumber}, piece_count = ${pieces.length}, updated_at = now()
     WHERE id = ${id}
   `;
+  await ensureDonorCode(sql, session.userId);
 
   // No email here: the single confirmation email is sent when the waiver is
   // signed online or the donor chooses to sign a paper copy at drop-off.
@@ -166,6 +167,7 @@ export async function resubmit(request, env, session, sourceId) {
     RETURNING id
   `;
   const newId = inserted[0].id;
+  await ensureDonorCode(sql, session.userId);
 
   const pieces = await sql`SELECT * FROM nativity_pieces WHERE nativity_id = ${src.id} ORDER BY piece_number`;
   for (const p of pieces) {

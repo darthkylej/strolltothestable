@@ -3,7 +3,7 @@
 import { PDFDocument } from 'pdf-lib';
 import { db } from '../lib/db.js';
 import { json, error, requireAdmin } from '../lib/util.js';
-import { hashPassword, generateShortPassword, nextUsername, nextSubmissionNumber } from '../lib/auth.js';
+import { hashPassword, generateShortPassword, nextUsername, nextSubmissionNumber, ensureDonorCode } from '../lib/auth.js';
 import { getSiteSettings } from '../lib/siteSettings.js';
 import { sendDonorCheckInSummaryEmail } from '../lib/email.js';
 import { paperChoice, paperPdf, writeAdminPaperChoice, resetWaiversForUser } from './waivers.js';
@@ -99,7 +99,7 @@ export async function createDonor(request, env, session) {
     const existing = await sql`SELECT id, donor_code, name FROM users WHERE lower(email) = lower(${fields.email}) ORDER BY id LIMIT 1`;
     if (existing.length) {
       return json({
-        error: `${existing[0].name} (${existing[0].donor_code}) already uses that email address.`,
+        error: `${existing[0].name}${existing[0].donor_code ? ` (${existing[0].donor_code})` : ''} already uses that email address.`,
         existing: { id: existing[0].id, donorCode: existing[0].donor_code, name: existing[0].name },
       }, { status: 409 });
     }
@@ -199,6 +199,7 @@ export async function addNativity(request, env, session, id) {
     RETURNING id
   `;
   const nativityId = inserted[0].id;
+  await ensureDonorCode(sql, id);
   await sql`
     INSERT INTO nativity_pieces (nativity_id, piece_number, description, condition_notes)
     SELECT ${nativityId}::bigint, g, ${pieceLabel}::text || ' (' || g || ' of ' || ${pieceCount}::int || ')', ${condition}::text

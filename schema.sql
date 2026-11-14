@@ -29,13 +29,14 @@ CREATE TABLE admin_otp_codes (
 CREATE INDEX idx_admin_otp_email ON admin_otp_codes (email);
 
 -- ── Users (regular donors/loaners) ─────────────────────────────────────
--- Backs the permanent donor code each person keeps from year to year.
+-- Backs the permanent donor code each person keeps from year to year. Codes
+-- are issued in order of first nativity submission (see ensureDonorCode).
 CREATE SEQUENCE donor_code_seq START 1001;
 
 CREATE TABLE users (
     id            BIGSERIAL PRIMARY KEY,
     username      TEXT UNIQUE NOT NULL,          -- e.g. garcia1, garcia2
-    donor_code    TEXT UNIQUE NOT NULL DEFAULT 'D-' || nextval('donor_code_seq'), -- permanent, e.g. D-1042
+    donor_code    TEXT UNIQUE,                   -- permanent, e.g. D-1042; issued with the first submitted nativity
     name          TEXT NOT NULL,
     phone         TEXT,                          -- optional for walk-in donors registered by an admin
     email         TEXT,                          -- optional for walk-in donors registered by an admin
