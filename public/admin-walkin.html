@@ -118,7 +118,7 @@
         </div>
         <span class="code-chip code-big" id="donorCode"></span>
       </div>
-      <p class="hint" id="codeHint">Write the donor code on their boxes. At pick-up, search this code to find everything they brought.</p>
+      <p class="hint" id="codeHint">Write the donor code on their boxes.</p>
       <details style="margin-top:12px">
         <summary style="cursor:pointer;color:var(--gold-bright)">Edit donor details</summary>
         <form id="editDonorForm" style="margin-top:12px" autocomplete="off">
@@ -157,7 +157,7 @@
         <input id="addPhoto" type="file" accept="image/*" capture="environment">
       </div>
       <button class="btn btn-primary" id="addBtn" type="submit">Add Nativity</button>
-      <p class="hint" id="addHint">Each one gets its own claim number. Add them one after another. Waivers and check-in for the whole batch appear below.</p>
+      <p class="hint" id="addHint">Add everything they brought, one after another. Then print the waivers and check it all in below.</p>
     </form>
 
     <div class="card" style="margin-top:16px">
@@ -167,10 +167,6 @@
       <div class="nat-list" id="natList"></div>
     </div>
 
-    <details class="card" id="olderCard" style="margin-top:16px;display:none">
-      <summary id="olderSummary">Earlier years</summary>
-      <div class="nat-list" id="olderList" style="margin-top:12px"></div>
-    </details>
   </div>
 </div>
 <script src="/js/app.js"></script>
@@ -290,11 +286,10 @@ function groups() {
   const pending = current.filter((n) => n.status === 'pending');
   return {
     current,
-    older: nativities.filter((n) => Number(n.event_year) !== Number(eventYear)),
+    // Ready to check in: a paper waiver to sign at the desk, or already signed.
+    ready: pending.filter((n) => n.waiver_signed || n.waiver_method === 'paper'),
     toSign: pending.filter((n) => !n.waiver_signed && n.waiver_method === 'paper'),
     noWaiver: pending.filter((n) => !n.waiver_signed && n.waiver_method !== 'paper'),
-    toCheckIn: pending.filter((n) => n.waiver_signed),
-    toReturn: current.filter((n) => n.status === 'submitted'),
   };
 }
 
@@ -304,7 +299,7 @@ function renderDonor() {
   codeEl.textContent = donor.donorCode || '';
   codeEl.style.display = donor.donorCode ? '' : 'none';
   document.getElementById('codeHint').textContent = donor.donorCode
-    ? 'Write the donor code on their boxes. At pick-up, search this code to find everything they brought.'
+    ? 'Write the donor code on their boxes.'
     : 'Their donor code is issued when you add their first nativity.';
   document.title = `${donor.donorCode ? donor.donorCode + ' ' : ''}${donor.name} — Walk-In Desk`;
   const bits = [];
@@ -329,42 +324,30 @@ function renderNativities() {
   document.getElementById('natList').innerHTML = g.current.map(natRowHtml).join('');
 
   const steps = [];
-  if (g.toSign.length) {
+  if (g.noWaiver.length) {
+    steps.push(`<div class="batch-step"><h3>Registered online, waiver not signed</h3>
+      <p>${natCount(g.noWaiver.length)} from this donor ${g.noWaiver.length === 1 ? 'has' : 'have'} no signed waiver. Switch ${g.noWaiver.length === 1 ? 'it' : 'them'} to a paper waiver to sign here at the desk.</p>
+      <button type="button" class="btn btn-secondary" id="usePaperBtn">Use Paper Waiver${g.noWaiver.length === 1 ? '' : 's'}</button></div>`);
+  }
+  if (g.ready.length) {
     const printButtons = [];
     for (let offset = 0; offset < g.toSign.length; offset += waiverBatch) {
       const end = Math.min(offset + waiverBatch, g.toSign.length);
       const label = g.toSign.length <= waiverBatch ? `Print ${plural(g.toSign.length, 'Waiver')}` : `Print Waivers ${offset + 1}–${end}`;
       printButtons.push(`<a class="btn btn-secondary" target="_blank" rel="noopener" href="/api/admin/donors/${encodeURIComponent(donor.id)}/waivers-pdf?offset=${offset}">${label}</a>`);
     }
-    steps.push(`<div class="batch-step"><h3>1. Paper waivers</h3>
-      <p>${plural(g.toSign.length, 'waiver')} to sign, one per nativity. Print, have the donor sign each one, then mark them signed.</p>
+    const n = g.ready.length;
+    const emailLine = donor.email ? 'One email listing everything goes to the donor.' : 'No email on file, so tell them their donor code.';
+    steps.push(`<div class="batch-step"><h3>Sign waivers and check in</h3>
+      <p>${g.toSign.length
+        ? `Print the ${g.toSign.length === 1 ? 'waiver' : g.toSign.length + ' waivers'} (one per nativity) and have the donor sign ${g.toSign.length === 1 ? 'it' : 'each one'}. Then check in.`
+        : 'Waivers are signed.'} ${emailLine}</p>
       ${printButtons.join('')}
-      <button type="button" class="btn btn-primary" id="signAllBtn">Mark ${g.toSign.length === 1 ? 'Waiver' : `All ${g.toSign.length} Waivers`} Signed</button></div>`);
-  }
-  if (g.noWaiver.length) {
-    steps.push(`<div class="batch-step"><h3>Registered online, waiver not signed</h3>
-      <p>${natCount(g.noWaiver.length)} from this donor ${g.noWaiver.length === 1 ? 'has' : 'have'} no signed waiver. Switch ${g.noWaiver.length === 1 ? 'it' : 'them'} to a paper waiver to sign here at the desk.</p>
-      <button type="button" class="btn btn-secondary" id="usePaperBtn">Use Paper Waiver${g.noWaiver.length === 1 ? '' : 's'}</button></div>`);
-  }
-  if (g.toCheckIn.length) {
-    steps.push(`<div class="batch-step"><h3>${g.toSign.length ? '2' : '1'}. Check in</h3>
-      <p>${g.toCheckIn.length === 1 ? '1 nativity is' : g.toCheckIn.length + ' nativities are'} ready. ${donor.email ? 'One email listing everything goes to the donor.' : 'This donor has no email, so no email is sent.'}</p>
-      <button type="button" class="btn btn-primary" id="checkInAllBtn">Check In ${g.toCheckIn.length === 1 ? 'Nativity' : `All ${g.toCheckIn.length}`}</button></div>`);
-  }
-  if (g.toReturn.length) {
-    steps.push(`<div class="batch-step"><h3>Pick-up</h3>
-      <p>${g.toReturn.length === 1 ? '1 nativity is' : g.toReturn.length + ' nativities are'} checked in. Confirm every piece is going home before marking ${g.toReturn.length === 1 ? 'it' : 'them'} returned, or open one below to check it piece by piece.</p>
-      <button type="button" class="btn btn-secondary" id="returnAllBtn">Mark ${g.toReturn.length === 1 ? 'Nativity' : `All ${g.toReturn.length}`} Returned</button></div>`);
+      <button type="button" class="btn btn-primary" id="checkInAllBtn">${g.toSign.length ? 'Waivers Signed: ' : ''}Check In ${n === 1 ? 'Nativity' : `All ${n}`}</button></div>`);
   }
   document.getElementById('batch').innerHTML = steps.join('');
-  document.getElementById('signAllBtn')?.addEventListener('click', signAll);
   document.getElementById('usePaperBtn')?.addEventListener('click', usePaperAll);
   document.getElementById('checkInAllBtn')?.addEventListener('click', checkInAll);
-  document.getElementById('returnAllBtn')?.addEventListener('click', returnAll);
-
-  document.getElementById('olderCard').style.display = g.older.length ? 'block' : 'none';
-  document.getElementById('olderSummary').textContent = `Earlier years (${g.older.length})`;
-  document.getElementById('olderList').innerHTML = g.older.map((n) => natRowHtml(n).replace('<div class="nat-num">', `<div class="nat-num">${esc(n.event_year)} · `)).join('');
 }
 
 async function loadDonor() {
@@ -396,25 +379,25 @@ async function runBatch(items, verb, request) {
   return done;
 }
 
-async function signAll() {
-  const items = groups().toSign;
-  if (!confirm(`Confirm ${donor.name} has signed ${items.length === 1 ? 'the printed waiver' : `all ${items.length} printed waivers`}.`)) return;
-  const done = await runBatch(items, 'Marking signed', (n) => api(`/api/admin/nativities/${n.id}/paper-waiver-signed`, { method: 'POST', body: {} }));
-  await loadDonor();
-  if (done && done.length) showSuccess(`${plural(done.length, 'paper waiver')} marked signed. Keep the signed copies on file.`);
-}
-
 async function usePaperAll() {
   const items = groups().noWaiver;
   const done = await runBatch(items, 'Switching to paper', (n) => api(`/api/admin/nativities/${n.id}/paper-waiver`, { method: 'POST', body: {} }));
   await loadDonor();
-  if (done && done.length) showSuccess(`${plural(done.length, 'waiver')} switched to paper. Print them, then mark them signed.`);
+  if (done && done.length) showSuccess(`${plural(done.length, 'waiver')} switched to paper. Print, sign, and check in below.`);
 }
 
+// Records each paper waiver as signed (when it is not already) and checks the
+// nativity in, so registration, waiver and check-in finish in one action.
 async function checkInAll() {
-  const items = groups().toCheckIn;
-  if (!confirm(`Check in ${items.length === 1 ? 'this nativity' : `all ${items.length} nativities`} for ${donor.name}? Make sure everything listed is on the table.`)) return;
-  const done = await runBatch(items, 'Checking in', (n) => api(`/api/admin/nativities/${n.id}/finalize`, { method: 'POST', body: { notify: false } }));
+  const { ready: items, toSign } = groups();
+  const signLine = toSign.length
+    ? `${donor.name} has signed ${toSign.length === 1 ? 'the printed waiver' : `all ${toSign.length} printed waivers`}, and `
+    : '';
+  if (!confirm(`Confirm ${signLine}${items.length === 1 ? 'the nativity is' : `all ${items.length} nativities are`} on the table, then check ${items.length === 1 ? 'it' : 'them'} in.`)) return;
+  const done = await runBatch(items, 'Checking in', async (n) => {
+    if (!n.waiver_signed) await api(`/api/admin/nativities/${n.id}/paper-waiver-signed`, { method: 'POST', body: {} });
+    await api(`/api/admin/nativities/${n.id}/finalize`, { method: 'POST', body: { notify: false } });
+  });
   let emailNote = '';
   if (done && done.length) {
     try {
@@ -426,18 +409,10 @@ async function checkInAll() {
   if (done && done.length) showSuccess(`${done.length === 1 ? '1 nativity' : done.length + ' nativities'} checked in for ${donor.donorCode || donor.name}.${emailNote}`);
 }
 
-async function returnAll() {
-  const items = groups().toReturn;
-  if (!confirm(`Mark ${items.length === 1 ? 'this nativity' : `all ${items.length} nativities`} as returned to ${donor.name}?`)) return;
-  const done = await runBatch(items, 'Marking returned', (n) => api(`/api/admin/nativities/${n.id}/returned`, { method: 'POST' }));
-  await loadDonor();
-  if (done && done.length) showSuccess(`${done.length === 1 ? '1 nativity' : done.length + ' nativities'} marked returned.`);
-}
-
 function initDonorView() {
   document.getElementById('donorView').style.display = 'block';
   document.getElementById('otherDonorBtn').style.display = '';
-  document.getElementById('pageDescription').textContent = 'Add each nativity, then sign waivers and check everything in together.';
+  document.getElementById('pageDescription').textContent = 'Add each nativity, then sign the waivers and check everything in at once.';
 
   document.getElementById('addForm').addEventListener('submit', async (e) => {
     e.preventDefault(); hideError();
