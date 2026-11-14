@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visitor Analytics — Stroll to the Stable</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+.analytics {max-width:1050px} .analytics-header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.analytics-controls{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0}
+.analytics-controls button{width:auto;margin:0} .analytics-controls button[aria-pressed="true"]{background:var(--gold);color:#101827}
+.analytics-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.analytics-stat,.analytics-chart{padding:20px;border:1px solid var(--border);border-radius:14px;background:rgba(8,16,31,.75)}
+.analytics-stat .number{font-size:2rem;font-weight:800;color:var(--gold-bright);margin-top:10px}
+.analytics-stat .name{color:var(--wood)}
+.analytics-chart{margin-top:16px} #chart{width:100%;height:auto;display:block} #chart text{fill:var(--wood);font-size:12px}
+#status{color:var(--wood)} @media(max-width:650px){.analytics-stats{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page wide analytics">
+  <div class="analytics-header"><div><p class="eyebrow">Stroll to the Stable · Admin</p><h1>Visitor Analytics</h1></div><a class="btn btn-outline" style="width:auto" href="/admin-dashboard.html">Back to Admin</a></div>
+  <p>Page views, not unique visitors. No cookies or personal visitor information are stored by this counter.</p>
+  <div class="analytics-controls" role="group" aria-label="Traffic category">
+    <button class="btn" data-view="overall" aria-pressed="true">Entire website</button>
+    <button class="btn btn-outline" data-view="tour" aria-pressed="false">Scroll to the Stable</button>
+  </div>
+  <div class="analytics-stats">
+    <div class="analytics-stat"><div class="name">Today</div><div class="number" id="today">—</div></div>
+    <div class="analytics-stat"><div class="name">Last 30 days</div><div class="number" id="month">—</div></div>
+    <div class="analytics-stat"><div class="name">All-time page views</div><div class="number" id="all">—</div></div>
+  </div>
+  <div class="analytics-chart"><h2>Daily page views · Last 30 days</h2><svg id="chart" viewBox="0 0 900 300" role="img" aria-label="Daily page views over the last 30 days"></svg><p id="status">Loading statistics…</p></div>
+</div>
+<script src="/js/app.js"></script>
+<script>
+let rows=[],selected='overall',today='';
+const fmt=n=>Number(n).toLocaleString();
+const ns='http://www.w3.org/2000/svg';
+function el(tag,attrs={},text=''){const node=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))node.setAttribute(k,v);if(text!==undefined)node.textContent=text;return node;}
+function render(){
+  const totals=new Map();
+  for(const row of rows){
+    if(selected==='tour' && row.category!=='tour')continue;
+    totals.set(row.day,(totals.get(row.day)||0)+Number(row.views));
+  }
+  const dates=[];
+  const base=new Date(today+'T12:00:00Z');
+  for(let i=29;i>=0;i--){const d=new Date(base);d.setUTCDate(d.getUTCDate()-i);dates.push(d.toISOString().slice(0,10));}
+  const values=dates.map(d=>totals.get(d)||0);
+  document.getElementById('today').textContent=fmt(totals.get(today)||0);
+  document.getElementById('month').textContent=fmt(values.reduce((a,b)=>a+b,0));
+  document.getElementById('all').textContent=fmt([...totals.values()].reduce((a,b)=>a+b,0));
+  const svg=document.getElementById('chart');svg.replaceChildren();
+  const left=52,top=18,bottom=255,w=830,h=bottom-top;
+  const max=Math.max(1,...values),scale=Math.ceil(max/4)||1,ceiling=scale*4;
+  for(let i=0;i<=4;i++){
+    const y=bottom-i*h/4;
+    svg.append(el('line',{x1:left,y1:y,x2:left+w,y2:y,stroke:'#536076','stroke-opacity':'.5'}));
+    svg.append(el('text',{x:42,y:y+4,'text-anchor':'end'},fmt(i*scale)));
+  }
+  const step=w/30;
+  values.forEach((v,i)=>{
+    const height=v/ceiling*h;
+    const rect=el('rect',{x:left+i*step+3,y:bottom-height,width:Math.max(3,step-6),height:Math.max(0,height),rx:3,fill:'#e4ba70'});
+    rect.append(el('title',{},dates[i]+': '+fmt(v)+' page views'));
+    svg.append(rect);
+  });
+  for(const i of [0,5,10,15,20,25,29])svg.append(el('text',{x:left+(i+.5)*step,y:280,'text-anchor':'middle'},dates[i].slice(5)));
+  document.getElementById('status').textContent='Dates use Central Time. Tracking began when the counter was installed.';
+}
+document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>{
+  selected=button.dataset.view;
+  document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+  render();
+}));
+(async()=>{
+ try{
+   const data=await api('/api/admin/page-views');
+   rows=data.rows;today=data.today;render();
+ }catch(e){document.getElementById('status').textContent='Unable to load analytics. Verify the page_view_daily database migration has been run.';}
+})();
+</script>
+</body></html>
