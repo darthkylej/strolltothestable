@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walk-In Desk — Stroll to the Stable Admin</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .desk-page { max-width:920px; }
+  .desk-header { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:22px; }
+  .desk-header p { margin:6px 0 0; color:var(--wood); }
+  .desk-tools { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+  .desk-tools .btn { width:auto; margin:0; padding:10px 16px; }
+  .admin-success { display:none; margin:0 0 16px; padding:12px 14px; border-radius:12px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .optional { color:var(--muted); font-weight:500; font-size:.85em; }
+  .donor-list { display:grid; gap:8px; margin-top:12px; }
+  .donor-row { display:flex; justify-content:space-between; align-items:center; gap:12px; text-decoration:none; padding:13px 15px; border:1px solid var(--border); border-radius:14px; background:rgba(10,19,35,.78); transition:.15s ease; }
+  .donor-row:hover { border-color:var(--border-strong); background:rgba(14,25,44,.92); }
+  .donor-name { font-weight:700; color:var(--gold-bright); overflow-wrap:anywhere; }
+  .donor-meta { color:var(--muted); font-size:14px; margin-top:2px; overflow-wrap:anywhere; }
+  .code-chip { display:inline-block; padding:4px 10px; border-radius:999px; background:#f2c76e; color:#10172a; font-weight:900; font-size:14px; white-space:nowrap; letter-spacing:.02em; }
+  .code-big { font-size:1.5rem; padding:8px 18px; }
+  .donor-head { display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
+  .donor-head h2 { margin:0; }
+  .donor-contact { color:var(--wood); margin:6px 0 0; overflow-wrap:anywhere; }
+  .donor-contact a { color:var(--gold-bright); }
+  .add-grid { display:grid; grid-template-columns:1fr 110px; gap:12px; }
+  .add-card .btn { margin-bottom:0; }
+  .hint { color:var(--muted); font-size:14px; margin:8px 0 0; line-height:1.45; }
+  .nat-list { display:grid; gap:8px; }
+  .nat-row { display:flex; align-items:center; gap:12px; text-decoration:none; padding:11px 13px; border:1px solid var(--border); border-radius:12px; background:rgba(8,16,31,.55); }
+  .nat-row:hover { border-color:var(--border-strong); }
+  .nat-row > div { flex:1; min-width:0; }
+  .nat-num { font-weight:700; color:var(--gold-bright); }
+  .nat-desc { color:var(--text); font-size:14px; margin-top:2px; overflow-wrap:anywhere; }
+  .nat-thumb { width:52px; height:52px; object-fit:cover; border-radius:8px; border:1px solid var(--border); flex-shrink:0; }
+  .batch { display:grid; gap:10px; margin-bottom:14px; }
+  .batch:empty { margin:0; }
+  .batch-step { padding:12px 14px; border:1px solid var(--border); border-radius:12px; background:rgba(8,16,31,.5); }
+  .batch-step h3 { margin:0 0 4px; font-size:1rem; color:var(--gold-bright); }
+  .batch-step p { margin:0 0 10px; color:var(--wood); font-size:14px; line-height:1.45; }
+  .batch-step .btn { width:auto; margin:0 8px 6px 0; }
+  .progress { color:#ffe7b5; font-size:14px; margin-top:6px; min-height:1.2em; }
+  details.card > summary { cursor:pointer; font-weight:700; }
+  @media (max-width:700px) {
+    .desk-header { display:block; }
+    .desk-tools { justify-content:flex-start; margin-top:14px; }
+    .two-col { grid-template-columns:1fr; gap:0; }
+    .batch-step .btn { width:100%; margin-right:0; }
+  }
+</style>
+</head>
+<body>
+<div class="page wide desk-page">
+  <div class="desk-header">
+    <div>
+      <p class="eyebrow">Stroll to the Stable · Admin</p>
+      <h1>Walk-In Desk</h1>
+      <p id="pageDescription">Register someone who shows up without an account, and record everything they brought.</p>
+    </div>
+    <div class="desk-tools">
+      <a class="btn btn-outline" href="/admin-dashboard.html">← Admin Home</a>
+      <a class="btn btn-outline" id="otherDonorBtn" href="/admin-walkin.html" style="display:none">Another Donor</a>
+    </div>
+  </div>
+
+  <div class="error-banner" data-error-banner></div>
+  <div class="admin-success" id="successBanner"></div>
+
+  <!-- Step 1: find or create the donor -->
+  <div id="findView" style="display:none">
+    <div class="card">
+      <h2 style="margin-top:0">Find a donor</h2>
+      <input type="text" id="donorSearch" aria-label="Find a donor" placeholder="Donor code, name, phone, or email…" autocomplete="off">
+      <div class="donor-list" id="donorResults"></div>
+    </div>
+
+    <form class="card" id="newDonorForm" style="margin-top:16px" autocomplete="off">
+      <h2 style="margin-top:0">New donor</h2>
+      <p class="hint" style="margin:0 0 14px">Only a name is needed. They get a donor code right away.</p>
+      <div class="field">
+        <label for="newName">Name</label>
+        <input id="newName" type="text" maxlength="100" required>
+      </div>
+      <div class="two-col">
+        <div class="field">
+          <label for="newPhone">Phone <span class="optional">optional</span></label>
+          <input id="newPhone" type="tel" maxlength="40">
+        </div>
+        <div class="field">
+          <label for="newEmail">Email <span class="optional">optional</span></label>
+          <input id="newEmail" type="email" maxlength="254">
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="field">
+          <label for="newAddress">Street address <span class="optional">optional, for the waiver</span></label>
+          <input id="newAddress" type="text" maxlength="200">
+        </div>
+        <div class="field">
+          <label for="newCsz">City, State ZIP <span class="optional">optional</span></label>
+          <input id="newCsz" type="text" maxlength="200">
+        </div>
+      </div>
+      <div class="donor-list" id="possibleMatches" style="margin:0 0 14px"></div>
+      <button class="btn btn-primary" id="createDonorBtn" type="submit">Create Donor</button>
+    </form>
+  </div>
+
+  <!-- Step 2: the donor and their nativities -->
+  <div id="donorView" style="display:none">
+    <div class="card">
+      <div class="donor-head">
+        <div>
+          <h2 id="donorName"></h2>
+          <p class="donor-contact" id="donorContact"></p>
+        </div>
+        <span class="code-chip code-big" id="donorCode"></span>
+      </div>
+      <p class="hint">Write the donor code on their boxes. At pick-up, search this code to find everything they brought.</p>
+      <details style="margin-top:12px">
+        <summary style="cursor:pointer;color:var(--gold-bright)">Edit donor details</summary>
+        <form id="editDonorForm" style="margin-top:12px" autocomplete="off">
+          <div class="field"><label for="editName">Name</label><input id="editName" type="text" maxlength="100" required></div>
+          <div class="two-col">
+            <div class="field"><label for="editPhone">Phone <span class="optional">optional</span></label><input id="editPhone" type="tel" maxlength="40"></div>
+            <div class="field"><label for="editEmail">Email <span class="optional">optional</span></label><input id="editEmail" type="email" maxlength="254"></div>
+          </div>
+          <div class="two-col">
+            <div class="field"><label for="editAddress">Street address <span class="optional">optional</span></label><input id="editAddress" type="text" maxlength="200"></div>
+            <div class="field"><label for="editCsz">City, State ZIP <span class="optional">optional</span></label><input id="editCsz" type="text" maxlength="200"></div>
+          </div>
+          <button class="btn btn-secondary" id="saveDonorBtn" type="submit" style="width:auto">Save Donor Details</button>
+        </form>
+      </details>
+    </div>
+
+    <form class="card add-card" id="addForm" style="margin-top:16px" autocomplete="off">
+      <h2 style="margin-top:0">Add a nativity</h2>
+      <div class="add-grid">
+        <div class="field">
+          <label for="addDescription">Short description</label>
+          <input id="addDescription" type="text" maxlength="300" placeholder="Example: olive wood, about 8 inches" required>
+        </div>
+        <div class="field">
+          <label for="addCount">Pieces</label>
+          <input id="addCount" type="number" inputmode="numeric" min="1" max="100" value="1" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="addCondition">Condition notes <span class="optional">optional</span></label>
+        <input id="addCondition" type="text" maxlength="2000" placeholder="Example: chip on shepherd's staff">
+      </div>
+      <div class="field">
+        <label for="addPhoto">Photo <span class="optional">optional</span></label>
+        <input id="addPhoto" type="file" accept="image/*" capture="environment">
+      </div>
+      <button class="btn btn-primary" id="addBtn" type="submit">Add Nativity</button>
+      <p class="hint" id="addHint">Each one gets its own claim number. Add them one after another. Waivers and check-in for the whole batch appear below.</p>
+    </form>
+
+    <div class="card" style="margin-top:16px">
+      <h2 style="margin-top:0" id="listTitle">This year</h2>
+      <div class="batch" id="batch"></div>
+      <div class="progress" id="progress" role="status"></div>
+      <div class="nat-list" id="natList"></div>
+    </div>
+
+    <details class="card" id="olderCard" style="margin-top:16px;display:none">
+      <summary id="olderSummary">Earlier years</summary>
+      <div class="nat-list" id="olderList" style="margin-top:12px"></div>
+    </details>
+  </div>
+</div>
+<script src="/js/app.js"></script>
+<script>
+const donorId = new URLSearchParams(window.location.search).get('donor');
+let donor = null;
+let nativities = [];
+let eventYear = new Date().getFullYear();
+let waiverBatch = 10;
+let busy = false;
+
+function esc(value) {
+  return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+}
+function showSuccess(message) {
+  const el = document.getElementById('successBanner');
+  el.textContent = message; el.style.display = 'block';
+  clearTimeout(showSuccess.timer);
+  showSuccess.timer = setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+function debounce(fn, ms) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; }
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const natCount = (n) => (n === 1 ? '1 nativity' : `${n} nativities`);
+const setProgress = (text) => { document.getElementById('progress').textContent = text || ''; };
+
+function donorRowHtml(d) {
+  const contact = [d.phone, d.email].filter(Boolean).map(esc).join(' · ') || 'No phone or email';
+  const counts = d.thisYear ? `${natCount(d.thisYear)} this year` : (d.total ? 'None yet this year' : 'No nativities yet');
+  return `<a class="donor-row" href="/admin-walkin.html?donor=${encodeURIComponent(d.id)}">
+    <div><div class="donor-name">${esc(d.name)}</div><div class="donor-meta">${contact} · ${counts}</div></div>
+    <span class="code-chip">${esc(d.donorCode)}</span>
+  </a>`;
+}
+
+/* ── Step 1: find or create ───────────────────────────────────────────── */
+async function searchDonors(term, targetId, emptyText) {
+  const target = document.getElementById(targetId);
+  if (!term) { target.innerHTML = ''; return; }
+  try {
+    const { donors } = await api('/api/admin/donors?search=' + encodeURIComponent(term));
+    target.innerHTML = donors.length ? donors.map(donorRowHtml).join('') : (emptyText ? `<div class="hint">${emptyText}</div>` : '');
+    return donors;
+  } catch (err) { showError(err.message); }
+}
+
+function initFindView() {
+  document.getElementById('findView').style.display = 'block';
+  const search = document.getElementById('donorSearch');
+  search.addEventListener('input', debounce(() => {
+    hideError();
+    searchDonors(search.value.trim(), 'donorResults', 'No donor matches. Create a new one below.');
+  }, 250));
+  search.focus();
+
+  // While typing a new name, show anyone already registered under it.
+  const newName = document.getElementById('newName');
+  newName.addEventListener('input', debounce(async () => {
+    const term = newName.value.trim();
+    const box = document.getElementById('possibleMatches');
+    if (term.length < 3) { box.innerHTML = ''; return; }
+    const donors = await searchDonors(term, 'possibleMatches', '');
+    if (donors && donors.length) box.insertAdjacentHTML('afterbegin', '<div class="hint" style="margin:0">Already registered? Tap to use an existing donor:</div>');
+  }, 350));
+
+  document.getElementById('newDonorForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); hideError();
+    const btn = document.getElementById('createDonorBtn');
+    btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      const res = await fetch('/api/admin/donors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName.value,
+          phone: document.getElementById('newPhone').value,
+          email: document.getElementById('newEmail').value,
+          address: document.getElementById('newAddress').value,
+          cityStateZip: document.getElementById('newCsz').value,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409 && data.existing) {
+        if (confirm(`${data.error}\n\nOpen that donor instead?`)) {
+          window.location.href = '/admin-walkin.html?donor=' + encodeURIComponent(data.existing.id);
+          return;
+        }
+        throw new Error(data.error);
+      }
+      if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+      window.location.href = '/admin-walkin.html?donor=' + encodeURIComponent(data.donor.id);
+    } catch (err) {
+      showError(err.message);
+      btn.disabled = false; btn.textContent = 'Create Donor';
+    }
+  });
+}
+
+/* ── Step 2: donor view ───────────────────────────────────────────────── */
+function natRowHtml(n) {
+  const badge = n.status !== 'pending' ? ''
+    : n.waiver_signed ? '<span class="status-pill status-ready">Waiver ✓</span>'
+    : n.waiver_method === 'paper' ? '<span class="status-pill status-action">Paper waiver</span>'
+    : '<span class="status-pill status-action">No waiver</span>';
+  const status = n.status === 'submitted' ? 'checked in' : n.status;
+  return `<a class="nat-row" href="/admin-detail.html?id=${encodeURIComponent(n.id)}">
+    <div>
+      <div class="nat-num">${esc(n.submission_number)} <span style="color:var(--muted);font-weight:500">· ${plural(Number(n.piece_count) || 0, 'piece')}</span></div>
+      <div class="nat-desc">${esc(n.description || 'No description')}</div>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">${badge}<span class="status-pill status-${esc(n.status)}">${esc(status)}</span></div>
+    </div>
+    ${n.photo_key ? `<img class="nat-thumb" src="/photos/${esc(n.photo_key)}" alt="" loading="lazy">` : ''}
+  </a>`;
+}
+
+function groups() {
+  const current = nativities.filter((n) => Number(n.event_year) === Number(eventYear));
+  const pending = current.filter((n) => n.status === 'pending');
+  return {
+    current,
+    older: nativities.filter((n) => Number(n.event_year) !== Number(eventYear)),
+    toSign: pending.filter((n) => !n.waiver_signed && n.waiver_method === 'paper'),
+    noWaiver: pending.filter((n) => !n.waiver_signed && n.waiver_method !== 'paper'),
+    toCheckIn: pending.filter((n) => n.waiver_signed),
+    toReturn: current.filter((n) => n.status === 'submitted'),
+  };
+}
+
+function renderDonor() {
+  document.getElementById('donorName').textContent = donor.name;
+  document.getElementById('donorCode').textContent = donor.donorCode;
+  document.title = `${donor.donorCode} ${donor.name} — Walk-In Desk`;
+  const bits = [];
+  if (donor.phone) bits.push(`<a href="tel:${esc(donor.phone)}">${esc(donor.phone)}</a>`);
+  if (donor.email) bits.push(`<a href="mailto:${esc(donor.email)}">${esc(donor.email)}</a>`);
+  const where = [donor.address, donor.cityStateZip].filter(Boolean).map(esc).join(', ');
+  if (where) bits.push(where);
+  document.getElementById('donorContact').innerHTML = bits.join(' · ') || 'No phone or email on file';
+  document.getElementById('editName').value = donor.name || '';
+  document.getElementById('editPhone').value = donor.phone || '';
+  document.getElementById('editEmail').value = donor.email || '';
+  document.getElementById('editAddress').value = donor.address || '';
+  document.getElementById('editCsz').value = donor.cityStateZip || '';
+}
+
+function renderNativities() {
+  const g = groups();
+  const totalPieces = g.current.reduce((sum, n) => sum + (Number(n.piece_count) || 0), 0);
+  document.getElementById('listTitle').textContent = g.current.length
+    ? `${eventYear}: ${g.current.length === 1 ? '1 nativity' : g.current.length + ' nativities'}, ${plural(totalPieces, 'piece')}`
+    : `${eventYear}: nothing added yet`;
+  document.getElementById('natList').innerHTML = g.current.map(natRowHtml).join('');
+
+  const steps = [];
+  if (g.toSign.length) {
+    const printButtons = [];
+    for (let offset = 0; offset < g.toSign.length; offset += waiverBatch) {
+      const end = Math.min(offset + waiverBatch, g.toSign.length);
+      const label = g.toSign.length <= waiverBatch ? `Print ${plural(g.toSign.length, 'Waiver')}` : `Print Waivers ${offset + 1}–${end}`;
+      printButtons.push(`<a class="btn btn-secondary" target="_blank" rel="noopener" href="/api/admin/donors/${encodeURIComponent(donor.id)}/waivers-pdf?offset=${offset}">${label}</a>`);
+    }
+    steps.push(`<div class="batch-step"><h3>1. Paper waivers</h3>
+      <p>${plural(g.toSign.length, 'waiver')} to sign, one per nativity. Print, have the donor sign each one, then mark them signed.</p>
+      ${printButtons.join('')}
+      <button type="button" class="btn btn-primary" id="signAllBtn">Mark ${g.toSign.length === 1 ? 'Waiver' : `All ${g.toSign.length} Waivers`} Signed</button></div>`);
+  }
+  if (g.noWaiver.length) {
+    steps.push(`<div class="batch-step"><h3>Registered online, waiver not signed</h3>
+      <p>${natCount(g.noWaiver.length)} from this donor ${g.noWaiver.length === 1 ? 'has' : 'have'} no signed waiver. Switch ${g.noWaiver.length === 1 ? 'it' : 'them'} to a paper waiver to sign here at the desk.</p>
+      <button type="button" class="btn btn-secondary" id="usePaperBtn">Use Paper Waiver${g.noWaiver.length === 1 ? '' : 's'}</button></div>`);
+  }
+  if (g.toCheckIn.length) {
+    steps.push(`<div class="batch-step"><h3>${g.toSign.length ? '2' : '1'}. Check in</h3>
+      <p>${g.toCheckIn.length === 1 ? '1 nativity is' : g.toCheckIn.length + ' nativities are'} ready. ${donor.email ? 'One email listing everything goes to the donor.' : 'This donor has no email, so no email is sent.'}</p>
+      <button type="button" class="btn btn-primary" id="checkInAllBtn">Check In ${g.toCheckIn.length === 1 ? 'Nativity' : `All ${g.toCheckIn.length}`}</button></div>`);
+  }
+  if (g.toReturn.length) {
+    steps.push(`<div class="batch-step"><h3>Pick-up</h3>
+      <p>${g.toReturn.length === 1 ? '1 nativity is' : g.toReturn.length + ' nativities are'} checked in. Confirm every piece is going home before marking ${g.toReturn.length === 1 ? 'it' : 'them'} returned, or open one below to check it piece by piece.</p>
+      <button type="button" class="btn btn-secondary" id="returnAllBtn">Mark ${g.toReturn.length === 1 ? 'Nativity' : `All ${g.toReturn.length}`} Returned</button></div>`);
+  }
+  document.getElementById('batch').innerHTML = steps.join('');
+  document.getElementById('signAllBtn')?.addEventListener('click', signAll);
+  document.getElementById('usePaperBtn')?.addEventListener('click', usePaperAll);
+  document.getElementById('checkInAllBtn')?.addEventListener('click', checkInAll);
+  document.getElementById('returnAllBtn')?.addEventListener('click', returnAll);
+
+  document.getElementById('olderCard').style.display = g.older.length ? 'block' : 'none';
+  document.getElementById('olderSummary').textContent = `Earlier years (${g.older.length})`;
+  document.getElementById('olderList').innerHTML = g.older.map((n) => natRowHtml(n).replace('<div class="nat-num">', `<div class="nat-num">${esc(n.event_year)} · `)).join('');
+}
+
+async function loadDonor() {
+  const data = await api('/api/admin/donors/' + encodeURIComponent(donorId));
+  donor = data.donor; nativities = data.nativities; eventYear = data.eventYear; waiverBatch = data.waiverBatch || 10;
+  renderDonor(); renderNativities();
+}
+
+// Runs one request per nativity, in order, so a long list never overloads a
+// single request. Stops at the first failure and reports how far it got.
+async function runBatch(items, verb, request) {
+  if (busy) return null;
+  busy = true; hideError();
+  document.querySelectorAll('#batch .btn, #addBtn').forEach((b) => { b.disabled = true; b.style.pointerEvents = 'none'; });
+  const done = [];
+  try {
+    for (let i = 0; i < items.length; i++) {
+      setProgress(`${verb} ${i + 1} of ${items.length} (${items[i].submission_number})…`);
+      await request(items[i]);
+      done.push(items[i]);
+    }
+  } catch (err) {
+    showError(`${err.message} Stopped after ${done.length} of ${items.length}.`);
+  } finally {
+    busy = false; setProgress('');
+    document.getElementById('addBtn').disabled = false;
+    document.getElementById('addBtn').style.pointerEvents = '';
+  }
+  return done;
+}
+
+async function signAll() {
+  const items = groups().toSign;
+  if (!confirm(`Confirm ${donor.name} has signed ${items.length === 1 ? 'the printed waiver' : `all ${items.length} printed waivers`}.`)) return;
+  const done = await runBatch(items, 'Marking signed', (n) => api(`/api/admin/nativities/${n.id}/paper-waiver-signed`, { method: 'POST', body: {} }));
+  await loadDonor();
+  if (done && done.length) showSuccess(`${plural(done.length, 'paper waiver')} marked signed. Keep the signed copies on file.`);
+}
+
+async function usePaperAll() {
+  const items = groups().noWaiver;
+  const done = await runBatch(items, 'Switching to paper', (n) => api(`/api/admin/nativities/${n.id}/paper-waiver`, { method: 'POST', body: {} }));
+  await loadDonor();
+  if (done && done.length) showSuccess(`${plural(done.length, 'waiver')} switched to paper. Print them, then mark them signed.`);
+}
+
+async function checkInAll() {
+  const items = groups().toCheckIn;
+  if (!confirm(`Check in ${items.length === 1 ? 'this nativity' : `all ${items.length} nativities`} for ${donor.name}? Make sure everything listed is on the table.`)) return;
+  const done = await runBatch(items, 'Checking in', (n) => api(`/api/admin/nativities/${n.id}/finalize`, { method: 'POST', body: { notify: false } }));
+  let emailNote = '';
+  if (done && done.length) {
+    try {
+      const r = await api(`/api/admin/donors/${encodeURIComponent(donor.id)}/checkin-summary`, { method: 'POST', body: { ids: done.map((n) => n.id) } });
+      emailNote = r.emailSent ? ' A confirmation email was sent.' : r.hasEmail ? ' The confirmation email could not be sent.' : ' No email on file, so tell them their donor code.';
+    } catch (_) { emailNote = ' The confirmation email could not be sent.'; }
+  }
+  await loadDonor();
+  if (done && done.length) showSuccess(`${done.length === 1 ? '1 nativity' : done.length + ' nativities'} checked in for ${donor.donorCode}.${emailNote}`);
+}
+
+async function returnAll() {
+  const items = groups().toReturn;
+  if (!confirm(`Mark ${items.length === 1 ? 'this nativity' : `all ${items.length} nativities`} as returned to ${donor.name}?`)) return;
+  const done = await runBatch(items, 'Marking returned', (n) => api(`/api/admin/nativities/${n.id}/returned`, { method: 'POST' }));
+  await loadDonor();
+  if (done && done.length) showSuccess(`${done.length === 1 ? '1 nativity' : done.length + ' nativities'} marked returned.`);
+}
+
+function initDonorView() {
+  document.getElementById('donorView').style.display = 'block';
+  document.getElementById('otherDonorBtn').style.display = '';
+  document.getElementById('pageDescription').textContent = 'Add each nativity, then sign waivers and check everything in together.';
+
+  document.getElementById('addForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); hideError();
+    if (busy) return;
+    const btn = document.getElementById('addBtn');
+    const description = document.getElementById('addDescription');
+    const count = document.getElementById('addCount');
+    const condition = document.getElementById('addCondition');
+    const photo = document.getElementById('addPhoto');
+    btn.disabled = true; btn.textContent = 'Adding…';
+    try {
+      const created = await api(`/api/admin/donors/${encodeURIComponent(donorId)}/nativities`, {
+        method: 'POST',
+        body: { description: description.value, pieceCount: Number(count.value), conditionNote: condition.value },
+      });
+      let photoNote = '';
+      if (photo.files[0]) {
+        btn.textContent = 'Uploading photo…';
+        try { await uploadPhotoTo(photo.files[0], `/api/admin/nativities/${created.id}/main-photo`); }
+        catch (_) { photoNote = ' The photo did not upload; add it from the submission page.'; }
+      }
+      description.value = ''; count.value = '1'; condition.value = ''; photo.value = '';
+      await loadDonor();
+      showSuccess(`Added ${created.submissionNumber}.${photoNote}`);
+      description.focus();
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Add Nativity';
+    }
+  });
+
+  document.getElementById('editDonorForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); hideError();
+    const btn = document.getElementById('saveDonorBtn');
+    btn.disabled = true;
+    try {
+      const r = await api('/api/admin/donors/' + encodeURIComponent(donorId), {
+        method: 'PATCH',
+        body: {
+          name: document.getElementById('editName').value,
+          phone: document.getElementById('editPhone').value,
+          email: document.getElementById('editEmail').value,
+          address: document.getElementById('editAddress').value,
+          cityStateZip: document.getElementById('editCsz').value,
+        },
+      });
+      await loadDonor();
+      showSuccess(r.waiversCleared
+        ? `Donor details saved. ${plural(r.waiversCleared, 'signed waiver')} ${r.waiversCleared === 1 ? 'was' : 'were'} cleared and must be signed again.`
+        : 'Donor details saved.');
+    } catch (err) { showError(err.message); }
+    finally { btn.disabled = false; }
+  });
+
+  loadDonor().catch((err) => showError(err.message));
+}
+
+if (donorId) initDonorView(); else initFindView();
+</script>
+</body>
+</html>

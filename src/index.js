@@ -7,6 +7,7 @@ import * as adminAuth from './routes/adminAuth.js';
 import * as nativities from './routes/nativities.js';
 import * as waivers from './routes/waivers.js';
 import * as admin from './routes/admin.js';
+import * as walkin from './routes/walkin.js';
 import * as settings from './routes/settings.js';
 import * as messages from './routes/messages.js';
 import { getTour } from './routes/tour.js';
@@ -297,6 +298,16 @@ async function handle(request, env, ctx) {
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/waiver-pdf$/)) && method === 'GET') return await waivers.downloadWaiverPdf(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/waiver-record$/)) && method === 'GET') return await waivers.getWaiver(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/paper-waiver-signed$/)) && method === 'POST') return await waivers.markPaperSigned(request,env,session,m[1]);
+      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/paper-waiver$/)) && method === 'POST') return await waivers.adminChoosePaper(request,env,session,m[1]);
+
+      // Walk-in desk: admin-created donors and quick nativity entry.
+      if (path === '/api/admin/donors' && method === 'GET') return await walkin.listDonors(request, env, session);
+      if (path === '/api/admin/donors' && method === 'POST') return await walkin.createDonor(request, env, session);
+      if ((m = path.match(/^\/api\/admin\/donors\/(\d+)$/)) && method === 'GET') return await walkin.getDonor(request, env, session, m[1]);
+      if ((m = path.match(/^\/api\/admin\/donors\/(\d+)$/)) && method === 'PATCH') return await walkin.updateDonor(request, env, session, m[1]);
+      if ((m = path.match(/^\/api\/admin\/donors\/(\d+)\/nativities$/)) && method === 'POST') return await walkin.addNativity(request, env, session, m[1]);
+      if ((m = path.match(/^\/api\/admin\/donors\/(\d+)\/waivers-pdf$/)) && method === 'GET') return await walkin.waiversPdf(request, env, session, m[1]);
+      if ((m = path.match(/^\/api\/admin\/donors\/(\d+)\/checkin-summary$/)) && method === 'POST') return await walkin.sendCheckInSummary(request, env, session, m[1]);
 
       if ((m = path.match(/^\/api\/nativities\/(\d+)$/)) && method === 'GET') {
         return await nativities.getOne(request, env, session, m[1]);

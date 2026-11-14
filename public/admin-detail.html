@@ -58,6 +58,8 @@
   .desk-thumb { width:42px; height:42px; object-fit:cover; border-radius:8px; border:1px solid var(--border); }
   .desk-hint { color:var(--muted); font-size:14px; margin:10px 0 0; }
   details.card > summary { cursor:pointer; font-size:1.1rem; font-weight:700; }
+  .code-chip { display:inline-block; padding:4px 12px; border-radius:999px; background:#f2c76e; color:#10172a; font-weight:900; font-size:15px; white-space:nowrap; text-decoration:none; }
+  .optional { color:var(--muted); font-weight:500; font-size:.85em; }
   @media (max-width:700px) {
     .detail-topbar { display:block; }
     .detail-grid, .detail-grid.three { grid-template-columns:1fr; }
@@ -110,12 +112,12 @@
           <input id="ownerName" type="text">
         </div>
         <div class="field">
-          <label for="ownerPhone">Phone</label>
+          <label for="ownerPhone">Phone <span class="optional">optional</span></label>
           <input id="ownerPhone" type="tel">
         </div>
       </div>
       <div class="field">
-        <label for="ownerEmail">Email</label>
+        <label for="ownerEmail">Email <span class="optional">optional</span></label>
         <input id="ownerEmail" type="email">
       </div>
     </section>
@@ -312,7 +314,8 @@ async function load() {
 
     const isDraft = String(nativity.submission_number).startsWith('DRAFT-');
     document.getElementById('title').textContent = nativity.owner_name || 'Unknown donor';
-    document.getElementById('subtitle').textContent = (isDraft ? 'Unfinished draft' : nativity.submission_number)
+    document.getElementById('subtitle').textContent = `Donor ${nativity.owner_donor_code} · `
+      + (isDraft ? 'Unfinished draft' : nativity.submission_number)
       + ` · ${pieces.length} piece${pieces.length === 1 ? '' : 's'} · ${nativity.event_year}`;
     document.title = `${nativity.owner_name || 'Submission'} — Stroll to the Stable Admin`;
     const statusPill = document.getElementById('statusPill');
@@ -346,7 +349,11 @@ function fmtDate(v) {
 // The desk panel: everything needed at the check-in or pick-up table.
 function renderDesk(n, pieces, note, isDraft) {
   document.getElementById('deskContact').innerHTML =
-    `<a href="tel:${esc(n.owner_phone)}">${esc(n.owner_phone)}</a><a href="mailto:${esc(n.owner_email)}">${esc(n.owner_email)}</a>`;
+    `<a class="code-chip" href="/admin-walkin.html?donor=${encodeURIComponent(n.owner_user_id)}" title="Everything from this donor">${esc(n.owner_donor_code)}</a>`
+    + (n.owner_phone ? `<a href="tel:${esc(n.owner_phone)}">${esc(n.owner_phone)}</a>` : '')
+    + (n.owner_email ? `<a href="mailto:${esc(n.owner_email)}">${esc(n.owner_email)}</a>` : '')
+    + (!n.owner_phone && !n.owner_email ? '<span style="color:var(--muted)">No phone or email on file</span>' : '')
+    + `<a href="/admin-walkin.html?donor=${encodeURIComponent(n.owner_user_id)}">All from this donor ›</a>`;
 
   const descEl = document.getElementById('deskDescription');
   descEl.style.display = n.description ? 'block' : 'none';
@@ -367,9 +374,16 @@ function renderDesk(n, pieces, note, isDraft) {
   } else if (n.waiver_signed) {
     waiver.className = 'desk-row ok';
     waiver.innerHTML = `✓ Waiver signed${n.waiver_method === 'paper' ? ' on paper' : ''} ${esc(fmtDate(n.waiver_signed_at))}<a href="/api/admin/nativities/${esc(n.id)}/waiver-pdf" target="_blank" rel="noopener">View PDF</a>`;
+  } else if (n.status === 'pending') {
+    waiver.className = 'desk-row bad';
+    waiver.innerHTML = `✗ Waiver not signed. The donor can sign on their phone from My Nativities, or sign a printed copy here.
+      <div class="action-row" style="margin-top:8px">
+        <button type="button" class="btn btn-secondary" style="width:auto;margin:0" id="usePaperBtn">Use Paper Waiver</button>
+      </div>`;
+    document.getElementById('usePaperBtn').addEventListener('click', usePaperWaiver);
   } else {
     waiver.className = 'desk-row bad';
-    waiver.textContent = '✗ Waiver not signed. The donor can sign on their phone from My Nativities before you check this in.';
+    waiver.textContent = '✗ Waiver not signed.';
   }
 
   const noteEl = document.getElementById('deskNote');
@@ -402,6 +416,19 @@ function renderDesk(n, pieces, note, isDraft) {
   updateDeskButtons();
 }
 
+async function usePaperWaiver() {
+  const btn = document.getElementById('usePaperBtn');
+  btn.disabled = true;
+  try {
+    await api(`/api/admin/nativities/${id}/paper-waiver`, { method: 'POST', body: {} });
+    showSuccess('Switched to a paper waiver. Print it and have the donor sign.');
+    await load();
+  } catch (err) {
+    showError(err.message);
+    btn.disabled = false;
+  }
+}
+
 async function markPaperSigned() {
   if (!confirm('Confirm the donor has signed the printed waiver.')) return;
   const btn = document.getElementById('paperSignedBtn');
@@ -432,7 +459,9 @@ function updateDeskButtons() {
     else if (!current.waiver_signed) blockers.push(current.waiver_method === 'paper' ? 'Mark the paper waiver signed first.' : 'Waiver must be signed.');
     if (left) blockers.push(left);
     finalize.disabled = blockers.length > 0 || !boxes.length;
-    hint.textContent = blockers.length ? blockers.join(' ') : 'All pieces checked. Finalizing emails the donor their claim ticket.';
+    hint.textContent = blockers.length ? blockers.join(' ')
+      : current.owner_email ? 'All pieces checked. Finalizing emails the donor their claim ticket.'
+      : `All pieces checked. No email on file, so give the donor their code: ${current.owner_donor_code}.`;
   } else if (current.status === 'submitted') {
     ret.disabled = remaining > 0 || !boxes.length;
     hint.textContent = left || 'All pieces checked. Ready to hand back.';
@@ -584,8 +613,10 @@ document.getElementById('finalizeBtn').addEventListener('click', async () => {
   btn.disabled = true;
   btn.textContent = 'Finalizing…';
   try {
-    await api(`/api/admin/nativities/${id}/finalize`, { method: 'POST' });
-    showSuccess('Checked in. The claim ticket was emailed to the donor.');
+    const result = await api(`/api/admin/nativities/${id}/finalize`, { method: 'POST' });
+    showSuccess(result.emailSent ? 'Checked in. The claim ticket was emailed to the donor.'
+      : result.hasEmail ? 'Checked in, but the claim ticket email could not be sent.'
+      : `Checked in. No email on file: give the donor their code, ${current?.owner_donor_code || ''}.`);
     await load();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {

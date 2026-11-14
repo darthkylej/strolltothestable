@@ -186,7 +186,7 @@ const RECOVERY_WINDOW_MS = 30 * 60 * 1000;
 
 export async function getAccount(request, env, session) {
   if (session?.kind !== 'user') return error('Please log in.', 401);
-  const rows = await db(env)`SELECT name, phone, email FROM users WHERE id = ${session.userId}`;
+  const rows = await db(env)`SELECT name, phone, email, donor_code AS "donorCode" FROM users WHERE id = ${session.userId}`;
   if (!rows.length) return error('Please log in.', 401);
   const canResetWithoutCurrent = !!session.recoveredAt && Date.now() - session.recoveredAt < RECOVERY_WINDOW_MS;
   return json({ ...rows[0], canResetWithoutCurrent }, { headers: { 'Cache-Control': 'no-store' } });

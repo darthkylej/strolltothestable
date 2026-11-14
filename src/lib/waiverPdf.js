@@ -69,7 +69,10 @@ export async function createWaiverPdf(record, signedImage = null, mime = '', nat
   gap(6);
   line('IMPORTANT: This agreement contains a RELEASE OF LIABILITY (section '+RELEASE_SECTION+') that gives up claims, including claims for negligence. Read it before signing.',10,true);
   section('Participant Information');
-  for(const [key,label] of labels.slice(0,5))line(label+': '+(record.fields[key]||''));
+  // On a paper copy, anything not on file prints as a line to fill in by hand.
+  const blank=record.method==='paper'&&!record.paperVerifiedBy?'______________________________':'';
+  if(record.donorCode)line('Donor Code: '+record.donorCode,10,true);
+  for(const [key,label] of labels.slice(0,5))line(label+': '+(record.fields[key]||blank));
   section('Nativity Information');
   const n=record.nativity||{};
   line('Submission Number: '+(n.submissionNumber||record.submissionNumber||''));
@@ -133,7 +136,8 @@ export async function createWaiverPdf(record, signedImage = null, mime = '', nat
       sigLine('Staff initials:');
     }
     const audit=record.audit||{};
-    if(audit.requestedAt)line('Paper signing chosen online (UTC): '+audit.requestedAt,9);
+    if(audit.enteredByAdmin)line('Paper waiver prepared at the desk by '+audit.enteredByAdmin+(audit.requestedAt?' (UTC): '+audit.requestedAt:''),9);
+    else if(audit.requestedAt)line('Paper signing chosen online (UTC): '+audit.requestedAt,9);
     if(audit.reviewedPdfSha256)line('Reviewed PDF SHA-256: '+audit.reviewedPdfSha256,8);
     if(record.agreementVersion)line('Agreement Version: '+record.agreementVersion,9);
   } else {

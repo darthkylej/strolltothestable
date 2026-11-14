@@ -13,9 +13,25 @@ const reviewPdfKey = n => `_waivers/${n.id}-review.pdf`;
 async function sha256(bytes){const hash=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('');}
 const pdfKey = n => `_waivers/${n.id}.pdf`;
 const paperKey = n => `_waivers/${n.id}-paper.json`;
-async function paperChoice(env,n){const o=await env.PHOTOS.get(paperKey(n));return o?JSON.parse(await o.text()):null;}
-// Printable copy for a donor who chose to sign on paper, built from current data.
-async function paperPdf(env,n,paper,extra={}){const record=await waiverRecord(env,n,paper.fields,{method:'paper',signerName:paper.fields.name,signingDate:'',...extra});return createWaiverPdf(record,null,'',await nativityPhoto(env,record));}
+export async function paperChoice(env,n){const o=await env.PHOTOS.get(paperKey(n));return o?JSON.parse(await o.text()):null;}
+// Participant details as they are on the account right now. Blank values print
+// as a line to fill in by hand on a paper waiver.
+function ownerFields(n){return {name:String(n.owner_name||'').trim(),address:String(n.owner_address||'').trim(),cityStateZip:String(n.owner_city_state_zip||'').trim(),phone:String(n.owner_phone||'').trim(),email:String(n.owner_email||'').trim()};}
+// A paper waiver set up by an admin (walk-in desk) has not been reviewed by the
+// donor online, so it always prints the current account details. One the donor
+// chose online keeps the details they reviewed.
+function paperFields(n,paper){return n.paper_by_admin?ownerFields(n):paper.fields;}
+// Printable copy for a donor who signs on paper, built from current data.
+// `pre` may carry already-loaded { settings, pieces } to save lookups.
+export async function paperPdf(env,n,paper,extra={},pre={}){const fields=paperFields(n,paper);const record=await waiverRecord(env,n,fields,{method:'paper',signerName:fields.name,signingDate:'',donorCode:n.owner_donor_code||'',...(n.paper_by_admin?{audit:paper.audit||{}}:{}),...extra},pre);return createWaiverPdf(record,null,'',await nativityPhoto(env,record));}
+// Admin sets a pending submission to "sign on paper" (walk-ins, or a donor who
+// arrives without having signed online).
+export async function writeAdminPaperChoice(env,n,adminEmail){
+  const now=new Date().toISOString();
+  const paper={fields:ownerFields(n),requestedAt:now,audit:{requestedAt:now,enteredByAdmin:adminEmail,agreementVersion:AGREEMENT_VERSION}};
+  await env.PHOTOS.put(paperKey(n),JSON.stringify(paper),{httpMetadata:{contentType:'application/json'}});
+  return paper;
+}
 const formatDay = d => { const x = String(d || '').slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : ''; };
 function eventDates(settings) {
   const drop = (settings.dropoffDays || []).filter(x => x.available !== false).map(x => formatDay(x.date)).filter(Boolean).sort();
@@ -35,7 +51,7 @@ function eventDates(settings) {
 }
 async function owned(env, session, id, admin = false) {
   const sql = db(env);
-  const rows = admin ? await sql`SELECT n.*,u.name AS owner_name,u.phone AS owner_phone,u.email AS owner_email FROM nativities n JOIN users u ON u.id=n.owner_user_id WHERE n.id=${id}` : await sql`SELECT n.*,u.name AS owner_name,u.phone AS owner_phone,u.email AS owner_email FROM nativities n JOIN users u ON u.id=n.owner_user_id WHERE n.id=${id} AND n.owner_user_id=${session.userId}`;
+  const rows = admin ? await sql`SELECT n.*,u.name AS owner_name,u.phone AS owner_phone,u.email AS owner_email,u.address AS owner_address,u.city_state_zip AS owner_city_state_zip,u.donor_code AS owner_donor_code FROM nativities n JOIN users u ON u.id=n.owner_user_id WHERE n.id=${id}` : await sql`SELECT n.*,u.name AS owner_name,u.phone AS owner_phone,u.email AS owner_email,u.address AS owner_address,u.city_state_zip AS owner_city_state_zip,u.donor_code AS owner_donor_code FROM nativities n JOIN users u ON u.id=n.owner_user_id WHERE n.id=${id} AND n.owner_user_id=${session.userId}`;
   if (!rows.length) throw error('Nativity not found.',404);
   return rows[0];
 }
@@ -75,9 +91,9 @@ async function nativityPhoto(env,record) {
   const object=await env.PHOTOS.get(key);
   return object?new Uint8Array(await object.arrayBuffer()):null;
 }
-async function waiverRecord(env,n,fields,extra={}) {
-  const sql=db(env),settings=await getSiteSettings(env);
-  const pieces=await sql`SELECT piece_number,description,condition_notes,photo_key FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
+async function waiverRecord(env,n,fields,extra={},pre={}) {
+  const sql=db(env),settings=pre.settings||await getSiteSettings(env);
+  const pieces=pre.pieces||await sql`SELECT piece_number,description,condition_notes,photo_key FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
   const nativity={submissionNumber:n.submission_number,eventYear:n.event_year,description:n.description||'',story:n.story||'',pieceCount:n.piece_count,photoKey:n.photo_key||'',displayPhotoKey:n.display_photo_key||'',includeInTour:n.include_in_tour,pieces};
   return {version:5,agreementVersion:AGREEMENT_VERSION,nativity,year:n.event_year,organizer:'City of Seguin',event:'Stroll to the Stable',location:'Nolte Building, 101 E. Nolte St, Seguin, TX',dates:eventDates(settings),fields,method:'digital',submissionNumber:n.submission_number,...extra};
 }
@@ -132,7 +148,7 @@ export async function saveWaiver(request,env,session,id) {
     const paper={fields,requestedAt:signedAt,audit:{requestedAt:signedAt,authenticatedUserId:session.userId,ipAddress:request.headers.get('CF-Connecting-IP')||null,userAgent:request.headers.get('User-Agent')||null,reviewedPdfSha256:review.hash,reviewedAt:review.createdAt,agreementVersion:AGREEMENT_VERSION}};
     await env.PHOTOS.put(paperKey(n),JSON.stringify(paper),{httpMetadata:{contentType:'application/json'}});
     await env.PHOTOS.delete(draftKey(n)); await env.PHOTOS.delete(reviewKey(n)); await env.PHOTOS.delete(reviewPdfKey(n));
-    await sql`UPDATE nativities SET waiver_method='paper',updated_at=now() WHERE id=${n.id}`;
+    await sql`UPDATE nativities SET waiver_method='paper',paper_by_admin=NULL,updated_at=now() WHERE id=${n.id}`;
     let emailSent=false;
     try { await sendWaiverPdfEmail(env,{to:n.owner_email,name:n.owner_name,submissionNumber:n.submission_number,pdf:new Uint8Array(await paperPdf(env,n,paper)),settings,paper:true}); emailSent=true; }
     catch(e){ console.error('Paper waiver confirmation email failed:',e); }
@@ -150,7 +166,7 @@ export async function saveWaiver(request,env,session,id) {
   await env.PHOTOS.delete(reviewPdfKey(n));
   await env.PHOTOS.delete(paperKey(n));
   await env.PHOTOS.put(key(n),JSON.stringify(record),{httpMetadata:{contentType:'application/json'}});
-  if(body.method==='digital') { await sql`UPDATE nativities SET waiver_signed=true,waiver_signed_by='Digital signature',waiver_method='digital',waiver_signed_at=now(),updated_at=now() WHERE id=${n.id}`; }
+  if(body.method==='digital') { await sql`UPDATE nativities SET waiver_signed=true,waiver_signed_by='Digital signature',waiver_method='digital',paper_by_admin=NULL,waiver_signed_at=now(),updated_at=now() WHERE id=${n.id}`; }
   let emailSent = null;
   if(body.method==='digital') {
     const pdfObject=await env.PHOTOS.get(pdfKey(n));
@@ -184,12 +200,27 @@ export async function markPaperSigned(request,env,session,id) {
   if(!paper) return error('This donor has not chosen to sign on paper.',400);
   const verifiedAt=new Date().toISOString();
   const extra={paperVerifiedBy:session.email,paperVerifiedAt:verifiedAt,completedAt:verifiedAt,audit:{...paper.audit,paperVerifiedBy:session.email,paperVerifiedAt:verifiedAt}};
-  const record=await waiverRecord(env,n,paper.fields,{method:'paper',signerName:paper.fields.name,signingDate:'',...extra});
+  const fields=paperFields(n,paper);
+  const record=await waiverRecord(env,n,fields,{method:'paper',signerName:fields.name,signingDate:'',donorCode:n.owner_donor_code||'',...extra});
   const pdf=await createWaiverPdf(record,null,'',await nativityPhoto(env,record));
   await env.PHOTOS.put(pdfKey(n),pdf,{httpMetadata:{contentType:'application/pdf'}});
   await env.PHOTOS.put(key(n),JSON.stringify(record),{httpMetadata:{contentType:'application/json'}});
   await env.PHOTOS.delete(paperKey(n));
   await db(env)`UPDATE nativities SET waiver_signed=true,waiver_method='paper',waiver_signed_by=${'Paper signature, verified by '+session.email},waiver_signed_at=now(),updated_at=now() WHERE id=${n.id}`;
+  return json({ok:true});
+}
+
+// Admin: switch a pending, unsigned submission to a paper waiver signed at the
+// desk. Used for walk-ins and for donors who arrive without signing online.
+export async function adminChoosePaper(request,env,session,id) {
+  requireAdmin(session);
+  const n=await owned(env,session,id,true);
+  if(n.submission_number.startsWith('DRAFT-')) return error('This submission is not finished yet.',400);
+  if(n.status!=='pending') return error('This nativity is already checked in.',409);
+  if(n.waiver_signed||await saved(env,n)) return error('This waiver is already signed.',409);
+  await writeAdminPaperChoice(env,n,session.email);
+  await env.PHOTOS.delete(draftKey(n)); await env.PHOTOS.delete(reviewKey(n)); await env.PHOTOS.delete(reviewPdfKey(n));
+  await db(env)`UPDATE nativities SET waiver_method='paper',paper_by_admin=${session.email},updated_at=now() WHERE id=${n.id}`;
   return json({ok:true});
 }
 
@@ -206,7 +237,7 @@ export async function resetWaiver(env, n) {
     }
   }
   await Promise.all([paperKey(n), reviewKey(n), reviewPdfKey(n)].map((k) => env.PHOTOS.delete(k)));
-  await db(env)`UPDATE nativities SET waiver_signed=false, waiver_method=NULL, waiver_signed_by=NULL, waiver_signed_at=NULL, updated_at=now() WHERE id=${n.id}`;
+  await db(env)`UPDATE nativities SET waiver_signed=false, waiver_method=NULL, paper_by_admin=NULL, waiver_signed_by=NULL, waiver_signed_at=NULL, updated_at=now() WHERE id=${n.id}`;
 }
 
 // Clears the waivers of all of a donor's submissions that are not checked in
@@ -217,7 +248,10 @@ export async function resetWaiversForUser(env, userId) {
     SELECT n.*, u.name AS owner_name, u.phone AS owner_phone, u.email AS owner_email
     FROM nativities n JOIN users u ON u.id = n.owner_user_id
     WHERE n.owner_user_id = ${userId} AND n.status = 'pending'
-      AND (n.waiver_signed OR n.waiver_method IS NOT NULL)`;
+      AND (n.waiver_signed OR n.waiver_method IS NOT NULL)
+      -- An unsigned paper waiver set up by an admin prints the current
+      -- account details, so there is nothing to clear.
+      AND NOT (n.paper_by_admin IS NOT NULL AND NOT n.waiver_signed)`;
   for (const n of rows) await resetWaiver(env, n);
   return rows.length;
 }

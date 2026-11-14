@@ -30,6 +30,7 @@
 <div class="page">
   <p class="eyebrow">Stroll to the Stable</p>
   <h1>My Nativities</h1>
+  <p id="donorCodeLine" style="display:none;margin:-6px 0 14px;color:var(--wood)">Your donor code: <strong id="donorCodeValue" style="color:var(--gold-bright);font-size:1.15em"></strong> <span style="font-size:.9em">(give this at drop-off and pick-up)</span></p>
 
   <div class="error-banner" data-error-banner></div>
 
@@ -106,6 +107,10 @@ async function load() {
       api('/api/settings'),
     ]);
     const { nativities } = submissionData;
+    if (submissionData.donorCode) {
+      document.getElementById('donorCodeValue').textContent = submissionData.donorCode;
+      document.getElementById('donorCodeLine').style.display = 'block';
+    }
     submissionsOpen = settings.submissionsOpen;
     siteSettings = settings;
     renderSchedule(settings);
