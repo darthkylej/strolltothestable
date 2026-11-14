@@ -38,7 +38,8 @@ export async function listMine(request, env, session) {
     FROM nativities WHERE owner_user_id = ${session.userId}
     ORDER BY event_year DESC, created_at DESC
   `;
-  return json({ nativities });
+  const donor = await sql`SELECT donor_code FROM users WHERE id = ${session.userId}`;
+  return json({ nativities, donorCode: donor[0]?.donor_code || null });
 }
 
 export async function getOne(request, env, session, id) {

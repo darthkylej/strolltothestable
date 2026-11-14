@@ -29,12 +29,19 @@ CREATE TABLE admin_otp_codes (
 CREATE INDEX idx_admin_otp_email ON admin_otp_codes (email);
 
 -- ── Users (regular donors/loaners) ─────────────────────────────────────
+-- Backs the permanent donor code each person keeps from year to year.
+CREATE SEQUENCE donor_code_seq START 1001;
+
 CREATE TABLE users (
     id            BIGSERIAL PRIMARY KEY,
     username      TEXT UNIQUE NOT NULL,          -- e.g. garcia1, garcia2
+    donor_code    TEXT UNIQUE NOT NULL DEFAULT 'D-' || nextval('donor_code_seq'), -- permanent, e.g. D-1042
     name          TEXT NOT NULL,
-    phone         TEXT NOT NULL,
-    email         TEXT NOT NULL,
+    phone         TEXT,                          -- optional for walk-in donors registered by an admin
+    email         TEXT,                          -- optional for walk-in donors registered by an admin
+    address       TEXT,                          -- optional, printed on paper waivers for walk-ins
+    city_state_zip TEXT,
+    created_by_admin TEXT,                       -- admin email for walk-in accounts, NULL if self-registered
     password_hash TEXT NOT NULL,                 -- PBKDF2 hash, see src/lib/auth.js
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -69,6 +76,7 @@ CREATE TABLE nativities (
     include_in_tour    BOOLEAN NOT NULL DEFAULT TRUE, -- owner's opt-out of the public virtual tour
     display_photo_key  TEXT,                       -- worker-uploaded "glamour shot" in the final display spot; takes priority over photo_key in the tour
     waiver_method      TEXT CHECK (waiver_method IN ('digital','paper')), -- how the waiver is (or will be) signed
+    paper_by_admin     TEXT,                      -- admin email when the paper waiver was set up at the desk (walk-ins)
     waiver_signed      BOOLEAN NOT NULL DEFAULT FALSE,
     waiver_signed_by   TEXT,                      -- admin email who toggled it
     waiver_signed_at   TIMESTAMPTZ,
@@ -103,7 +111,7 @@ CREATE TABLE nativity_pieces (
 CREATE INDEX idx_pieces_nativity ON nativity_pieces (nativity_id);
 
 -- Full text search across the fields admins search by: piece descriptions,
--- owner name/phone/email. This view keeps the search query simple.
+-- owner name/phone/email/donor code. This view keeps the search query simple.
 CREATE VIEW nativity_search AS
 SELECT
     n.id,
@@ -113,11 +121,12 @@ SELECT
     u.name  AS owner_name,
     u.phone AS owner_phone,
     u.email AS owner_email,
-    string_agg(p.description || ' ' || p.condition_notes, ' ') AS piece_text
+    string_agg(p.description || ' ' || p.condition_notes, ' ') AS piece_text,
+    u.donor_code AS owner_donor_code
 FROM nativities n
 JOIN users u ON u.id = n.owner_user_id
 LEFT JOIN nativity_pieces p ON p.nativity_id = n.id
-GROUP BY n.id, u.name, u.phone, u.email;
+GROUP BY n.id, u.name, u.phone, u.email, u.donor_code;
 
 
 -- ── Shared Message Center ──────────────────────────────────────────────

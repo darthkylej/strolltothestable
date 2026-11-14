@@ -64,6 +64,30 @@ ALTER TABLE nativities ADD COLUMN include_in_tour BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE nativities ADD COLUMN display_photo_key TEXT;
 ```
 
+## Donor codes and the walk-in desk
+
+- Every donor has one permanent **donor code** (`D-1001`, `D-1002`, ...), issued
+  when the account is created and kept from year to year. Admins see it on the
+  submissions list and each submission page, and can search by it (`D-1042`,
+  `d1042` or just `1042`) during check-in and pick-up. Donors see it on My
+  Nativities and in their check-in email.
+- **Walk-In Desk** (`admin-walkin.html`) is for people who show up without an
+  account. An admin creates the donor (only a name is required; phone, email
+  and address are optional), then adds each nativity with a short description
+  and a piece count. Pieces are listed automatically as "description (1 of N)".
+- Walk-in nativities use a paper waiver, one per nativity. The donor page
+  prints them as combined PDFs (10 per print job), marks them all signed, and
+  checks everything in at once. A donor with an email gets a single summary
+  email instead of one claim ticket per nativity; a donor without one gets no
+  email and is found by donor code.
+- The same donor page works at pick-up: search the code, open the donor, and
+  mark everything returned.
+- On any pending submission with no signed waiver, an admin can choose **Use
+  Paper Waiver** so the donor signs a printed copy at the desk.
+
+Existing databases need `migrations/2026-11-14-donor-codes-walkins.sql` run
+once **before** this code is deployed.
+
 ## Still to decide / easy to adjust later
 
 - Piece photos are optional by design (per your call on keeping storage

@@ -267,7 +267,8 @@ export async function sendClaimTicketEmail(env, { to, name, nativity, pieces, se
     <div style="margin:18px 0;padding:16px;border-radius:10px;background:#f7f3e8;border:1px solid #e5ddca">
       <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#806c3d;font-weight:700">Claim number</div>
       <div style="margin-top:4px;font-size:25px;font-weight:800;color:#243142">${escapeHtml(nativity.submission_number)}</div>
-      <div style="margin-top:7px;color:#4b5563;font-size:14px">Keep this email. Please have this number available when you pick up your nativity.</div>
+      ${nativity.owner_donor_code ? `<div style="margin-top:10px;font-size:15px;color:#243142">Your donor code: <b>${escapeHtml(nativity.owner_donor_code)}</b></div>` : ''}
+      <div style="margin-top:7px;color:#4b5563;font-size:14px">Keep this email. Please have ${nativity.owner_donor_code ? 'your donor code or claim number' : 'this number'} available when you pick up your nativity.</div>
     </div>`;
 
   const body = `
@@ -293,6 +294,53 @@ export async function sendClaimTicketEmail(env, { to, name, nativity, pieces, se
     html: emailShell({
       eyebrow: 'Stroll to the Stable',
       title: 'Your nativity is checked in',
+      intro,
+      body,
+    }),
+  });
+}
+
+// One email for a donor whose nativities were all checked in together at the
+// walk-in desk, instead of one claim ticket per nativity.
+export async function sendDonorCheckInSummaryEmail(env, { to, name, donorCode, nativities, settings }) {
+  const rows = nativities.map((n) => `
+    <tr>
+      <td style="padding:8px 10px;border-bottom:1px solid #ece7dd;color:#243142;font-weight:700;white-space:nowrap">${escapeHtml(n.submission_number)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #ece7dd;color:#243142">${escapeHtml(n.description || 'Nativity')}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #ece7dd;color:#4b5563;white-space:nowrap">${Number(n.piece_count) || 0}</td>
+    </tr>`).join('');
+  const count = nativities.length;
+
+  const intro = `
+    <p style="margin:0 0 14px;font-size:16px;line-height:1.6">Hi ${escapeHtml(name)},</p>
+    <p style="margin:0 0 14px;font-size:16px;line-height:1.6">Thank you for lending ${count === 1 ? 'your nativity' : `your ${count} nativities`} to <b>Stroll to the Stable</b>. ${count === 1 ? 'It has' : 'They have'} been checked in and ${count === 1 ? 'is' : 'are'} now in our care.</p>
+    <div style="margin:18px 0;padding:16px;border-radius:10px;background:#f7f3e8;border:1px solid #e5ddca">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#806c3d;font-weight:700">Your donor code</div>
+      <div style="margin-top:4px;font-size:25px;font-weight:800;color:#243142">${escapeHtml(donorCode)}</div>
+      <div style="margin-top:7px;color:#4b5563;font-size:14px">Keep this email. Give this code at pick-up and we will find everything you brought.</div>
+    </div>`;
+
+  const body = `
+    ${schedulePanel('Pickup times', settings?.pickupDays, settings?.pickupStart, settings?.pickupEnd)}
+    <div style="margin-top:24px">
+      <h2 style="margin:0 0 10px;font-size:18px;color:#243142">Checked in</h2>
+      <table role="presentation" style="width:100%;border-collapse:collapse;border:1px solid #ded8ca">
+        <tr style="background:#f7f3e8">
+          <th style="padding:8px 10px;text-align:left;color:#243142">Claim number</th>
+          <th style="padding:8px 10px;text-align:left;color:#243142">Nativity</th>
+          <th style="padding:8px 10px;text-align:left;color:#243142">Pieces</th>
+        </tr>
+        ${rows}
+      </table>
+    </div>
+    <p style="margin:22px 0 0;font-size:15px;line-height:1.6;color:#4b5563">We look forward to sharing ${count === 1 ? 'your nativity' : 'your nativities'} with visitors. Thank you again for helping make Stroll to the Stable possible.</p>`;
+
+  await send(env, {
+    to,
+    subject: `${count === 1 ? 'Nativity' : `${count} nativities`} checked in — donor code ${donorCode}`,
+    html: emailShell({
+      eyebrow: 'Stroll to the Stable',
+      title: count === 1 ? 'Your nativity is checked in' : 'Your nativities are checked in',
       intro,
       body,
     }),

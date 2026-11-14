@@ -20,17 +20,26 @@ import {
   deleteAdminNote,
 } from '../lib/siteSettings.js';
 
+// Turns what an admin types ("1042", "d1042", "D 1042") into the stored
+// form "D-1042". Returns null when the text is not a donor code.
+export function normalizeDonorCode(value) {
+  const m = String(value ?? '').trim().match(/^d?[\s-]*(\d{3,9})$/i);
+  return m ? `D-${m[1]}` : null;
+}
+
 export async function listNativities(request, env, session) {
   requireAdmin(session);
   const url = new URL(request.url);
   const status = url.searchParams.get('status') || null;
   const search = url.searchParams.get('search')?.trim() || null;
   const like = search ? `%${search}%` : null;
+  // "1042", "d1042", "D 1042" and "D-1042" all find donor D-1042.
+  const donorCode = normalizeDonorCode(search);
 
   const sql = db(env);
   const rows = await sql`
     SELECT s.id, s.submission_number, s.status, s.event_year, s.owner_name, s.owner_phone, s.owner_email,
-           n.waiver_signed, n.waiver_method, n.piece_count,
+           s.owner_donor_code, n.owner_user_id, n.waiver_signed, n.waiver_method, n.piece_count,
            COALESCE(n.display_photo_key, n.photo_key) AS photo_key
     FROM nativity_search s
     JOIN nativities n ON n.id = s.id
@@ -39,6 +48,7 @@ export async function listNativities(request, env, session) {
         ${like}::text IS NULL
         OR s.owner_name ILIKE ${like} OR s.owner_phone ILIKE ${like} OR s.owner_email ILIKE ${like}
         OR s.piece_text ILIKE ${like} OR s.submission_number ILIKE ${like}
+        OR s.owner_donor_code ILIKE ${like} OR s.owner_donor_code = ${donorCode}
       )
     ORDER BY s.id DESC
   `;
@@ -117,7 +127,7 @@ export async function getNativity(request, env, session, id) {
   requireAdmin(session);
   const sql = db(env);
   const rows = await sql`
-    SELECT n.*, u.name AS owner_name, u.phone AS owner_phone, u.email AS owner_email
+    SELECT n.*, u.name AS owner_name, u.phone AS owner_phone, u.email AS owner_email, u.donor_code AS owner_donor_code
     FROM nativities n JOIN users u ON u.id = n.owner_user_id
     WHERE n.id = ${id}
   `;
@@ -133,9 +143,15 @@ export async function updateNativity(request, env, session, id) {
   const owner = body.owner || {};
   const pieces = body.pieces;
 
-  if (!owner.name?.trim() || !owner.phone?.trim() || !owner.email?.trim()) {
-    return error('Donor name, phone, and email are required.');
+  // Phone and email are optional: walk-in donors may have neither.
+  const ownerName = String(owner.name ?? '').trim();
+  const ownerPhone = String(owner.phone ?? '').trim() || null;
+  const ownerEmail = String(owner.email ?? '').trim() || null;
+  if (!ownerName) return error('Donor name is required.');
+  if (ownerName.length > 100 || (ownerPhone || '').length > 40 || (ownerEmail || '').length > 254) {
+    return error('One of the donor fields is too long.');
   }
+  if (ownerEmail && !/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]{2,}$/.test(ownerEmail)) return error('Enter a valid email address, or leave it blank.');
   if (!Array.isArray(pieces) || pieces.length === 0) {
     return error('A submission must have at least one piece.');
   }
@@ -156,8 +172,8 @@ export async function updateNativity(request, env, session, id) {
   // What the waiver covers: donor info, description, story and pieces.
   const norm = (v) => String(v ?? '').trim();
   const newDescription = typeof body.description === 'string' ? (body.description.trim().slice(0, 5000) || null) : null;
-  const ownerChanged = norm(owner.name) !== norm(n.owner_name) || norm(owner.phone) !== norm(n.owner_phone)
-    || norm(owner.email).toLowerCase() !== norm(n.owner_email).toLowerCase();
+  const ownerChanged = ownerName !== norm(n.owner_name) || norm(ownerPhone) !== norm(n.owner_phone)
+    || norm(ownerEmail).toLowerCase() !== norm(n.owner_email).toLowerCase();
   const oldPieces = await sql`SELECT description, condition_notes FROM nativity_pieces WHERE nativity_id = ${id} ORDER BY piece_number`;
   const piecesChanged = JSON.stringify(oldPieces.map((p) => [norm(p.description), norm(p.condition_notes)]))
     !== JSON.stringify(pieces.map((p) => [norm(p.description), norm(p.condition_notes)]));
@@ -168,14 +184,16 @@ export async function updateNativity(request, env, session, id) {
   if (n.status !== 'pending' && contentChanged) {
     return error('This nativity has been checked in, so its description, story and pieces are final.', 409);
   }
-  const emailTaken = await sql`
-    SELECT 1 FROM users WHERE lower(email) = lower(${owner.email.trim()}) AND id <> ${ownerUserId} LIMIT 1
-  `;
-  if (emailTaken.length) return error('Another account already uses that email address.', 409);
+  if (ownerEmail) {
+    const emailTaken = await sql`
+      SELECT 1 FROM users WHERE lower(email) = lower(${ownerEmail}) AND id <> ${ownerUserId} LIMIT 1
+    `;
+    if (emailTaken.length) return error('Another account already uses that email address.', 409);
+  }
 
   await sql`
     UPDATE users
-    SET name = ${owner.name.trim()}, phone = ${owner.phone.trim()}, email = ${owner.email.trim()}
+    SET name = ${ownerName}, phone = ${ownerPhone}, email = ${ownerEmail}
     WHERE id = ${ownerUserId}
   `;
 
@@ -229,7 +247,10 @@ export async function updateNativity(request, env, session, id) {
 
   // Like donor edits, admin edits clear waivers so a fresh one is signed.
   let waiversCleared = 0;
-  if (contentChanged && n.status === 'pending' && (n.waiver_signed || n.waiver_method)) {
+  // An unsigned paper waiver set up at the desk is printed from current data,
+  // so it does not need to be cleared.
+  const deskPaperUnsigned = !!n.paper_by_admin && !n.waiver_signed;
+  if (contentChanged && n.status === 'pending' && (n.waiver_signed || n.waiver_method) && !deskPaperUnsigned) {
     await resetWaiver(env, n);
     waiversCleared++;
   }
@@ -281,11 +302,15 @@ export async function finalize(request, env, session, id) {
   requireAdmin(session);
   const sql = db(env);
   const rows = await sql`
-    SELECT n.*, u.name AS owner_name, u.email AS owner_email
+    SELECT n.*, u.name AS owner_name, u.email AS owner_email, u.donor_code AS owner_donor_code
     FROM nativities n JOIN users u ON u.id = n.owner_user_id WHERE n.id = ${id}
   `;
   if (rows.length === 0) return error('Not found.', 404);
   const nativity = rows[0];
+  // The walk-in desk checks in many nativities at once and sends one summary
+  // email afterwards, so it passes { notify: false }.
+  const options = await request.json().catch(() => ({}));
+  const notify = options?.notify !== false;
   if (!nativity.waiver_signed) return error('Waiver must be signed before finalizing.');
   if (nativity.status !== 'pending') return error('Already finalized.');
 
@@ -294,18 +319,28 @@ export async function finalize(request, env, session, id) {
     WHERE id = ${id}
   `;
 
-  const pieces = await sql`SELECT * FROM nativity_pieces WHERE nativity_id = ${id} ORDER BY piece_number`;
-  const settings = await getSiteSettings(env);
-  await sendClaimTicketEmail(env, {
-    to: nativity.owner_email,
-    name: nativity.owner_name,
-    nativity,
-    pieces,
-    settings,
-    baseUrl: new URL(request.url).origin,
-  });
+  // Donors without an email address get no claim ticket email: they are
+  // looked up at pick-up by donor code, name or claim number.
+  let emailSent = false;
+  if (notify && nativity.owner_email) {
+    const pieces = await sql`SELECT * FROM nativity_pieces WHERE nativity_id = ${id} ORDER BY piece_number`;
+    const settings = await getSiteSettings(env);
+    try {
+      await sendClaimTicketEmail(env, {
+        to: nativity.owner_email,
+        name: nativity.owner_name,
+        nativity,
+        pieces,
+        settings,
+        baseUrl: new URL(request.url).origin,
+      });
+      emailSent = true;
+    } catch (err) {
+      console.error('Claim ticket email failed:', err);
+    }
+  }
 
-  return json({ ok: true });
+  return json({ ok: true, emailSent, hasEmail: !!nativity.owner_email });
 }
 
 export async function markReturned(request, env, session, id) {
