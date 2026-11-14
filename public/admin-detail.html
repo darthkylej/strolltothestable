@@ -314,7 +314,7 @@ async function load() {
 
     const isDraft = String(nativity.submission_number).startsWith('DRAFT-');
     document.getElementById('title').textContent = nativity.owner_name || 'Unknown donor';
-    document.getElementById('subtitle').textContent = `Donor ${nativity.owner_donor_code} · `
+    document.getElementById('subtitle').textContent = (nativity.owner_donor_code ? `Donor ${nativity.owner_donor_code} · ` : '')
       + (isDraft ? 'Unfinished draft' : nativity.submission_number)
       + ` · ${pieces.length} piece${pieces.length === 1 ? '' : 's'} · ${nativity.event_year}`;
     document.title = `${nativity.owner_name || 'Submission'} — Stroll to the Stable Admin`;
@@ -349,7 +349,7 @@ function fmtDate(v) {
 // The desk panel: everything needed at the check-in or pick-up table.
 function renderDesk(n, pieces, note, isDraft) {
   document.getElementById('deskContact').innerHTML =
-    `<a class="code-chip" href="/admin-walkin.html?donor=${encodeURIComponent(n.owner_user_id)}" title="Everything from this donor">${esc(n.owner_donor_code)}</a>`
+    (n.owner_donor_code ? `<a class="code-chip" href="/admin-walkin.html?donor=${encodeURIComponent(n.owner_user_id)}" title="Everything from this donor">${esc(n.owner_donor_code)}</a>` : '')
     + (n.owner_phone ? `<a href="tel:${esc(n.owner_phone)}">${esc(n.owner_phone)}</a>` : '')
     + (n.owner_email ? `<a href="mailto:${esc(n.owner_email)}">${esc(n.owner_email)}</a>` : '')
     + (!n.owner_phone && !n.owner_email ? '<span style="color:var(--muted)">No phone or email on file</span>' : '')
@@ -461,7 +461,7 @@ function updateDeskButtons() {
     finalize.disabled = blockers.length > 0 || !boxes.length;
     hint.textContent = blockers.length ? blockers.join(' ')
       : current.owner_email ? 'All pieces checked. Finalizing emails the donor their claim ticket.'
-      : `All pieces checked. No email on file, so give the donor their code: ${current.owner_donor_code}.`;
+      : `All pieces checked. No email on file, so give the donor their code${current.owner_donor_code ? ': ' + current.owner_donor_code : ' or claim number'}.`;
   } else if (current.status === 'submitted') {
     ret.disabled = remaining > 0 || !boxes.length;
     hint.textContent = left || 'All pieces checked. Ready to hand back.';
@@ -616,7 +616,7 @@ document.getElementById('finalizeBtn').addEventListener('click', async () => {
     const result = await api(`/api/admin/nativities/${id}/finalize`, { method: 'POST' });
     showSuccess(result.emailSent ? 'Checked in. The claim ticket was emailed to the donor.'
       : result.hasEmail ? 'Checked in, but the claim ticket email could not be sent.'
-      : `Checked in. No email on file: give the donor their code, ${current?.owner_donor_code || ''}.`);
+      : `Checked in. No email on file: give the donor their ${current?.owner_donor_code ? 'code, ' + current.owner_donor_code : 'claim number'}.`);
     await load();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {

@@ -78,7 +78,7 @@
 
     <form class="card" id="newDonorForm" style="margin-top:16px" autocomplete="off">
       <h2 style="margin-top:0">New donor</h2>
-      <p class="hint" style="margin:0 0 14px">Only a name is needed. They get a donor code right away.</p>
+      <p class="hint" style="margin:0 0 14px">Only a name is needed. Their donor code is issued with their first nativity.</p>
       <div class="field">
         <label for="newName">Name</label>
         <input id="newName" type="text" maxlength="100" required>
@@ -118,7 +118,7 @@
         </div>
         <span class="code-chip code-big" id="donorCode"></span>
       </div>
-      <p class="hint">Write the donor code on their boxes. At pick-up, search this code to find everything they brought.</p>
+      <p class="hint" id="codeHint">Write the donor code on their boxes. At pick-up, search this code to find everything they brought.</p>
       <details style="margin-top:12px">
         <summary style="cursor:pointer;color:var(--gold-bright)">Edit donor details</summary>
         <form id="editDonorForm" style="margin-top:12px" autocomplete="off">
@@ -201,7 +201,7 @@ function donorRowHtml(d) {
   const counts = d.thisYear ? `${natCount(d.thisYear)} this year` : (d.total ? 'None yet this year' : 'No nativities yet');
   return `<a class="donor-row" href="/admin-walkin.html?donor=${encodeURIComponent(d.id)}">
     <div><div class="donor-name">${esc(d.name)}</div><div class="donor-meta">${contact} · ${counts}</div></div>
-    <span class="code-chip">${esc(d.donorCode)}</span>
+    ${d.donorCode ? `<span class="code-chip">${esc(d.donorCode)}</span>` : '<span class="donor-meta">No code yet</span>'}
   </a>`;
 }
 
@@ -300,8 +300,13 @@ function groups() {
 
 function renderDonor() {
   document.getElementById('donorName').textContent = donor.name;
-  document.getElementById('donorCode').textContent = donor.donorCode;
-  document.title = `${donor.donorCode} ${donor.name} — Walk-In Desk`;
+  const codeEl = document.getElementById('donorCode');
+  codeEl.textContent = donor.donorCode || '';
+  codeEl.style.display = donor.donorCode ? '' : 'none';
+  document.getElementById('codeHint').textContent = donor.donorCode
+    ? 'Write the donor code on their boxes. At pick-up, search this code to find everything they brought.'
+    : 'Their donor code is issued when you add their first nativity.';
+  document.title = `${donor.donorCode ? donor.donorCode + ' ' : ''}${donor.name} — Walk-In Desk`;
   const bits = [];
   if (donor.phone) bits.push(`<a href="tel:${esc(donor.phone)}">${esc(donor.phone)}</a>`);
   if (donor.email) bits.push(`<a href="mailto:${esc(donor.email)}">${esc(donor.email)}</a>`);
@@ -418,7 +423,7 @@ async function checkInAll() {
     } catch (_) { emailNote = ' The confirmation email could not be sent.'; }
   }
   await loadDonor();
-  if (done && done.length) showSuccess(`${done.length === 1 ? '1 nativity' : done.length + ' nativities'} checked in for ${donor.donorCode}.${emailNote}`);
+  if (done && done.length) showSuccess(`${done.length === 1 ? '1 nativity' : done.length + ' nativities'} checked in for ${donor.donorCode || donor.name}.${emailNote}`);
 }
 
 async function returnAll() {

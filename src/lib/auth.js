@@ -144,6 +144,17 @@ function normalizeLastName(lastName) {
     .replace(/[^a-z]/g, '') || 'user';
 }
 
+// ── Donor codes ─────────────────────────────────────────────────────────
+// A donor's code (D-1001, D-1002, ...) is issued when their first nativity is
+// submitted, so codes follow the order of submissions. It never changes after.
+// Safe to call on every submission: it does nothing once a code exists.
+export async function ensureDonorCode(sql, userId) {
+  await sql`
+    UPDATE users SET donor_code = 'D-' || nextval('donor_code_seq')
+    WHERE id = ${userId} AND donor_code IS NULL
+  `;
+}
+
 // ── Human-readable submission numbers, per event year ────────────────────
 export async function nextSubmissionNumber(sql, eventYear) {
   const rows = await sql`

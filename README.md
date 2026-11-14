@@ -67,7 +67,8 @@ ALTER TABLE nativities ADD COLUMN display_photo_key TEXT;
 ## Donor codes and the walk-in desk
 
 - Every donor has one permanent **donor code** (`D-1001`, `D-1002`, ...), issued
-  when the account is created and kept from year to year. Admins see it on the
+  when they submit their first nativity (so codes follow submission order) and
+  kept from year to year. Admins see it on the
   submissions list and each submission page, and can search by it (`D-1042`,
   `d1042` or just `1042`) during check-in and pick-up. Donors see it on My
   Nativities and in their check-in email.
