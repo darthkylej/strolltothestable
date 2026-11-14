@@ -1,4 +1,7 @@
 import { getSession } from './lib/auth.js';
+import { pageCategory, recordPageView, getPageViewStats } from './lib/pageViews.js';
+import { db } from './lib/db.js';
+import { json, requireAdmin } from './lib/util.js';
 import * as auth from './routes/auth.js';
 import * as adminAuth from './routes/adminAuth.js';
 import * as nativities from './routes/nativities.js';
@@ -161,8 +164,8 @@ async function serveTourMedia(request, env, path) {
 }
 
 export default {
-  async fetch(request, env) {
-    return withSecurityHeaders(await handle(request, env));
+  async fetch(request, env, ctx) {
+    return withSecurityHeaders(await handle(request, env, ctx));
   },
 
   async email(message, env, ctx) {
@@ -175,7 +178,7 @@ export default {
   },
 };
 
-async function handle(request, env) {
+async function handle(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
@@ -219,6 +222,10 @@ async function handle(request, env) {
         const response = await env.ASSETS.fetch(request);
         const contentType = response.headers.get('Content-Type') || '';
         const isHome = path === '/' || path === '/index.html';
+        // Record only successful public HTML navigations. Never block page delivery on analytics.
+        const category = response.ok && method === 'GET' && contentType.includes('text/html') ? pageCategory(request, path) : null;
+        if (category) ctx.waitUntil(recordPageView(env, category).catch(e => console.error('Page view counter:', e)));
+
 
         if (method === 'GET' && contentType.includes('text/html')) {
           if (isHome) {
@@ -309,6 +316,12 @@ async function handle(request, env) {
       //   return await nativities.setTourVisibility(request, env, session, m[1]);
       // }
 
+      if (path === '/api/admin/page-views' && method === 'GET') {
+        requireAdmin(session);
+        const rows = await getPageViewStats(env);
+        const dateRows = await db(env)`SELECT to_char((now() AT TIME ZONE 'America/Chicago')::date, 'YYYY-MM-DD') AS today`;
+        return json({ rows, today: dateRows[0].today });
+      }
       if (path === '/api/admin/settings' && method === 'GET') return await admin.getAdminSettings(request, env, session);
       if (path === '/api/admin/settings' && method === 'POST') return await admin.updateAdminSettings(request, env, session);
       if (path === '/api/admin/nativities' && method === 'GET') return await admin.listNativities(request, env, session);
