@@ -128,7 +128,7 @@ async function load() {
     // offer that donor's page, where everything can be handled together.
     const banner=document.getElementById('donorBanner');
     const owners=new Set(nativities.map(n=>String(n.owner_user_id)));
-    if(search&&nativities.length&&owners.size===1){
+    if(search&&nativities.length&&owners.size===1&&currentStatus!=='submitted'&&currentStatus!=='returned'){
       const d=nativities[0];
       banner.innerHTML=`<div>${d.owner_donor_code?`<span class="code-chip">${esc(d.owner_donor_code)}</span> `:''}<b>${esc(d.owner_name)}</b> · ${nativities.length===1?'1 nativity':nativities.length+' nativities'} in this view</div><a class="btn btn-secondary" href="/admin-walkin.html?donor=${encodeURIComponent(d.owner_user_id)}">Open Donor Page</a>`;
       banner.style.display='flex';

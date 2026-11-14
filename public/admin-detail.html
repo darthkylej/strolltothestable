@@ -353,7 +353,7 @@ function renderDesk(n, pieces, note, isDraft) {
     + (n.owner_phone ? `<a href="tel:${esc(n.owner_phone)}">${esc(n.owner_phone)}</a>` : '')
     + (n.owner_email ? `<a href="mailto:${esc(n.owner_email)}">${esc(n.owner_email)}</a>` : '')
     + (!n.owner_phone && !n.owner_email ? '<span style="color:var(--muted)">No phone or email on file</span>' : '')
-    + `<a href="/admin-walkin.html?donor=${encodeURIComponent(n.owner_user_id)}">All from this donor ›</a>`;
+    + (n.status === 'pending' ? `<a href="/admin-walkin.html?donor=${encodeURIComponent(n.owner_user_id)}">All from this donor ›</a>` : '');
 
   const descEl = document.getElementById('deskDescription');
   descEl.style.display = n.description ? 'block' : 'none';

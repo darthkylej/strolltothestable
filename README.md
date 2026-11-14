@@ -77,12 +77,12 @@ ALTER TABLE nativities ADD COLUMN display_photo_key TEXT;
   and address are optional), then adds each nativity with a short description
   and a piece count. Pieces are listed automatically as "description (1 of N)".
 - Walk-in nativities use a paper waiver, one per nativity. The donor page
-  prints them as combined PDFs (10 per print job), marks them all signed, and
-  checks everything in at once. A donor with an email gets a single summary
-  email instead of one claim ticket per nativity; a donor without one gets no
-  email and is found by donor code.
-- The same donor page works at pick-up: search the code, open the donor, and
-  mark everything returned.
+  prints them as combined PDFs (10 per print job); one button then records the
+  waivers as signed and checks everything in. A donor with an email gets a
+  single summary email instead of one claim ticket per nativity; a donor
+  without one gets no email and is found by donor code.
+- The Walk-In Desk is for drop-off only. Pick-up uses Return Nativities, which
+  can be searched by donor code.
 - On any pending submission with no signed waiver, an admin can choose **Use
   Paper Waiver** so the donor signs a printed copy at the desk.
 
