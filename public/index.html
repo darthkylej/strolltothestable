@@ -568,8 +568,6 @@
       const res = await fetch('/api/settings', { cache: 'no-store' });
       if (!res.ok) return;
       const s = await res.json();
-      const tourButton = document.getElementById('tourButton');
-      if (tourButton) tourButton.style.display = s.tourOpen === false ? 'none' : '';
 
       const scene = document.querySelector('.landing-scene');
       if (s.landingBackgroundUrl) {

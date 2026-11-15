@@ -60,7 +60,10 @@ async function load() {
     const { tour } = tourData;
     const gallery = document.getElementById('gallery');
     if (tourData.closed && !tour.length) {
-      gallery.innerHTML = '<div class="empty-state">The Scroll to the Stable virtual tour is not open right now. Please check back soon.</div>';
+      gallery.innerHTML = `<div class="empty-state">
+        <strong style="display:block;font-size:1.15rem;color:var(--gold-bright);margin-bottom:8px">The virtual tour is being prepared</strong>
+        We are gathering photos of this year's nativities, artwork, and videos. The Scroll to the Stable virtual tour will open soon. Please check back!
+      </div>`;
       return;
     }
     if (tourData.closed) {
