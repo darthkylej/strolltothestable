@@ -1,11 +1,19 @@
 import { db } from '../lib/db.js';
 import { json } from '../lib/util.js';
 import { listTourMediaObjects, serializeTourMedia } from '../lib/tourMedia.js';
+import { getSiteSettings } from '../lib/siteSettings.js';
 
 // Public: no session required. The collection includes all nativities that
 // have been checked in at least once and are still marked for the public tour,
 // plus standalone artwork, photos, and videos uploaded by admins.
-export async function getTour(request, env) {
+export async function getTour(request, env, session) {
+  // When an admin switches the tour off, visitors get nothing. Admins still
+  // see the full tour (flagged as closed) so they can check it before opening.
+  const noStore = { 'Cache-Control': 'no-store, max-age=0', Pragma: 'no-cache' };
+  const { tourOpen } = await getSiteSettings(env);
+  const isAdmin = session?.kind === 'admin';
+  if (!tourOpen && !isAdmin) return json({ tour: [], closed: true }, { headers: noStore });
+
   const sql = db(env);
   const [nativities, mediaObjects] = await Promise.all([
     sql`
@@ -30,7 +38,7 @@ export async function getTour(request, env) {
   const tour = [...nativityItems, ...mediaItems];
 
   return json(
-    { tour },
+    { tour, closed: !tourOpen },
     {
       headers: {
         'Cache-Control': 'no-store, max-age=0',

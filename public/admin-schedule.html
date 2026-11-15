@@ -72,6 +72,17 @@
     </div>
   </section>
 
+  <section class="submission-settings">
+    <div>
+      <h2>Scroll to the Stable (Virtual Tour)</h2>
+      <p>Turn the online virtual tour on or off for visitors. Admins can still preview it while it is off.</p>
+    </div>
+    <div class="setting-control">
+      <span class="setting-status" id="tourStatus">Loading…</span>
+      <label class="switch" style="margin:0"><input type="checkbox" id="tourToggle" aria-label="Virtual tour on or off" disabled><span class="track"></span></label>
+    </div>
+  </section>
+
   <section class="schedule-settings">
     <p>Enter dates as MM/DD/YYYY. Drop-off and pickup ranges create one row for each day so you can set the exact hours someone will be available.</p>
     <div class="schedule-grid">
@@ -129,6 +140,13 @@ function renderSubmissionSetting(open) {
   toggle.checked=open; toggle.disabled=false;
   const label=document.getElementById('submissionStatus');
   label.textContent=open?'OPEN':'CLOSED';
+  label.style.color=open?'var(--gold-bright)':'#ffb0a1';
+}
+function renderTourSetting(open) {
+  const toggle=document.getElementById('tourToggle');
+  toggle.checked=open; toggle.disabled=false;
+  const label=document.getElementById('tourStatus');
+  label.textContent=open?'ON':'OFF';
   label.style.color=open?'var(--gold-bright)':'#ffb0a1';
 }
 const TIME_VALUES=[];
@@ -191,6 +209,7 @@ async function loadSettings(){
   try{
     const settings=await api('/api/admin/settings');
     renderSubmissionSetting(settings.submissionsOpen);
+    renderTourSetting(settings.tourOpen!==false);
     fillTimeSelect(document.getElementById('submissionEndTime'));
     const end=isoToParts(settings.submissionEnd);
     document.getElementById('submissionEndDate').value=end.date;
@@ -213,6 +232,11 @@ async function loadSettings(){
 document.getElementById('submissionsToggle').addEventListener('change',async e=>{
   hideError(); const toggle=e.target,desired=toggle.checked; toggle.disabled=true;
   try{const result=await api('/api/admin/settings',{method:'POST',body:{submissionsOpen:desired}});renderSubmissionSetting(result.submissionsOpen);showSuccess(result.submissionsOpen?'Nativity submissions are open.':'Nativity submissions are closed.');}
+  catch(err){showError(err.message);await loadSettings();}
+});
+document.getElementById('tourToggle').addEventListener('change',async e=>{
+  hideError(); const toggle=e.target,desired=toggle.checked; toggle.disabled=true;
+  try{const result=await api('/api/admin/settings',{method:'POST',body:{tourOpen:desired}});renderTourSetting(result.tourOpen!==false);showSuccess(result.tourOpen!==false?'The virtual tour is on.':'The virtual tour is off.');}
   catch(err){showError(err.message);await loadSettings();}
 });
 document.getElementById('buildDropoffDays').addEventListener('click',()=>buildDays('dropoff'));

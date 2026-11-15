@@ -82,6 +82,10 @@ export async function updateAdminSettings(request, env, session) {
     if (typeof body.submissionsOpen !== 'boolean') return error('Invalid submission setting.');
     updates.submissionsOpen = body.submissionsOpen;
   }
+  if (body.tourOpen !== undefined) {
+    if (typeof body.tourOpen !== 'boolean') return error('Invalid virtual tour setting.');
+    updates.tourOpen = body.tourOpen;
+  }
 
   for (const key of allowedStrings) {
     if (body[key] !== undefined) {

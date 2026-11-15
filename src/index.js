@@ -282,7 +282,7 @@ async function handle(request, env, ctx) {
       if (path === '/api/admin/request-otp' && method === 'POST') return await adminAuth.requestOtp(request, env);
       if (path === '/api/admin/verify-otp' && method === 'POST') return await adminAuth.verifyOtp(request, env);
 
-      if (path === '/api/tour' && method === 'GET') return await getTour(request, env);
+      if (path === '/api/tour' && method === 'GET') return await getTour(request, env, session);
 
       if (path === '/api/admin/participant-profile' && (method === 'GET' || method === 'POST')) return await adminAuth.participantProfile(request,env,session);
       if (path === '/api/nativities' && method === 'GET') return await nativities.listMine(request, env, session);
