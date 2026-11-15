@@ -7,6 +7,7 @@ export async function getPublicSettings(request, env) {
     {
       submissionsOpen: submissionsAreOpen(settings),
       submissionsEnabled: settings.submissionsOpen,
+      tourOpen: settings.tourOpen,
       submissionStart: settings.submissionStart,
       submissionEnd: settings.submissionEnd,
       dropoffStart: settings.dropoffStart,

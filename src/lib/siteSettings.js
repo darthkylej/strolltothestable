@@ -3,6 +3,7 @@ const ADMIN_NOTE_PREFIX = '_admin-notes/';
 
 const DEFAULT_SETTINGS = {
   submissionsOpen: true,
+  tourOpen: true,            // Scroll to the Stable virtual tour visible to the public
   submissionStart: '',
   submissionEnd: '',
   dropoffStart: '',
@@ -26,6 +27,7 @@ export async function getSiteSettings(env) {
       ...DEFAULT_SETTINGS,
       ...stored,
       submissionsOpen: stored.submissionsOpen !== false,
+      tourOpen: stored.tourOpen !== false,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -45,6 +47,7 @@ export async function updateSiteSettings(env, updates, updatedBy = '') {
     ...current,
     ...updates,
     submissionsOpen: updates.submissionsOpen === undefined ? current.submissionsOpen : !!updates.submissionsOpen,
+    tourOpen: updates.tourOpen === undefined ? current.tourOpen : !!updates.tourOpen,
     updatedAt: new Date().toISOString(),
     updatedBy,
   };
