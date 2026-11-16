@@ -205,7 +205,6 @@ export async function updateNativity(request, env, session, id) {
     UPDATE nativities
     SET story = ${body.story?.trim() || null},
         description = ${newDescription},
-        include_in_tour = ${body.includeInTour !== false},
         updated_at = now()
     WHERE id = ${id}
   `;

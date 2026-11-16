@@ -82,7 +82,6 @@ document.getElementById('photoForm').addEventListener('submit', async (e) => {
         photoKey,
         description: document.getElementById('description').value,
         story: document.getElementById('story').value,
-        includeInTour: true,
       },
     });
     window.location.href = `/lend-pieces.html?id=${id}`;

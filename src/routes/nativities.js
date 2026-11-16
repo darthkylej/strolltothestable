@@ -71,18 +71,6 @@ export async function create(request, env, session) {
   return json({ id: rows[0].id });
 }
 
-// Lets an owner change their mind about tour visibility any time, without
-// touching the rest of the submission.
-export async function setTourVisibility(request, env, session, id) {
-  requireUser(session);
-  const { includeInTour } = await request.json();
-  const sql = db(env);
-  const owned = await sql`SELECT id FROM nativities WHERE id = ${id} AND owner_user_id = ${session.userId}`;
-  if (owned.length === 0) return error('Nativity not found.', 404);
-  await sql`UPDATE nativities SET include_in_tour = ${!!includeInTour}, updated_at = now() WHERE id = ${id}`;
-  return json({ ok: true });
-}
-
 // Step 2 — the per-piece form. Existing drafts may still be completed after
 // new submissions have been closed.
 export async function submitPieces(request, env, session, id) {
@@ -163,7 +151,7 @@ export async function resubmit(request, env, session, sourceId) {
   const submissionNumber = await nextSubmissionNumber(sql, eventYear);
   const inserted = await sql`
     INSERT INTO nativities (submission_number, owner_user_id, event_year, photo_key, description, story, piece_count, status, include_in_tour, cloned_from_id)
-    VALUES (${submissionNumber}, ${session.userId}, ${eventYear}, ${src.photo_key}, ${src.description}, ${src.story}, ${src.piece_count}, 'pending', ${src.include_in_tour}, ${src.id})
+    VALUES (${submissionNumber}, ${session.userId}, ${eventYear}, ${src.photo_key}, ${src.description}, ${src.story}, ${src.piece_count}, 'pending', TRUE, ${src.id})
     RETURNING id
   `;
   const newId = inserted[0].id;

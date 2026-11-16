@@ -74,7 +74,7 @@ CREATE TABLE nativities (
     piece_count       INT NOT NULL DEFAULT 0,
     status            TEXT NOT NULL DEFAULT 'pending'
                         CHECK (status IN ('pending', 'submitted', 'returned')),
-    include_in_tour    BOOLEAN NOT NULL DEFAULT TRUE, -- owner's opt-out of the public virtual tour
+    include_in_tour    BOOLEAN NOT NULL DEFAULT TRUE, -- unused: every checked-in nativity is shown in the tour
     display_photo_key  TEXT,                       -- worker-uploaded "glamour shot" in the final display spot; takes priority over photo_key in the tour
     waiver_method      TEXT CHECK (waiver_method IN ('digital','paper')), -- how the waiver is (or will be) signed
     paper_by_admin     TEXT,                      -- admin email when the paper waiver was set up at the desk (walk-ins)
