@@ -10,6 +10,18 @@ export function openEventDays(settings) {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// True once the last open event day has ended (Seguin time). Return/pick-up
+// buttons stay hidden until then. With no event days set, returns are allowed.
+export function eventIsOver(settings, now = new Date()) {
+  const days = openEventDays(settings);
+  if (!days.length) return true;
+  const last = days[days.length - 1];
+  const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const p = Object.fromEntries(f.formatToParts(now).map((x) => [x.type, x.value]));
+  const nowLocal = `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+  return nowLocal >= `${last.date} ${last.end}`;
+}
+
 const parts = (key) => key.split('-').map(Number);
 const weekday = (key) => { const [y, m, d] = parts(key); return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); };
 
