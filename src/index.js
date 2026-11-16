@@ -299,6 +299,7 @@ async function handle(request, env, ctx) {
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/waiver-record$/)) && method === 'GET') return await waivers.getWaiver(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/paper-waiver-signed$/)) && method === 'POST') return await waivers.markPaperSigned(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/paper-waiver$/)) && method === 'POST') return await waivers.adminChoosePaper(request,env,session,m[1]);
+      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/desk-checkin$/)) && method === 'POST') return await waivers.deskCheckIn(request,env,session,m[1]);
 
       // Walk-in desk: admin-created donors and quick nativity entry.
       if (path === '/api/admin/donors' && method === 'GET') return await walkin.listDonors(request, env, session);

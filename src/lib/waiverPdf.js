@@ -162,11 +162,18 @@ export async function createWaiverPdf(record, signedImage = null, mime = '', nat
     section('Electronic Signing Audit Trail');
     const audit=record.audit||{};
     line('Server Timestamp (UTC): '+(audit.signedAt||'Pending signature'));
+    if(audit.signedInPersonOnAdminDevice){
+      line('Signed in person at drop-off on an organizer device, in the presence of '+(audit.enteredByAdmin||'an organizer'),9);
+      line('Agreement displayed on the device before signing',9);
+      line('IP Address: '+(audit.ipAddress||'Not available'));
+      line('Browser / User Agent: '+(audit.userAgent||'Not available'),9);
+    } else {
     line('IP Address: '+(audit.ipAddress||'Not available'));
     line('Browser / User Agent: '+(audit.userAgent||'Not available'),9);
     line('Authenticated Account ID: '+(audit.authenticatedUserId??'Not yet signed'),9);
     line('Reviewed PDF SHA-256: '+(audit.reviewedPdfSha256||'Pending review'),8);
     line('Document Reviewed At (UTC): '+(audit.reviewedAt||'Pending review'),9);
+    }
     line('Electronic Consent: '+(record.electronicSignatureConsent===true?'Checked and accepted':'Not yet accepted'));
     line('Release of Liability Acknowledged: '+(record.releaseAccepted===true?'Checked and accepted':'Not yet accepted'));
     if(record.agreementVersion)line('Agreement Version: '+record.agreementVersion,9);

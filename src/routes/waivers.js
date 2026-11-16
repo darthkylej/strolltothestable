@@ -198,6 +198,12 @@ export async function markPaperSigned(request,env,session,id) {
   if(n.waiver_signed||await saved(env,n)) return error('This waiver is already signed.',409);
   const paper=await paperChoice(env,n);
   if(!paper) return error('This donor has not chosen to sign on paper.',400);
+  await recordPaperSigned(env,n,paper,session.email);
+  return json({ok:true});
+}
+
+async function recordPaperSigned(env,n,paper,adminEmail) {
+  const session={email:adminEmail};
   const verifiedAt=new Date().toISOString();
   const extra={paperVerifiedBy:session.email,paperVerifiedAt:verifiedAt,completedAt:verifiedAt,audit:{...paper.audit,paperVerifiedBy:session.email,paperVerifiedAt:verifiedAt}};
   const fields=paperFields(n,paper);
@@ -207,7 +213,57 @@ export async function markPaperSigned(request,env,session,id) {
   await env.PHOTOS.put(key(n),JSON.stringify(record),{httpMetadata:{contentType:'application/json'}});
   await env.PHOTOS.delete(paperKey(n));
   await db(env)`UPDATE nativities SET waiver_signed=true,waiver_method='paper',waiver_signed_by=${'Paper signature, verified by '+session.email},waiver_signed_at=now(),updated_at=now() WHERE id=${n.id}`;
-  return json({ok:true});
+}
+
+// Walk-in desk: record the waiver and check the nativity in, in one step.
+// body.method: 'device' = the donor signs on the admin's phone or tablet,
+// 'paper' = the donor signed the printed copy. A waiver that is already signed
+// (for example, signed online) just gets checked in.
+// No piece-by-piece check: the admin entered the nativity themselves.
+export async function deskCheckIn(request,env,session,id) {
+  requireAdmin(session);
+  const n=await owned(env,session,id,true);
+  if(n.submission_number.startsWith('DRAFT-')) return error('This submission is not finished yet.',400);
+  if(n.status!=='pending') return error('This nativity is already checked in.',409);
+  if(!n.photo_key&&!n.display_photo_key) return error('Add a photo of the nativity first.',400);
+  const body=await request.json().catch(()=>({}));
+  const sql=db(env);
+
+  if(!n.waiver_signed) {
+    if(await saved(env,n)) return error('This waiver is already signed.',409);
+    if(body.method==='device') {
+      if(body.releaseAccepted!==true||body.electronicSignatureConsent!==true) return error('The donor must check both boxes before signing.',400);
+      if(!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(body.signatureImage||'')||(body.signatureImage||'').length>300000) return error('Have the donor sign in the box.',400);
+      const fields=ownerFields(n);
+      if(!fields.name) return error('The donor needs a name before signing.',400);
+      const signedAt=new Date().toISOString();
+      const signingDate=new Date().toLocaleDateString('en-CA',{timeZone:'America/Chicago'});
+      const record=await waiverRecord(env,n,fields,{signerName:fields.name,signingDate,donorCode:n.owner_donor_code||'',signatureImage:body.signatureImage,agreed:true,electronicSignatureConsent:true,releaseAccepted:true,completedAt:signedAt,
+        audit:{signedAt,signedInPersonOnAdminDevice:true,enteredByAdmin:session.email,ipAddress:request.headers.get('CF-Connecting-IP')||null,userAgent:request.headers.get('User-Agent')||null,consentText:CONSENT_TEXT,releaseAcknowledgment:RELEASE_ACK,agreementVersion:AGREEMENT_VERSION}});
+      const pdf=await createWaiverPdf(record,null,'',await nativityPhoto(env,record));
+      record.audit.signedPdfSha256=await sha256(pdf);
+      await env.PHOTOS.put(pdfKey(n),pdf,{httpMetadata:{contentType:'application/pdf'}});
+      await env.PHOTOS.put(key(n),JSON.stringify(record),{httpMetadata:{contentType:'application/json'}});
+      for(const k of [paperKey(n),draftKey(n),reviewKey(n),reviewPdfKey(n)]) await env.PHOTOS.delete(k);
+      await sql`UPDATE nativities SET waiver_signed=true,waiver_method='digital',paper_by_admin=NULL,waiver_signed_by=${'Digital signature on admin device ('+session.email+')'},waiver_signed_at=now(),updated_at=now() WHERE id=${n.id}`;
+    } else if(body.method==='paper') {
+      let paper=await paperChoice(env,n);
+      if(!paper) {
+        paper=await writeAdminPaperChoice(env,n,session.email);
+        await sql`UPDATE nativities SET waiver_method='paper',paper_by_admin=${session.email},updated_at=now() WHERE id=${n.id}`;
+        n.paper_by_admin=session.email;
+      }
+      await recordPaperSigned(env,n,paper,session.email);
+    } else {
+      return error('Choose how the waiver was signed.',400);
+    }
+  }
+
+  const done=await sql`
+    UPDATE nativities SET status='submitted',finalized_by=${session.email},finalized_at=now(),updated_at=now()
+    WHERE id=${n.id} AND status='pending' RETURNING id`;
+  if(!done.length) return error('This nativity is already checked in.',409);
+  return json({ok:true,id:n.id,submissionNumber:n.submission_number,donorCode:n.owner_donor_code||null});
 }
 
 // Admin: switch a pending, unsigned submission to a paper waiver signed at the
