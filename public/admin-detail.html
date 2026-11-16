@@ -194,10 +194,8 @@
     </div>
   </details>
 
-  <div class="card danger-zone">
-    <h2>Delete Submission</h2>
-    <p>Permanently removes this submission, its piece records, private admin note and stored photos. A signed waiver, if any, is kept on file as a legal record. The donor account is not deleted.</p>
-    <button class="btn btn-danger" id="deleteBtn" style="width:auto; margin:8px 0 0">Delete This Submission</button>
+  <div class="danger-zone" style="margin-top:18px">
+    <button class="btn btn-danger" id="deleteBtn" style="width:auto; margin:0">Delete This Submission</button>
   </div>
 </div>
 <script src="/js/app.js"></script>
@@ -681,7 +679,7 @@ document.getElementById('deleteBtn').addEventListener('click', async () => {
   hideError();
   if (!current) return;
   const confirmed = window.confirm(
-    `Permanently delete ${current.submission_number} from ${current.owner_name}?\n\nThis removes the submission, all piece records, private admin notes, and stored photos. This cannot be undone.`
+    `Permanently delete ${current.submission_number} from ${current.owner_name}?\n\nThis removes the submission, its piece records, private admin note and stored photos. A signed waiver, if any, is kept on file as a legal record. The donor account is not deleted.\n\nThis cannot be undone.`
   );
   if (!confirmed) return;
 
