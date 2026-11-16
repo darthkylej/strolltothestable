@@ -104,7 +104,6 @@
   </div>
 
   <details class="card edit-card" id="submissionEditor"><summary>Edit submission: donor info, pieces, photos, private notes</summary>
-    <p class="section-note" id="editNote">Admins can correct anything the donor entered. Changing donor info, the description, story or pieces clears the donor's waiver, so they sign a fresh one.</p>
 
     <section class="edit-section">
       <h3>Donor Information</h3>
@@ -163,7 +162,6 @@
       <div class="piece-edit-head">
         <div>
           <h3 style="margin-bottom:4px">Pieces</h3>
-          <p class="section-note" style="margin:0">Descriptions, condition notes, and piece photos can all be corrected here.</p>
         </div>
         <button class="btn btn-outline" id="addPieceBtn" type="button" style="width:auto; margin:0">Add Piece</button>
       </div>
@@ -173,7 +171,6 @@
     <section class="edit-section">
       <span class="admin-note-badge">Admin Only</span>
       <h3>Private Notes</h3>
-      <p class="section-note">Never shown to the donor or in the Virtual Tour. Shown at the top of this page during check-in and pick-up.</p>
       <textarea id="adminNote" rows="4" placeholder="Example: Friend Jerry is authorized to pick this up for the donor."></textarea>
     </section>
 
@@ -184,7 +181,6 @@
 
   <details class="card" style="margin-top:16px">
     <summary>Virtual Tour display photo</summary>
-    <p class="section-note">This is the final-display photo shown in the public Virtual Tour when one has been uploaded.</p>
     <img id="displayPhoto" class="photo-frame" alt="Nativity display photo">
     <p id="noDisplayPhoto" class="section-note">No display photo yet.</p>
     <input type="file" id="displayPhotoInput" accept="image/*" capture="environment">
@@ -419,9 +415,6 @@ function renderDesk(n, pieces, note, isDraft) {
   const final = n.status !== 'pending';
   document.querySelectorAll('#descriptionInput, #storyInput, #pieces input, #pieces textarea').forEach((el) => { el.readOnly = final; });
   document.querySelectorAll('#addPieceBtn, #pieces [data-remove-piece]').forEach((el) => { el.style.display = final ? 'none' : ''; });
-  document.getElementById('editNote').textContent = final
-    ? 'This nativity is checked in, so its description, story and pieces are final. You can still update donor contact info, private notes and tour settings.'
-    : 'Admins can correct anything the donor entered. Changing donor info, the description, story or pieces clears the donor\'s waiver, so they sign a fresh one.';
   document.getElementById('finalizeBtn').style.display = n.status === 'pending' ? 'inline-block' : 'none';
   document.getElementById('returnBtn').style.display = n.status === 'submitted' ? 'inline-block' : 'none';
   updateDeskButtons();

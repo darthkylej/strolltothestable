@@ -53,7 +53,6 @@
     <div>
       <p class="eyebrow">Stroll to the Stable · Admin</p>
       <h1 id="pageTitle">Nativity Submissions</h1>
-      <p id="pageDescription">Search and manage nativity submissions.</p>
     </div>
     <div class="admin-tools">
       <a class="btn btn-outline" href="/admin-dashboard.html">← Admin Home</a>
@@ -101,11 +100,11 @@ function showSuccess(message) {
 }
 function statusLabel(status) { return status==='submitted'?'checked in':(status||'all'); }
 function setPageHeading() {
-  const title=document.getElementById('pageTitle'), desc=document.getElementById('pageDescription');
-  if(currentStatus==='pending'){title.textContent='Check In Nativities';desc.textContent='Pending submissions ready to be reviewed and checked in.';}
-  else if(currentStatus==='submitted'){title.textContent='Return Nativities';desc.textContent='Checked-in nativities ready to be returned to their owners.';}
-  else if(currentStatus==='returned'){title.textContent='Returned Nativities';desc.textContent='Nativities that have already been returned.';}
-  else {title.textContent='All Nativity Submissions';desc.textContent='Search and manage every nativity submission.';}
+  const title=document.getElementById('pageTitle');
+  if(currentStatus==='pending'){title.textContent='Check In Nativities';}
+  else if(currentStatus==='submitted'){title.textContent='Return Nativities';}
+  else if(currentStatus==='returned'){title.textContent='Returned Nativities';}
+  else {title.textContent='All Nativity Submissions';}
 }
 function syncFilterButtons(){document.querySelectorAll('[data-status]').forEach(btn=>btn.classList.toggle('active',btn.dataset.status===currentStatus));}
 async function load() {
