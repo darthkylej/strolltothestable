@@ -73,6 +73,42 @@ export async function createWaiverPdf(record, signedImage = null, mime = '', nat
   const blank=record.method==='paper'&&!record.paperVerifiedBy?'______________________________':'';
   if(record.donorCode)line('Donor Code: '+record.donorCode,10,true);
   for(const [key,label] of labels.slice(0,5))line(label+': '+(record.fields[key]||blank));
+  async function embedPhoto(raw){
+    if(!raw)return null;
+    try {
+      const bytes=raw instanceof Uint8Array?raw:new Uint8Array(raw);
+      if(bytes[0]===0x89 && bytes[1]===0x50) return await pdf.embedPng(bytes);
+      if(bytes[0]===0xff && bytes[1]===0xd8) return await pdf.embedJpg(bytes);
+    } catch(e) { console.error('Could not embed nativity photo in waiver:',e); }
+    return null;
+  }
+  // Batch waiver (walk-in desk): one agreement covering several nativities.
+  // record.nativities lists them; nativityPhoto is then an array in the same order.
+  const batch=Array.isArray(record.nativities)&&record.nativities.length?record.nativities:null;
+  if(batch){
+    section('Nativities Covered by This Agreement ('+batch.length+')');
+    line('This one agreement applies to each nativity listed below.',9);
+    gap(4);
+    const photos=Array.isArray(nativityPhoto)?nativityPhoto:[];
+    const PW=170,PH=120;
+    for(let i=0;i<batch.length;i++){
+      const b=batch[i];
+      const photo=await embedPhoto(photos[i]);
+      const scale=photo?Math.min(PW/photo.width,PH/photo.height):0;
+      const w=photo?photo.width*scale:0, h=photo?photo.height*scale:0;
+      ensureSpace(Math.max(h,52)+24);
+      const top=y+10; // photo top lines up with the first line of text
+      if(photo) page.drawImage(photo,{x:left,y:top-h,width:w,height:h});
+      const indent=photo?PW+16:0;
+      line((i+1)+'. '+(b.submissionNumber||''),11,true,indent);
+      if(b.description)line(b.description,10,false,indent);
+      line('Pieces: '+(b.pieceCount??''),10,false,indent);
+      if(b.condition)line('Condition: '+b.condition,9,false,indent);
+      y=Math.min(y+5,top-h)-10;
+      page.drawLine({start:{x:left,y},end:{x:left+width,y},thickness:0.4,color:rgb(0.8,0.8,0.8)});
+      y-=20;
+    }
+  } else {
   section('Nativity Information');
   const n=record.nativity||{};
   line('Submission Number: '+(n.submissionNumber||record.submissionNumber||''));
@@ -101,6 +137,7 @@ export async function createWaiverPdf(record, signedImage = null, mime = '', nat
     line('Piece '+p.piece_number+': '+(p.description||''));
     line('Condition: '+(p.condition_notes||''),9);
     if(p.photo_key)line('(Photo on file)',9);
+  }
   }
   // Keep the release and the participant's signature on the same dedicated page.
   newPage();
@@ -187,7 +224,7 @@ export async function createWaiverPdf(record, signedImage = null, mime = '', nat
     p.drawImage(img,{x:(612-img.width*scale)/2,y:contentBottom+(610-img.height*scale)/2,width:img.width*scale,height:img.height*scale});
   }
   const pages=pdf.getPages();
-  const submission=clean(record.submissionNumber||record.nativity?.submissionNumber||'');
+  const submission=batch?clean((record.donorCode?record.donorCode+'  |  ':'')+batch.length+' nativities'):clean(record.submissionNumber||record.nativity?.submissionNumber||'');
   for(let i=0;i<pages.length;i++){
     const p=pages[i];
     p.drawRectangle({x:0,y:742,width:612,height:50,color:navy});
