@@ -266,16 +266,20 @@ export async function batchWaiverPdf(request,env,session,donorId) {
   return new Response(pdf,{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="Stroll-to-the-Stable-Waiver-'+String(record.donorCode||'donor').replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf"','Cache-Control':'private, no-store'}});
 }
 
-// POST /api/admin/donors/:id/desk-checkin { ids, method, ... } — one waiver
-// for the whole batch (donor signs once on the admin's device, or the admin
-// confirms the printed batch waiver was signed), then every nativity in the
-// batch is checked in. Nativities already signed online are just checked in.
+// POST /api/admin/donors/:id/desk-checkin { ids, method, checkIn, ... } — one
+// waiver for the whole batch (donor signs once on the admin's device, or the
+// admin confirms the printed batch waiver was signed), then every nativity in
+// the batch is checked in. Nativities already signed online are just checked in.
+// With checkIn:false (the check-in page) only the waiver is recorded; the admin
+// still checks the pieces and finalizes each nativity.
 export async function deskCheckInBatch(request,env,session,donorId) {
   requireAdmin(session);
   const body=await request.json().catch(()=>({}));
+  const checkIn=body.checkIn!==false;
   const list=await loadBatch(env,donorId,body.ids);
   const noPhoto=list.filter(n=>!n.photo_key&&!n.display_photo_key);
-  if(noPhoto.length) return error('Add a photo for '+noPhoto.map(n=>n.submission_number).join(', ')+' first.',400);
+  if(checkIn&&noPhoto.length) return error('Add a photo for '+noPhoto.map(n=>n.submission_number).join(', ')+' first.',400);
+  if(!checkIn&&!list.some(n=>!n.waiver_signed)) return error('These waivers are already signed.',409);
   const toSign=list.filter(n=>!n.waiver_signed);
   for(const n of toSign) if(await saved(env,n)) return error(n.submission_number+' already has a signed waiver.',409);
   const sql=db(env);
@@ -312,6 +316,7 @@ export async function deskCheckInBatch(request,env,session,donorId) {
     await sql`UPDATE nativities SET waiver_signed=true,waiver_method=${method},paper_by_admin=NULL,waiver_signed_by=${signedBy},waiver_signed_at=now(),updated_at=now() WHERE id = ANY(${arr}::bigint[])`;
   }
 
+  if(!checkIn) return json({ok:true,signed:toSign.map(n=>({id:String(n.id),submissionNumber:n.submission_number}))});
   const all='{'+list.map(n=>n.id).join(',')+'}';
   const done=await sql`UPDATE nativities SET status='submitted',finalized_by=${session.email},finalized_at=now(),updated_at=now()
     WHERE id = ANY(${all}::bigint[]) AND status='pending' AND waiver_signed RETURNING id, submission_number`;
