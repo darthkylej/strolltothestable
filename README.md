@@ -73,14 +73,12 @@ ALTER TABLE nativities ADD COLUMN display_photo_key TEXT;
   `d1042` or just `1042`) during check-in and pick-up. Donors see it on My
   Nativities and in their check-in email.
 - **Walk-In Desk** (`admin-walkin.html`) is for people who show up without an
-  account. An admin creates the donor (only a name is required; phone, email
-  and address are optional), then adds each nativity with a short description
-  and a piece count. Pieces are listed automatically as "description (1 of N)".
-- Walk-in nativities use a paper waiver, one per nativity. The donor page
-  prints them as combined PDFs (10 per print job); one button then records the
-  waivers as signed and checks everything in. A donor with an email gets a
-  single summary email instead of one claim ticket per nativity; a donor
-  without one gets no email and is found by donor code.
+  account. An admin creates the donor (only a name is required), then for each
+  nativity takes a photo (required), types a short description and piece
+  count, and completes the waiver: the donor signs on the admin's device, or
+  the admin confirms the printed copy was signed. That one step checks the
+  nativity in; there is no piece-by-piece check because the admin entered it.
+  "Done with this donor" sends one summary email if the donor has an email.
 - The Walk-In Desk is for drop-off only. Pick-up uses Return Nativities, which
   can be searched by donor code.
 - On any pending submission with no signed waiver, an admin can choose **Use

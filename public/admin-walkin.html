@@ -6,472 +6,430 @@
 <title>Walk-In Desk — Stroll to the Stable Admin</title>
 <link rel="stylesheet" href="/style.css">
 <style>
-  .desk-page { max-width:920px; }
-  .desk-header { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:22px; }
-  .desk-header p { margin:6px 0 0; color:var(--wood); }
-  .desk-tools { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
-  .desk-tools .btn { width:auto; margin:0; padding:10px 16px; }
-  .admin-success { display:none; margin:0 0 16px; padding:12px 14px; border-radius:12px; color:#d7f7df; background:rgba(34,115,65,.23); border:1px solid rgba(115,214,142,.28); }
-  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .optional { color:var(--muted); font-weight:500; font-size:.85em; }
-  .donor-list { display:grid; gap:8px; margin-top:12px; }
-  .donor-row { display:flex; justify-content:space-between; align-items:center; gap:12px; text-decoration:none; padding:13px 15px; border:1px solid var(--border); border-radius:14px; background:rgba(10,19,35,.78); transition:.15s ease; }
-  .donor-row:hover { border-color:var(--border-strong); background:rgba(14,25,44,.92); }
-  .donor-name { font-weight:700; color:var(--gold-bright); overflow-wrap:anywhere; }
-  .donor-meta { color:var(--muted); font-size:14px; margin-top:2px; overflow-wrap:anywhere; }
-  .code-chip { display:inline-block; padding:4px 10px; border-radius:999px; background:#f2c76e; color:#10172a; font-weight:900; font-size:14px; white-space:nowrap; letter-spacing:.02em; }
-  .code-big { font-size:1.5rem; padding:8px 18px; }
-  .donor-head { display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
-  .donor-head h2 { margin:0; }
-  .donor-contact { color:var(--wood); margin:6px 0 0; overflow-wrap:anywhere; }
-  .donor-contact a { color:var(--gold-bright); }
-  .add-grid { display:grid; grid-template-columns:1fr 110px; gap:12px; }
-  .add-card .btn { margin-bottom:0; }
-  .hint { color:var(--muted); font-size:14px; margin:8px 0 0; line-height:1.45; }
-  .nat-list { display:grid; gap:8px; }
-  .nat-row { display:flex; align-items:center; gap:12px; text-decoration:none; padding:11px 13px; border:1px solid var(--border); border-radius:12px; background:rgba(8,16,31,.55); }
-  .nat-row:hover { border-color:var(--border-strong); }
-  .nat-row > div { flex:1; min-width:0; }
-  .nat-num { font-weight:700; color:var(--gold-bright); }
-  .nat-desc { color:var(--text); font-size:14px; margin-top:2px; overflow-wrap:anywhere; }
-  .nat-thumb { width:52px; height:52px; object-fit:cover; border-radius:8px; border:1px solid var(--border); flex-shrink:0; }
-  .batch { display:grid; gap:10px; margin-bottom:14px; }
-  .batch:empty { margin:0; }
-  .batch-step { padding:12px 14px; border:1px solid var(--border); border-radius:12px; background:rgba(8,16,31,.5); }
-  .batch-step h3 { margin:0 0 4px; font-size:1rem; color:var(--gold-bright); }
-  .batch-step p { margin:0 0 10px; color:var(--wood); font-size:14px; line-height:1.45; }
-  .batch-step .btn { width:auto; margin:0 8px 6px 0; }
-  .progress { color:#ffe7b5; font-size:14px; margin-top:6px; min-height:1.2em; }
-  details.card > summary { cursor:pointer; font-weight:700; }
-  @media (max-width:700px) {
-    .desk-header { display:block; }
-    .desk-tools { justify-content:flex-start; margin-top:14px; }
-    .two-col { grid-template-columns:1fr; gap:0; }
-    .batch-step .btn { width:100%; margin-right:0; }
-  }
+  .desk { max-width:640px; }
+  .desk-top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
+  .desk-top h1 { margin:0; font-size:1.7rem; }
+  .desk-top .btn { width:auto; margin:0; padding:9px 14px; }
+  .card { padding:18px; }
+  .card h2 { margin:0 0 12px; font-size:1.15rem; }
+  .row { display:flex; gap:10px; align-items:center; }
+  .row > * { flex:1; }
+  .code-chip { display:inline-block; padding:4px 11px; border-radius:999px; background:var(--gold); color:#10172a; font-weight:900; white-space:nowrap; }
+  .list { display:grid; gap:8px; }
+  .item { display:flex; align-items:center; gap:12px; padding:11px 13px; border:1px solid var(--border); border-radius:14px; background:rgba(8,16,31,.6); text-decoration:none; color:var(--text); }
+  a.item:hover, button.item:hover { border-color:var(--border-strong); }
+  button.item { width:100%; margin:0; text-align:left; font:inherit; cursor:pointer; }
+  .item .main { flex:1; min-width:0; }
+  .item .t { font-weight:700; color:var(--gold-bright); overflow-wrap:anywhere; }
+  .item .s { color:var(--muted); font-size:14px; overflow-wrap:anywhere; }
+  .thumb { width:48px; height:48px; border-radius:9px; object-fit:cover; border:1px solid var(--border); flex-shrink:0; background:#0b1528; }
+  .ok-dot { width:26px; height:26px; border-radius:50%; background:#2f9e5b; color:#fff; display:grid; place-items:center; font-weight:900; flex-shrink:0; }
+  .todo { color:#10172a; background:var(--gold); border-radius:999px; padding:5px 12px; font-weight:800; font-size:14px; white-space:nowrap; }
+  .photo-pick { display:flex; align-items:center; justify-content:center; gap:10px; min-height:120px; border:2px dashed var(--border-strong); border-radius:16px; cursor:pointer; color:var(--gold-bright); font-weight:700; margin-bottom:14px; overflow:hidden; position:relative; }
+  .photo-pick img { width:100%; max-height:240px; object-fit:cover; display:block; }
+  .photo-pick input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+  .stepper { display:flex; align-items:center; gap:8px; }
+  .stepper button { width:46px; height:46px; margin:0; padding:0; font-size:1.4rem; border-radius:12px; }
+  .stepper input { width:70px; text-align:center; margin:0; font-size:1.15rem; }
+  .big { font-size:1.1rem; padding:15px; }
+  .hidden { display:none !important; }
+  .muted-line { color:var(--muted); font-size:14px; margin:6px 0 0; }
+
+  /* Waiver sheet */
+  .sheet { position:fixed; inset:0; z-index:50; background:rgba(3,7,15,.86); display:flex; align-items:flex-end; justify-content:center; }
+  .sheet-body { width:100%; max-width:640px; max-height:96vh; overflow:auto; background:var(--navy-soft); border:1px solid var(--border-strong); border-radius:22px 22px 0 0; padding:18px; }
+  .sheet-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
+  .sheet-head h2 { margin:0; font-size:1.2rem; }
+  .x { width:40px; height:40px; margin:0; padding:0; border-radius:50%; font-size:1.3rem; }
+  .seg { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+  .seg button { margin:0; }
+  .seg button.on { background:var(--gold); color:#10172a; border-color:var(--gold); }
+  .agreement { max-height:34vh; overflow:auto; padding:12px 14px; border-radius:12px; background:#fffdf7; color:#1f2733; font-size:14px; line-height:1.5; margin-bottom:12px; }
+  .agreement h3 { font-size:15px; margin:12px 0 4px; color:#1f2733; }
+  .agreement p { color:#1f2733; margin:0 0 8px; }
+  .agreement h3:first-child { margin-top:0; }
+  .group-label { color:var(--muted); font-size:13px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; margin:4px 0 -2px; }
+  .agreement .release-box { border:2px solid #9a7b2f; border-radius:8px; padding:8px 10px; margin:10px 0; }
+  .check { display:flex; gap:10px; align-items:flex-start; margin:0 0 10px; font-size:15px; line-height:1.4; }
+  .check input { width:22px; height:22px; margin:2px 0 0; flex-shrink:0; }
+  .sig { width:100%; height:170px; background:#fff; border-radius:12px; touch-action:none; display:block; }
+  .sig-row { display:flex; justify-content:space-between; align-items:center; margin:6px 0 12px; color:var(--muted); font-size:14px; }
+  .linkbtn { background:none; border:0; color:var(--gold-bright); text-decoration:underline; padding:4px; margin:0; width:auto; font:inherit; cursor:pointer; }
+
+  /* Success */
+  .done-flash { position:fixed; inset:0; z-index:60; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; background:rgba(16,92,52,.96); color:#fff; text-align:center; padding:24px; cursor:pointer; }
+  .done-flash .ring { width:120px; height:120px; border-radius:50%; background:#fff; color:#1d7a46; display:grid; place-items:center; font-size:72px; font-weight:900; animation:pop .35s ease-out; }
+  .done-flash .big-t { font-size:2rem; font-weight:900; }
+  .done-flash .sub { font-size:1.25rem; opacity:.95; }
+  @keyframes pop { from { transform:scale(.4); opacity:0; } to { transform:scale(1); opacity:1; } }
 </style>
 </head>
 <body>
-<div class="page wide desk-page">
-  <div class="desk-header">
-    <div>
-      <p class="eyebrow">Stroll to the Stable · Admin</p>
-      <h1>Walk-In Desk</h1>
-      <p id="pageDescription">Register someone who shows up without an account, and record everything they brought.</p>
-    </div>
-    <div class="desk-tools">
-      <a class="btn btn-outline" href="/admin-dashboard.html">← Admin Home</a>
-      <a class="btn btn-outline" id="otherDonorBtn" href="/admin-walkin.html" style="display:none">Another Donor</a>
-    </div>
+<div class="page desk">
+  <div class="desk-top">
+    <h1>Walk-In Desk</h1>
+    <a class="btn btn-outline" id="topBtn" href="/admin-dashboard.html">← Admin</a>
   </div>
-
   <div class="error-banner" data-error-banner></div>
-  <div class="admin-success" id="successBanner"></div>
 
-  <!-- Step 1: find or create the donor -->
-  <div id="findView" style="display:none">
+  <!-- Find or create the donor -->
+  <div id="findView" class="hidden">
     <div class="card">
-      <h2 style="margin-top:0">Find a donor</h2>
-      <input type="text" id="donorSearch" aria-label="Find a donor" placeholder="Donor code, name, phone, or email…" autocomplete="off">
-      <div class="donor-list" id="donorResults"></div>
+      <input type="text" inputmode="search" enterkeyhint="search" id="donorSearch" aria-label="Find a donor" placeholder="Search donor code, name, or phone" autocomplete="off">
+      <div class="list" id="donorResults" style="margin-top:10px"></div>
     </div>
-
-    <form class="card" id="newDonorForm" style="margin-top:16px" autocomplete="off">
-      <h2 style="margin-top:0">New donor</h2>
-      <p class="hint" style="margin:0 0 14px">Only a name is needed. Their donor code is issued with their first nativity.</p>
-      <div class="field">
-        <label for="newName">Name</label>
-        <input id="newName" type="text" maxlength="100" required>
-      </div>
-      <div class="two-col">
-        <div class="field">
-          <label for="newPhone">Phone <span class="optional">optional</span></label>
-          <input id="newPhone" type="tel" maxlength="40">
-        </div>
-        <div class="field">
-          <label for="newEmail">Email <span class="optional">optional</span></label>
-          <input id="newEmail" type="email" maxlength="254">
-        </div>
-      </div>
-      <div class="two-col">
-        <div class="field">
-          <label for="newAddress">Street address <span class="optional">optional, for the waiver</span></label>
-          <input id="newAddress" type="text" maxlength="200">
-        </div>
-        <div class="field">
-          <label for="newCsz">City, State ZIP <span class="optional">optional</span></label>
-          <input id="newCsz" type="text" maxlength="200">
-        </div>
-      </div>
-      <div class="donor-list" id="possibleMatches" style="margin:0 0 14px"></div>
-      <button class="btn btn-primary" id="createDonorBtn" type="submit">Create Donor</button>
+    <form class="card" id="newDonorForm" style="margin-top:14px" autocomplete="off">
+      <h2>New donor</h2>
+      <input id="newName" type="text" maxlength="100" placeholder="Name" aria-label="Name" required>
+      <input id="newPhone" type="tel" maxlength="40" placeholder="Phone (optional)" aria-label="Phone (optional)">
+      <input id="newEmail" type="email" maxlength="254" placeholder="Email (optional)" aria-label="Email (optional)">
+      <div class="list" id="possibleMatches" style="margin-bottom:12px"></div>
+      <button class="btn btn-primary big" id="createDonorBtn" type="submit" style="margin:0">Start</button>
     </form>
   </div>
 
-  <!-- Step 2: the donor and their nativities -->
-  <div id="donorView" style="display:none">
+  <!-- Donor: add nativities -->
+  <div id="donorView" class="hidden">
     <div class="card">
-      <div class="donor-head">
-        <div>
-          <h2 id="donorName"></h2>
-          <p class="donor-contact" id="donorContact"></p>
+      <div class="row" style="justify-content:space-between">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:1.3rem;font-weight:800;color:var(--gold-bright);overflow-wrap:anywhere" id="donorName"></div>
+          <div class="muted-line" id="donorContact" style="margin:2px 0 0"></div>
         </div>
-        <span class="code-chip code-big" id="donorCode"></span>
+        <span class="code-chip" id="donorCode" style="flex:0 0 auto"></span>
       </div>
-      <p class="hint" id="codeHint">Write the donor code on their boxes.</p>
-      <details style="margin-top:12px">
-        <summary style="cursor:pointer;color:var(--gold-bright)">Edit donor details</summary>
-        <form id="editDonorForm" style="margin-top:12px" autocomplete="off">
-          <div class="field"><label for="editName">Name</label><input id="editName" type="text" maxlength="100" required></div>
-          <div class="two-col">
-            <div class="field"><label for="editPhone">Phone <span class="optional">optional</span></label><input id="editPhone" type="tel" maxlength="40"></div>
-            <div class="field"><label for="editEmail">Email <span class="optional">optional</span></label><input id="editEmail" type="email" maxlength="254"></div>
-          </div>
-          <div class="two-col">
-            <div class="field"><label for="editAddress">Street address <span class="optional">optional</span></label><input id="editAddress" type="text" maxlength="200"></div>
-            <div class="field"><label for="editCsz">City, State ZIP <span class="optional">optional</span></label><input id="editCsz" type="text" maxlength="200"></div>
-          </div>
-          <button class="btn btn-secondary" id="saveDonorBtn" type="submit" style="width:auto">Save Donor Details</button>
-        </form>
-      </details>
+      <button type="button" class="linkbtn" id="editToggle" style="margin-top:6px">Edit</button>
+      <form id="editDonorForm" class="hidden" style="margin-top:10px" autocomplete="off">
+        <input id="editName" type="text" maxlength="100" placeholder="Name" aria-label="Name" required>
+        <input id="editPhone" type="tel" maxlength="40" placeholder="Phone (optional)" aria-label="Phone (optional)">
+        <input id="editEmail" type="email" maxlength="254" placeholder="Email (optional)" aria-label="Email (optional)">
+        <button class="btn btn-secondary" id="saveDonorBtn" type="submit" style="margin:0">Save</button>
+      </form>
     </div>
 
-    <form class="card add-card" id="addForm" style="margin-top:16px" autocomplete="off">
-      <h2 style="margin-top:0">Add a nativity</h2>
-      <div class="add-grid">
-        <div class="field">
-          <label for="addDescription">Short description</label>
-          <input id="addDescription" type="text" maxlength="300" placeholder="Example: olive wood, about 8 inches" required>
+    <form class="card" id="addForm" style="margin-top:14px" autocomplete="off">
+      <h2>Add nativity</h2>
+      <label class="photo-pick" id="photoPick">
+        <span id="photoPrompt">📷 Take photo</span>
+        <img id="photoPreview" class="hidden" alt="Nativity photo">
+        <input id="addPhoto" type="file" accept="image/*" capture="environment" aria-label="Nativity photo">
+      </label>
+      <input id="addDescription" type="text" maxlength="300" placeholder="Short description" aria-label="Short description" required>
+      <div class="row" style="margin-bottom:12px">
+        <span style="flex:0 0 auto;color:var(--wood);font-weight:700">Pieces</span>
+        <div class="stepper" style="flex:0 0 auto">
+          <button type="button" class="btn btn-outline" id="minus" aria-label="Fewer pieces">−</button>
+          <input id="addCount" type="number" inputmode="numeric" min="1" max="100" value="1" aria-label="Number of pieces">
+          <button type="button" class="btn btn-outline" id="plus" aria-label="More pieces">+</button>
         </div>
-        <div class="field">
-          <label for="addCount">Pieces</label>
-          <input id="addCount" type="number" inputmode="numeric" min="1" max="100" value="1" required>
-        </div>
       </div>
-      <div class="field">
-        <label for="addCondition">Condition notes <span class="optional">optional</span></label>
-        <input id="addCondition" type="text" maxlength="2000" placeholder="Example: chip on shepherd's staff">
-      </div>
-      <div class="field">
-        <label for="addPhoto">Photo <span class="optional">optional</span></label>
-        <input id="addPhoto" type="file" accept="image/*" capture="environment">
-      </div>
-      <button class="btn btn-primary" id="addBtn" type="submit">Add Nativity</button>
-      <p class="hint" id="addHint">Add everything they brought, one after another. Then print the waivers and check it all in below.</p>
+      <input id="addCondition" type="text" maxlength="2000" placeholder="Condition notes (optional)" aria-label="Condition notes (optional)">
+      <button class="btn btn-primary big" id="addBtn" type="submit" style="margin:0">Next: Waiver</button>
     </form>
 
-    <div class="card" style="margin-top:16px">
-      <h2 style="margin-top:0" id="listTitle">This year</h2>
-      <div class="batch" id="batch"></div>
-      <div class="progress" id="progress" role="status"></div>
-      <div class="nat-list" id="natList"></div>
+    <div class="card" id="listCard" style="margin-top:14px">
+      <div class="list" id="natList"></div>
     </div>
 
+    <button type="button" class="btn btn-secondary big" id="finishBtn" style="margin-top:14px">Done with this donor</button>
   </div>
 </div>
+
+<!-- Waiver + check-in sheet -->
+<div class="sheet hidden" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <h2 id="sheetTitle">Waiver</h2>
+      <button type="button" class="btn btn-outline x" id="sheetClose" aria-label="Close">×</button>
+    </div>
+
+    <div id="sheetPhoto" class="hidden">
+      <label class="photo-pick" style="min-height:90px">
+        <span>📷 Photo required. Tap to add.</span>
+        <input id="sheetPhotoInput" type="file" accept="image/*" capture="environment" aria-label="Nativity photo">
+      </label>
+    </div>
+
+    <div id="alreadySigned" class="hidden">
+      <p style="margin:0 0 14px;color:var(--pasture);font-weight:700">✓ Waiver already signed</p>
+      <button type="button" class="btn btn-primary big" id="checkInOnlyBtn" style="margin:0">Check In</button>
+    </div>
+
+    <div id="chooseWaiver">
+      <div class="seg">
+        <button type="button" class="btn btn-outline on" id="segDevice">Sign here</button>
+        <button type="button" class="btn btn-outline" id="segPaper">Paper</button>
+      </div>
+
+      <div id="devicePane">
+        <div class="agreement" id="agreementText">Loading…</div>
+        <label class="check"><input type="checkbox" id="ackRelease"><span id="ackReleaseText"></span></label>
+        <label class="check"><input type="checkbox" id="ackConsent"><span id="ackConsentText"></span></label>
+        <canvas class="sig" id="sigPad" aria-label="Signature box"></canvas>
+        <div class="sig-row"><span id="signerLine"></span><button type="button" class="linkbtn" id="sigClear">Clear</button></div>
+        <button type="button" class="btn btn-primary big" id="signBtn" style="margin:0">Sign &amp; Check In</button>
+      </div>
+
+      <div id="paperPane" class="hidden">
+        <button type="button" class="btn btn-outline" id="printBtn" style="margin:0 0 12px">Print waiver</button>
+        <button type="button" class="btn btn-primary big" id="paperBtn" style="margin:0">Paper Signed: Check In</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="done-flash hidden" id="doneFlash" role="status" aria-live="assertive">
+  <div class="ring">✓</div>
+  <div class="big-t">Checked in</div>
+  <div class="sub" id="doneSub"></div>
+</div>
+
 <script src="/js/app.js"></script>
 <script>
-const donorId = new URLSearchParams(window.location.search).get('donor');
-let donor = null;
-let nativities = [];
-let eventYear = new Date().getFullYear();
-let waiverBatch = 10;
-let busy = false;
+const donorId = new URLSearchParams(location.search).get('donor');
+let donor = null, nativities = [], eventYear = new Date().getFullYear();
+let agreement = null, current = null, mode = 'device';
+const checkedThisVisit = [];
 
-function esc(value) {
-  return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' })[c]);
+const show = (el, on) => el.classList.toggle('hidden', !on);
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const pcs = (n) => `${n} pc${Number(n) === 1 ? '' : 's'}`;
+
+/* ── Find or create ─────────────────────────────────────────── */
+function donorItem(d) {
+  const sub = [d.phone, d.email].filter(Boolean).map(esc).join(' · ');
+  return `<a class="item" href="/admin-walkin.html?donor=${encodeURIComponent(d.id)}">
+    <div class="main"><div class="t">${esc(d.name)}</div>${sub ? `<div class="s">${sub}</div>` : ''}</div>
+    ${d.donorCode ? `<span class="code-chip">${esc(d.donorCode)}</span>` : ''}</a>`;
 }
-function showSuccess(message) {
-  const el = document.getElementById('successBanner');
-  el.textContent = message; el.style.display = 'block';
-  clearTimeout(showSuccess.timer);
-  showSuccess.timer = setTimeout(() => { el.style.display = 'none'; }, 6000);
+async function findDonors(term, target) {
+  if (!term) { target.innerHTML = ''; return []; }
+  const { donors } = await api('/api/admin/donors?search=' + encodeURIComponent(term));
+  target.innerHTML = donors.map(donorItem).join('');
+  return donors;
 }
-function debounce(fn, ms) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; }
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-const natCount = (n) => (n === 1 ? '1 nativity' : `${n} nativities`);
-const setProgress = (text) => { document.getElementById('progress').textContent = text || ''; };
-
-function donorRowHtml(d) {
-  const contact = [d.phone, d.email].filter(Boolean).map(esc).join(' · ') || 'No phone or email';
-  const counts = d.thisYear ? `${natCount(d.thisYear)} this year` : (d.total ? 'None yet this year' : 'No nativities yet');
-  return `<a class="donor-row" href="/admin-walkin.html?donor=${encodeURIComponent(d.id)}">
-    <div><div class="donor-name">${esc(d.name)}</div><div class="donor-meta">${contact} · ${counts}</div></div>
-    ${d.donorCode ? `<span class="code-chip">${esc(d.donorCode)}</span>` : '<span class="donor-meta">No code yet</span>'}
-  </a>`;
-}
-
-/* ── Step 1: find or create ───────────────────────────────────────────── */
-async function searchDonors(term, targetId, emptyText) {
-  const target = document.getElementById(targetId);
-  if (!term) { target.innerHTML = ''; return; }
-  try {
-    const { donors } = await api('/api/admin/donors?search=' + encodeURIComponent(term));
-    target.innerHTML = donors.length ? donors.map(donorRowHtml).join('') : (emptyText ? `<div class="hint">${emptyText}</div>` : '');
-    return donors;
-  } catch (err) { showError(err.message); }
-}
-
-function initFindView() {
-  document.getElementById('findView').style.display = 'block';
-  const search = document.getElementById('donorSearch');
-  search.addEventListener('input', debounce(() => {
-    hideError();
-    searchDonors(search.value.trim(), 'donorResults', 'No donor matches. Create a new one below.');
-  }, 250));
-  search.focus();
-
-  // While typing a new name, show anyone already registered under it.
-  const newName = document.getElementById('newName');
-  newName.addEventListener('input', debounce(async () => {
-    const term = newName.value.trim();
-    const box = document.getElementById('possibleMatches');
-    if (term.length < 3) { box.innerHTML = ''; return; }
-    const donors = await searchDonors(term, 'possibleMatches', '');
-    if (donors && donors.length) box.insertAdjacentHTML('afterbegin', '<div class="hint" style="margin:0">Already registered? Tap to use an existing donor:</div>');
+function initFind() {
+  show($('findView'), true);
+  $('donorSearch').addEventListener('input', debounce(() => { hideError(); findDonors($('donorSearch').value.trim(), $('donorResults')).catch((e) => showError(e.message)); }, 250));
+  $('newName').addEventListener('input', debounce(() => {
+    const t = $('newName').value.trim();
+    if (t.length < 3) { $('possibleMatches').innerHTML = ''; return; }
+    findDonors(t, $('possibleMatches')).catch(() => {});
   }, 350));
-
-  document.getElementById('newDonorForm').addEventListener('submit', async (e) => {
+  $('newDonorForm').addEventListener('submit', async (e) => {
     e.preventDefault(); hideError();
-    const btn = document.getElementById('createDonorBtn');
-    btn.disabled = true; btn.textContent = 'Creating…';
+    const btn = $('createDonorBtn'); btn.disabled = true;
     try {
-      const res = await fetch('/api/admin/donors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newName.value,
-          phone: document.getElementById('newPhone').value,
-          email: document.getElementById('newEmail').value,
-          address: document.getElementById('newAddress').value,
-          cityStateZip: document.getElementById('newCsz').value,
-        }),
-      });
+      const res = await fetch('/api/admin/donors', { method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ name:$('newName').value, phone:$('newPhone').value, email:$('newEmail').value }) });
       const data = await res.json().catch(() => ({}));
-      if (res.status === 409 && data.existing) {
-        if (confirm(`${data.error}\n\nOpen that donor instead?`)) {
-          window.location.href = '/admin-walkin.html?donor=' + encodeURIComponent(data.existing.id);
-          return;
-        }
-        throw new Error(data.error);
-      }
+      if (res.status === 409 && data.existing && confirm(`${data.error}\n\nOpen that donor?`)) { location.href = '/admin-walkin.html?donor=' + encodeURIComponent(data.existing.id); return; }
       if (!res.ok) throw new Error(data.error || 'Something went wrong.');
-      window.location.href = '/admin-walkin.html?donor=' + encodeURIComponent(data.donor.id);
-    } catch (err) {
-      showError(err.message);
-      btn.disabled = false; btn.textContent = 'Create Donor';
-    }
+      location.href = '/admin-walkin.html?donor=' + encodeURIComponent(data.donor.id);
+    } catch (err) { showError(err.message); btn.disabled = false; }
   });
+  $('donorSearch').focus();
 }
 
-/* ── Step 2: donor view ───────────────────────────────────────────────── */
-function natRowHtml(n) {
-  const badge = n.status !== 'pending' ? ''
-    : n.waiver_signed ? '<span class="status-pill status-ready">Waiver ✓</span>'
-    : n.waiver_method === 'paper' ? '<span class="status-pill status-action">Paper waiver</span>'
-    : '<span class="status-pill status-action">No waiver</span>';
-  const status = n.status === 'submitted' ? 'checked in' : n.status;
-  return `<a class="nat-row" href="/admin-detail.html?id=${encodeURIComponent(n.id)}">
-    <div>
-      <div class="nat-num">${esc(n.submission_number)} <span style="color:var(--muted);font-weight:500">· ${plural(Number(n.piece_count) || 0, 'piece')}</span></div>
-      <div class="nat-desc">${esc(n.description || 'No description')}</div>
-      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">${badge}<span class="status-pill status-${esc(n.status)}">${esc(status)}</span></div>
-    </div>
-    ${n.photo_key ? `<img class="nat-thumb" src="/photos/${esc(n.photo_key)}" alt="" loading="lazy">` : ''}
-  </a>`;
+/* ── Donor view ─────────────────────────────────────────────── */
+function render() {
+  $('donorName').textContent = donor.name;
+  $('donorContact').textContent = [donor.phone, donor.email].filter(Boolean).join(' · ') || 'No phone or email';
+  $('donorCode').textContent = donor.donorCode || '';
+  show($('donorCode'), !!donor.donorCode);
+  $('editName').value = donor.name || ''; $('editPhone').value = donor.phone || ''; $('editEmail').value = donor.email || '';
+  document.title = `${donor.name} — Walk-In Desk`;
+
+  const mine = nativities.filter((n) => Number(n.event_year) === Number(eventYear));
+  const todo = mine.filter((n) => n.status === 'pending');
+  const done = mine.filter((n) => n.status !== 'pending');
+  show($('listCard'), mine.length > 0);
+  const thumb = (n) => n.photo_key ? `<img class="thumb" src="/photos/${esc(n.photo_key)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'thumb'}))">` : '<span class="thumb"></span>';
+  $('natList').innerHTML = [
+    todo.length ? '<div class="group-label">Not finished</div>' : '',
+    ...todo.map((n) => `<button type="button" class="item" data-finish="${esc(n.id)}">
+        ${thumb(n)}
+        <div class="main"><div class="t">${esc(n.submission_number)}</div><div class="s">${esc(n.description || '')} · ${pcs(n.piece_count)}</div></div>
+        <span class="todo">Finish</span></button>`),
+    done.length ? `<div class="group-label">Checked in · ${done.length}</div>` : '',
+    ...done.map((n) => `<a class="item" href="/admin-detail.html?id=${encodeURIComponent(n.id)}">
+        ${thumb(n)}
+        <div class="main"><div class="t">${esc(n.submission_number)}</div><div class="s">${esc(n.description || '')} · ${pcs(n.piece_count)}</div></div>
+        <span class="ok-dot">✓</span></a>`),
+  ].join('');
+  document.querySelectorAll('[data-finish]').forEach((b) => b.addEventListener('click', () => openSheet(nativities.find((n) => String(n.id) === b.dataset.finish))));
 }
-
-function groups() {
-  const current = nativities.filter((n) => Number(n.event_year) === Number(eventYear));
-  const pending = current.filter((n) => n.status === 'pending');
-  return {
-    current,
-    // Ready to check in: a paper waiver to sign at the desk, or already signed.
-    ready: pending.filter((n) => n.waiver_signed || n.waiver_method === 'paper'),
-    toSign: pending.filter((n) => !n.waiver_signed && n.waiver_method === 'paper'),
-    noWaiver: pending.filter((n) => !n.waiver_signed && n.waiver_method !== 'paper'),
-  };
-}
-
-function renderDonor() {
-  document.getElementById('donorName').textContent = donor.name;
-  const codeEl = document.getElementById('donorCode');
-  codeEl.textContent = donor.donorCode || '';
-  codeEl.style.display = donor.donorCode ? '' : 'none';
-  document.getElementById('codeHint').textContent = donor.donorCode
-    ? 'Write the donor code on their boxes.'
-    : 'Their donor code is issued when you add their first nativity.';
-  document.title = `${donor.donorCode ? donor.donorCode + ' ' : ''}${donor.name} — Walk-In Desk`;
-  const bits = [];
-  if (donor.phone) bits.push(`<a href="tel:${esc(donor.phone)}">${esc(donor.phone)}</a>`);
-  if (donor.email) bits.push(`<a href="mailto:${esc(donor.email)}">${esc(donor.email)}</a>`);
-  const where = [donor.address, donor.cityStateZip].filter(Boolean).map(esc).join(', ');
-  if (where) bits.push(where);
-  document.getElementById('donorContact').innerHTML = bits.join(' · ') || 'No phone or email on file';
-  document.getElementById('editName').value = donor.name || '';
-  document.getElementById('editPhone').value = donor.phone || '';
-  document.getElementById('editEmail').value = donor.email || '';
-  document.getElementById('editAddress').value = donor.address || '';
-  document.getElementById('editCsz').value = donor.cityStateZip || '';
-}
-
-function renderNativities() {
-  const g = groups();
-  const totalPieces = g.current.reduce((sum, n) => sum + (Number(n.piece_count) || 0), 0);
-  document.getElementById('listTitle').textContent = g.current.length
-    ? `${eventYear}: ${g.current.length === 1 ? '1 nativity' : g.current.length + ' nativities'}, ${plural(totalPieces, 'piece')}`
-    : `${eventYear}: nothing added yet`;
-  document.getElementById('natList').innerHTML = g.current.map(natRowHtml).join('');
-
-  const steps = [];
-  if (g.noWaiver.length) {
-    steps.push(`<div class="batch-step"><h3>Registered online, waiver not signed</h3>
-      <p>${natCount(g.noWaiver.length)} from this donor ${g.noWaiver.length === 1 ? 'has' : 'have'} no signed waiver. Switch ${g.noWaiver.length === 1 ? 'it' : 'them'} to a paper waiver to sign here at the desk.</p>
-      <button type="button" class="btn btn-secondary" id="usePaperBtn">Use Paper Waiver${g.noWaiver.length === 1 ? '' : 's'}</button></div>`);
-  }
-  if (g.ready.length) {
-    const printButtons = [];
-    for (let offset = 0; offset < g.toSign.length; offset += waiverBatch) {
-      const end = Math.min(offset + waiverBatch, g.toSign.length);
-      const label = g.toSign.length <= waiverBatch ? `Print ${plural(g.toSign.length, 'Waiver')}` : `Print Waivers ${offset + 1}–${end}`;
-      printButtons.push(`<a class="btn btn-secondary" target="_blank" rel="noopener" href="/api/admin/donors/${encodeURIComponent(donor.id)}/waivers-pdf?offset=${offset}">${label}</a>`);
-    }
-    const n = g.ready.length;
-    const emailLine = donor.email ? 'One email listing everything goes to the donor.' : 'No email on file, so tell them their donor code.';
-    steps.push(`<div class="batch-step"><h3>Sign waivers and check in</h3>
-      <p>${g.toSign.length
-        ? `Print the ${g.toSign.length === 1 ? 'waiver' : g.toSign.length + ' waivers'} (one per nativity) and have the donor sign ${g.toSign.length === 1 ? 'it' : 'each one'}. Then check in.`
-        : 'Waivers are signed.'} ${emailLine}</p>
-      ${printButtons.join('')}
-      <button type="button" class="btn btn-primary" id="checkInAllBtn">${g.toSign.length ? 'Waivers Signed: ' : ''}Check In ${n === 1 ? 'Nativity' : `All ${n}`}</button></div>`);
-  }
-  document.getElementById('batch').innerHTML = steps.join('');
-  document.getElementById('usePaperBtn')?.addEventListener('click', usePaperAll);
-  document.getElementById('checkInAllBtn')?.addEventListener('click', checkInAll);
-}
-
-async function loadDonor() {
+async function load() {
   const data = await api('/api/admin/donors/' + encodeURIComponent(donorId));
-  donor = data.donor; nativities = data.nativities; eventYear = data.eventYear; waiverBatch = data.waiverBatch || 10;
-  renderDonor(); renderNativities();
+  donor = data.donor; nativities = data.nativities; eventYear = data.eventYear;
+  render();
 }
 
-// Runs one request per nativity, in order, so a long list never overloads a
-// single request. Stops at the first failure and reports how far it got.
-async function runBatch(items, verb, request) {
-  if (busy) return null;
-  busy = true; hideError();
-  document.querySelectorAll('#batch .btn, #addBtn').forEach((b) => { b.disabled = true; b.style.pointerEvents = 'none'; });
-  const done = [];
-  try {
-    for (let i = 0; i < items.length; i++) {
-      setProgress(`${verb} ${i + 1} of ${items.length} (${items[i].submission_number})…`);
-      await request(items[i]);
-      done.push(items[i]);
-    }
-  } catch (err) {
-    showError(`${err.message} Stopped after ${done.length} of ${items.length}.`);
-  } finally {
-    busy = false; setProgress('');
-    document.getElementById('addBtn').disabled = false;
-    document.getElementById('addBtn').style.pointerEvents = '';
-  }
-  return done;
+function resetAddForm() {
+  $('addForm').reset(); $('addCount').value = '1';
+  show($('photoPreview'), false); show($('photoPrompt'), true);
 }
-
-async function usePaperAll() {
-  const items = groups().noWaiver;
-  const done = await runBatch(items, 'Switching to paper', (n) => api(`/api/admin/nativities/${n.id}/paper-waiver`, { method: 'POST', body: {} }));
-  await loadDonor();
-  if (done && done.length) showSuccess(`${plural(done.length, 'waiver')} switched to paper. Print, sign, and check in below.`);
-}
-
-// Records each paper waiver as signed (when it is not already) and checks the
-// nativity in, so registration, waiver and check-in finish in one action.
-async function checkInAll() {
-  const { ready: items, toSign } = groups();
-  const signLine = toSign.length
-    ? `${donor.name} has signed ${toSign.length === 1 ? 'the printed waiver' : `all ${toSign.length} printed waivers`}, and `
-    : '';
-  if (!confirm(`Confirm ${signLine}${items.length === 1 ? 'the nativity is' : `all ${items.length} nativities are`} on the table, then check ${items.length === 1 ? 'it' : 'them'} in.`)) return;
-  const done = await runBatch(items, 'Checking in', async (n) => {
-    if (!n.waiver_signed) await api(`/api/admin/nativities/${n.id}/paper-waiver-signed`, { method: 'POST', body: {} });
-    await api(`/api/admin/nativities/${n.id}/finalize`, { method: 'POST', body: { notify: false } });
+function initDonor() {
+  show($('donorView'), true);
+  $('topBtn').href = '/admin-walkin.html'; $('topBtn').textContent = '← Donors';
+  $('minus').addEventListener('click', () => { $('addCount').value = Math.max(1, (parseInt($('addCount').value, 10) || 1) - 1); });
+  $('plus').addEventListener('click', () => { $('addCount').value = Math.min(100, (parseInt($('addCount').value, 10) || 0) + 1); });
+  $('addPhoto').addEventListener('change', () => {
+    const f = $('addPhoto').files[0];
+    if (!f) return;
+    $('photoPreview').src = URL.createObjectURL(f);
+    show($('photoPreview'), true); show($('photoPrompt'), false);
   });
-  let emailNote = '';
-  if (done && done.length) {
-    try {
-      const r = await api(`/api/admin/donors/${encodeURIComponent(donor.id)}/checkin-summary`, { method: 'POST', body: { ids: done.map((n) => n.id) } });
-      emailNote = r.emailSent ? ' A confirmation email was sent.' : r.hasEmail ? ' The confirmation email could not be sent.' : ' No email on file, so tell them their donor code.';
-    } catch (_) { emailNote = ' The confirmation email could not be sent.'; }
-  }
-  await loadDonor();
-  if (done && done.length) showSuccess(`${done.length === 1 ? '1 nativity' : done.length + ' nativities'} checked in for ${donor.donorCode || donor.name}.${emailNote}`);
-}
+  $('editToggle').addEventListener('click', () => show($('editDonorForm'), $('editDonorForm').classList.contains('hidden')));
 
-function initDonorView() {
-  document.getElementById('donorView').style.display = 'block';
-  document.getElementById('otherDonorBtn').style.display = '';
-  document.getElementById('pageDescription').textContent = 'Add each nativity, then sign the waivers and check everything in at once.';
-
-  document.getElementById('addForm').addEventListener('submit', async (e) => {
+  $('addForm').addEventListener('submit', async (e) => {
     e.preventDefault(); hideError();
-    if (busy) return;
-    const btn = document.getElementById('addBtn');
-    const description = document.getElementById('addDescription');
-    const count = document.getElementById('addCount');
-    const condition = document.getElementById('addCondition');
-    const photo = document.getElementById('addPhoto');
-    btn.disabled = true; btn.textContent = 'Adding…';
+    const photo = $('addPhoto').files[0];
+    if (!photo) { showError('Take a photo of the nativity first.'); return; }
+    const btn = $('addBtn'); btn.disabled = true; btn.textContent = 'Saving…';
     try {
-      const created = await api(`/api/admin/donors/${encodeURIComponent(donorId)}/nativities`, {
-        method: 'POST',
-        body: { description: description.value, pieceCount: Number(count.value), conditionNote: condition.value },
-      });
-      let photoNote = '';
-      if (photo.files[0]) {
-        btn.textContent = 'Uploading photo…';
-        try { await uploadPhotoTo(photo.files[0], `/api/admin/nativities/${created.id}/main-photo`); }
-        catch (_) { photoNote = ' The photo did not upload; add it from the submission page.'; }
-      }
-      description.value = ''; count.value = '1'; condition.value = ''; photo.value = '';
-      await loadDonor();
-      showSuccess(`Added ${created.submissionNumber}.${photoNote}`);
-      description.focus();
-    } catch (err) {
-      showError(err.message);
-    } finally {
-      btn.disabled = false; btn.textContent = 'Add Nativity';
-    }
-  });
-
-  document.getElementById('editDonorForm').addEventListener('submit', async (e) => {
-    e.preventDefault(); hideError();
-    const btn = document.getElementById('saveDonorBtn');
-    btn.disabled = true;
-    try {
-      const r = await api('/api/admin/donors/' + encodeURIComponent(donorId), {
-        method: 'PATCH',
-        body: {
-          name: document.getElementById('editName').value,
-          phone: document.getElementById('editPhone').value,
-          email: document.getElementById('editEmail').value,
-          address: document.getElementById('editAddress').value,
-          cityStateZip: document.getElementById('editCsz').value,
-        },
-      });
-      await loadDonor();
-      showSuccess(r.waiversCleared
-        ? `Donor details saved. ${plural(r.waiversCleared, 'signed waiver')} ${r.waiversCleared === 1 ? 'was' : 'were'} cleared and must be signed again.`
-        : 'Donor details saved.');
+      const created = await api(`/api/admin/donors/${encodeURIComponent(donorId)}/nativities`, { method:'POST',
+        body: { description:$('addDescription').value, pieceCount:Number($('addCount').value), conditionNote:$('addCondition').value } });
+      try { await uploadPhotoTo(photo, `/api/admin/nativities/${created.id}/main-photo`); } catch (_) { /* the sheet asks for it again */ }
+      resetAddForm();
+      await load();
+      openSheet(nativities.find((n) => String(n.id) === String(created.id)));
     } catch (err) { showError(err.message); }
-    finally { btn.disabled = false; }
+    finally { btn.disabled = false; btn.textContent = 'Next: Waiver'; }
   });
 
-  loadDonor().catch((err) => showError(err.message));
+  $('editDonorForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); hideError();
+    try {
+      await api('/api/admin/donors/' + encodeURIComponent(donorId), { method:'PATCH',
+        body: { name:$('editName').value, phone:$('editPhone').value, email:$('editEmail').value, address:donor.address || '', cityStateZip:donor.cityStateZip || '' } });
+      show($('editDonorForm'), false); await load();
+    } catch (err) { showError(err.message); }
+  });
+
+  $('finishBtn').addEventListener('click', async () => {
+    const btn = $('finishBtn'); btn.disabled = true;
+    let note = '';
+    if (checkedThisVisit.length) {
+      try {
+        const r = await api(`/api/admin/donors/${encodeURIComponent(donorId)}/checkin-summary`, { method:'POST', body:{ ids: checkedThisVisit } });
+        note = r.emailSent ? 'Receipt emailed.' : r.hasEmail ? 'Receipt email could not be sent.' : '';
+      } catch (_) { note = 'Receipt email could not be sent.'; }
+    }
+    if (note) alert(note);
+    location.href = '/admin-walkin.html';
+  });
+
+  load().catch((err) => showError(err.message));
 }
 
-if (donorId) initDonorView(); else initFindView();
+/* ── Waiver sheet ───────────────────────────────────────────── */
+const canvas = $('sigPad'), ctx = canvas.getContext('2d');
+let hasSig = false, drawing = false, lastPt = null, lastMid = null;
+function sizeCanvas() {
+  const r = canvas.getBoundingClientRect(); if (!r.width) return;
+  canvas.width = Math.round(r.width * devicePixelRatio); canvas.height = Math.round(r.height * devicePixelRatio);
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, r.width, r.height);
+  ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#111';
+  hasSig = false;
+}
+const pt = (e) => { const r = canvas.getBoundingClientRect(); return { x:e.clientX - r.left, y:e.clientY - r.top }; };
+function drawTo(p) { const m = { x:(lastPt.x + p.x) / 2, y:(lastPt.y + p.y) / 2 }; ctx.beginPath(); ctx.moveTo(lastMid.x, lastMid.y); ctx.quadraticCurveTo(lastPt.x, lastPt.y, m.x, m.y); ctx.stroke(); lastMid = m; lastPt = p; }
+canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); canvas.setPointerCapture(e.pointerId); drawing = true; hasSig = true; const p = pt(e); lastPt = p; lastMid = p; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + .1, p.y + .1); ctx.stroke(); });
+canvas.addEventListener('pointermove', (e) => { if (!drawing) return; e.preventDefault(); const s = (e.getCoalescedEvents && e.getCoalescedEvents()) || []; for (const ev of (s.length ? s : [e])) drawTo(pt(ev)); });
+for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(ev, () => { drawing = false; lastPt = lastMid = null; });
+$('sigClear').addEventListener('click', sizeCanvas);
+
+function setMode(m) {
+  mode = m;
+  $('segDevice').classList.toggle('on', m === 'device'); $('segPaper').classList.toggle('on', m === 'paper');
+  show($('devicePane'), m === 'device'); show($('paperPane'), m === 'paper');
+  if (m === 'device') requestAnimationFrame(sizeCanvas);
+}
+$('segDevice').addEventListener('click', () => setMode('device'));
+$('segPaper').addEventListener('click', () => setMode('paper'));
+
+async function loadAgreement(id) {
+  if (agreement) return;
+  const data = await api(`/api/admin/nativities/${id}/waiver-record`);
+  agreement = data.agreement;
+  $('agreementText').innerHTML = agreement.sections.map((s) => s.release
+    ? `<div class="release-box"><h3>${esc(s.title)}</h3><p>${esc(s.text)}</p></div>`
+    : `<h3>${esc(s.title)}</h3><p>${esc(s.text)}</p>`).join('');
+  $('ackReleaseText').textContent = agreement.releaseAck;
+  $('ackConsentText').textContent = agreement.consentText;
+}
+
+function openSheet(n) {
+  if (!n) return;
+  current = n; hideError();
+  $('sheetTitle').textContent = `Waiver · ${n.submission_number}`;
+  show($('sheetPhoto'), !n.photo_key);
+  show($('alreadySigned'), !!n.waiver_signed);
+  show($('chooseWaiver'), !n.waiver_signed);
+  $('ackRelease').checked = false; $('ackConsent').checked = false;
+  $('signerLine').textContent = `Signer: ${donor.name}`;
+  show($('sheet'), true);
+  document.body.style.overflow = 'hidden';
+  setMode('device');
+  loadAgreement(n.id).catch((e) => { $('agreementText').textContent = 'Could not load the waiver text. ' + e.message; });
+}
+function closeSheet() { show($('sheet'), false); document.body.style.overflow = ''; current = null; }
+$('sheetClose').addEventListener('click', closeSheet);
+
+$('sheetPhotoInput').addEventListener('change', async () => {
+  const f = $('sheetPhotoInput').files[0]; if (!f || !current) return;
+  try { const r = await uploadPhotoTo(f, `/api/admin/nativities/${current.id}/main-photo`); current.photo_key = r.key; show($('sheetPhoto'), false); }
+  catch (err) { showError(err.message); }
+});
+
+$('printBtn').addEventListener('click', async () => {
+  if (!current) return;
+  const win = window.open('', '_blank');
+  try {
+    if (current.waiver_method !== 'paper') { await api(`/api/admin/nativities/${current.id}/paper-waiver`, { method:'POST', body:{} }); current.waiver_method = 'paper'; }
+    win.location = `/api/admin/nativities/${current.id}/waiver-pdf`;
+  } catch (err) { if (win) win.close(); showError(err.message); }
+});
+
+function flashDone(n) {
+  $('doneSub').textContent = `${n.submission_number}${donor.donorCode ? ' · ' + donor.donorCode : ''}`;
+  show($('doneFlash'), true);
+  if (navigator.vibrate) navigator.vibrate(120);
+  clearTimeout(flashDone.t);
+  flashDone.t = setTimeout(() => show($('doneFlash'), false), 2200);
+}
+$('doneFlash').addEventListener('click', () => show($('doneFlash'), false));
+
+async function checkIn(body, btn) {
+  if (!current) return;
+  if (!current.photo_key) { alert('Add a photo of the nativity first.'); return; }
+  const label = btn.textContent; btn.disabled = true; btn.textContent = 'Checking in…';
+  try {
+    const n = current;
+    await api(`/api/admin/nativities/${n.id}/desk-checkin`, { method:'POST', body });
+    checkedThisVisit.push(n.id);
+    closeSheet();
+    await load();
+    flashDone(n);
+  } catch (err) { alert(err.message); }
+  finally { btn.disabled = false; btn.textContent = label; }
+}
+$('signBtn').addEventListener('click', () => {
+  if (!$('ackRelease').checked || !$('ackConsent').checked) { alert('The donor needs to check both boxes.'); return; }
+  if (!hasSig) { alert('Have the donor sign in the white box.'); return; }
+  checkIn({ method:'device', releaseAccepted:true, electronicSignatureConsent:true, signatureImage: canvas.toDataURL('image/png') }, $('signBtn'));
+});
+$('paperBtn').addEventListener('click', () => {
+  if (!confirm(`Confirm ${donor.name} signed the printed waiver for ${current.submission_number}.`)) return;
+  checkIn({ method:'paper' }, $('paperBtn'));
+});
+$('checkInOnlyBtn').addEventListener('click', () => checkIn({}, $('checkInOnlyBtn')));
+
+if (donorId) initDonor(); else initFind();
 </script>
 </body>
 </html>
