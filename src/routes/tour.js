@@ -3,8 +3,8 @@ import { json } from '../lib/util.js';
 import { listTourMediaObjects, serializeTourMedia } from '../lib/tourMedia.js';
 import { getSiteSettings } from '../lib/siteSettings.js';
 
-// Public: no session required. The collection includes all nativities that
-// have been checked in at least once and are still marked for the public tour,
+// Public: no session required. Every nativity that has been checked in is
+// shown (there is no opt-out),
 // plus standalone artwork, photos, and videos uploaded by admins.
 export async function getTour(request, env, session) {
   // When an admin switches the tour off, visitors get nothing. Admins still
@@ -19,7 +19,7 @@ export async function getTour(request, env, session) {
     sql`
       SELECT id, submission_number, event_year, COALESCE(display_photo_key, photo_key) AS photo_key, story
       FROM nativities
-      WHERE status IN ('submitted', 'returned') AND include_in_tour = TRUE
+      WHERE status IN ('submitted', 'returned')
       ORDER BY event_year DESC, id
     `,
     listTourMediaObjects(env),

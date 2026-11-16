@@ -195,7 +195,7 @@ export async function addNativity(request, env, session, id) {
     INSERT INTO nativities (submission_number, owner_user_id, event_year, description, piece_count, status,
                             include_in_tour, waiver_method, paper_by_admin)
     VALUES (${submissionNumber}, ${id}, ${eventYear}, ${description}, ${pieceCount}, 'pending',
-            ${body?.includeInTour !== false}, 'paper', ${session.email})
+            TRUE, 'paper', ${session.email})
     RETURNING id
   `;
   const nativityId = inserted[0].id;

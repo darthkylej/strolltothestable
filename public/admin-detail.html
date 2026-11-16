@@ -146,13 +146,6 @@
         <label for="storyInput">Story</label>
         <textarea id="storyInput" rows="5" placeholder="Optional story or description"></textarea>
       </div>
-      <div class="field" style="display:flex; align-items:center; gap:12px">
-        <label class="switch" style="margin:0">
-          <input type="checkbox" id="tourToggle">
-          <span class="track"></span>
-        </label>
-        <label for="tourToggle" style="margin:0; font-weight:700">Show this nativity in the public Virtual Tour</label>
-      </div>
     </section>
 
     <section class="edit-section">
@@ -332,7 +325,6 @@ async function load() {
     document.getElementById('pieceCount').value = nativity.piece_count || 0;
     document.getElementById('storyInput').value = nativity.story || '';
     document.getElementById('descriptionInput').value = nativity.description || '';
-    document.getElementById('tourToggle').checked = !!nativity.include_in_tour;
     document.getElementById('adminNote').value = adminNote || '';
 
     renderPhotos(nativity);
@@ -516,7 +508,6 @@ document.getElementById('saveChangesBtn').addEventListener('click', async () => 
         },
         story: document.getElementById('storyInput').value,
         description: document.getElementById('descriptionInput').value,
-        includeInTour: document.getElementById('tourToggle').checked,
         adminNote: document.getElementById('adminNote').value,
         pieces: collectPieces(),
       },
