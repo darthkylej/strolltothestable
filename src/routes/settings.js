@@ -1,5 +1,6 @@
 import { json } from '../lib/util.js';
 import { getSiteSettings, submissionsAreOpen } from '../lib/siteSettings.js';
+import { eventIsOver } from '../lib/eventSchedule.js';
 
 export async function getPublicSettings(request, env) {
   const settings = await getSiteSettings(env);
@@ -8,6 +9,7 @@ export async function getPublicSettings(request, env) {
       submissionsOpen: submissionsAreOpen(settings),
       submissionsEnabled: settings.submissionsOpen,
       tourOpen: settings.tourOpen,
+      returnsOpen: eventIsOver(settings),
       submissionStart: settings.submissionStart,
       submissionEnd: settings.submissionEnd,
       dropoffStart: settings.dropoffStart,

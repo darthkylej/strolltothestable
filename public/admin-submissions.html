@@ -99,10 +99,12 @@ function showSuccess(message) {
   const el=document.getElementById('successBanner'); el.textContent=message; el.style.display='block'; setTimeout(()=>{el.style.display='none';},3500);
 }
 function statusLabel(status) { return status==='submitted'?'checked in':(status||'all'); }
+let returnsOpen=false;
+api('/api/settings').then(s=>{returnsOpen=!!s.returnsOpen;setPageHeading();}).catch(()=>{});
 function setPageHeading() {
   const title=document.getElementById('pageTitle');
   if(currentStatus==='pending'){title.textContent='Check In Nativities';}
-  else if(currentStatus==='submitted'){title.textContent='Return Nativities';}
+  else if(currentStatus==='submitted'){title.textContent=returnsOpen?'Return Nativities':'Checked-In Nativities';}
   else if(currentStatus==='returned'){title.textContent='Returned Nativities';}
   else {title.textContent='All Nativity Submissions';}
 }

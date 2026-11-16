@@ -49,7 +49,7 @@
       <div class="primary-count" id="checkInCount">—</div>
       <div class="primary-detail" id="checkInDetail">waiting to be checked in</div>
     </a>
-    <a class="primary-card" href="/admin-submissions.html?status=submitted">
+    <a class="primary-card" id="returnCard" href="/admin-submissions.html?status=submitted" style="display:none">
       <h2>Return Nativities</h2>
       <div class="primary-count" id="returnCount">—</div>
       <div class="primary-detail">checked in, waiting for pick-up</div>
@@ -81,6 +81,9 @@
 </div>
 <script src="/js/app.js"></script>
 <script>
+// Return Nativities appears once the event is over.
+api('/api/settings').then((s) => { if (s.returnsOpen) document.getElementById('returnCard').style.display = ''; }).catch(() => {});
+
 (async function loadSubmissionCounts() {
   try {
     const { nativities, counts } = await api('/api/admin/nativities');

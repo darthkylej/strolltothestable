@@ -298,7 +298,7 @@ function renderPhotos(nativity) {
 async function load() {
   hideError();
   try {
-    const { nativity, pieces, adminNote } = await api(`/api/admin/nativities/${id}`);
+    const [{ nativity, pieces, adminNote }] = await Promise.all([api(`/api/admin/nativities/${id}`), returnsOpenReady]);
     current = nativity;
     currentPieces = pieces;
 
@@ -336,6 +336,9 @@ function fmtDate(v) {
 }
 
 // The desk panel: everything needed at the check-in or pick-up table.
+let returnsOpen = false;
+const returnsOpenReady = api('/api/settings').then((s) => { returnsOpen = !!s.returnsOpen; }).catch(() => {});
+
 function renderDesk(n, pieces, note, isDraft) {
   document.getElementById('deskContact').innerHTML =
     (n.owner_donor_code ? `<a class="code-chip" href="/admin-walkin.html?donor=${encodeURIComponent(n.owner_user_id)}" title="Everything from this donor">${esc(n.owner_donor_code)}</a>` : '')
@@ -397,10 +400,13 @@ function renderDesk(n, pieces, note, isDraft) {
   noteEl.style.display = note ? 'block' : 'none';
   noteEl.textContent = note ? `Note: ${note}` : '';
 
-  const verifiable = (n.status === 'pending' && !isDraft) || n.status === 'submitted';
+  // Pick-up (returning to the owner) is hidden until the event is over.
+  const pickup = n.status === 'submitted' && returnsOpen;
+  const verifiable = (n.status === 'pending' && !isDraft) || pickup;
   document.getElementById('deskTitle').textContent =
     n.status === 'pending' ? 'Check in: match each piece to the box'
-    : n.status === 'submitted' ? 'Pick-up: confirm each piece is going home'
+    : pickup ? 'Pick-up: confirm each piece is going home'
+    : n.status === 'submitted' ? `Checked in ${fmtDate(n.finalized_at)}`
     : `Returned ${fmtDate(n.returned_at)}`;
   document.getElementById('checkAllBtn').style.display = verifiable && pieces.length ? 'inline' : 'none';
   document.getElementById('deskPieces').innerHTML = pieces.length ? pieces.map((p, i) => `
@@ -416,7 +422,7 @@ function renderDesk(n, pieces, note, isDraft) {
   document.querySelectorAll('#descriptionInput, #storyInput, #pieces input, #pieces textarea').forEach((el) => { el.readOnly = final; });
   document.querySelectorAll('#addPieceBtn, #pieces [data-remove-piece]').forEach((el) => { el.style.display = final ? 'none' : ''; });
   document.getElementById('finalizeBtn').style.display = n.status === 'pending' ? 'inline-block' : 'none';
-  document.getElementById('returnBtn').style.display = n.status === 'submitted' ? 'inline-block' : 'none';
+  document.getElementById('returnBtn').style.display = pickup ? 'inline-block' : 'none';
   updateDeskButtons();
 }
 
@@ -440,7 +446,7 @@ function updateDeskButtons() {
     hint.textContent = blockers.length ? blockers.join(' ')
       : current.owner_email ? 'All pieces checked. Finalizing emails the donor their claim ticket.'
       : `All pieces checked. No email on file, so give the donor their code${current.owner_donor_code ? ': ' + current.owner_donor_code : ' or claim number'}.`;
-  } else if (current.status === 'submitted') {
+  } else if (current.status === 'submitted' && returnsOpen) {
     ret.disabled = remaining > 0 || !boxes.length;
     hint.textContent = left || 'All pieces checked. Ready to hand back.';
   } else {
