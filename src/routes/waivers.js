@@ -186,7 +186,8 @@ export async function downloadWaiverPdf(request,env,session,id) {
     if(!paper) return error('Signed waiver has not been received.',404);
     return new Response(await paperPdf(env,n,paper),{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="Stroll-to-the-Stable-Waiver-'+n.submission_number.replace(/[^a-zA-Z0-9_-]/g,'')+'-to-sign.pdf"','Cache-Control':'private, no-store'}});
   }
-  const object=await env.PHOTOS.get(pdfKey(n));
+  const rec=await saved(env,n);
+  const object=await env.PHOTOS.get(rec?.batchPdfKey||pdfKey(n));
   if(!object) return error('Signed waiver PDF is not yet available.',404);
   return new Response(object.body,{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="Stroll-to-the-Stable-Waiver-'+n.submission_number.replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf"','Cache-Control':'private, no-store'}});
 }
@@ -213,6 +214,108 @@ async function recordPaperSigned(env,n,paper,adminEmail) {
   await env.PHOTOS.put(key(n),JSON.stringify(record),{httpMetadata:{contentType:'application/json'}});
   await env.PHOTOS.delete(paperKey(n));
   await db(env)`UPDATE nativities SET waiver_signed=true,waiver_method='paper',waiver_signed_by=${'Paper signature, verified by '+session.email},waiver_signed_at=now(),updated_at=now() WHERE id=${n.id}`;
+}
+
+// ── Walk-in desk batch waiver ────────────────────────────────────────────
+// One agreement covers every nativity a walk-in donor brings in a visit. The
+// combined PDF is stored once; each nativity's waiver record points to it.
+const batchPdfKey = id => `_waivers/batch-${id}.pdf`;
+const batchKey = id => `_waivers/batch-${id}.json`;
+
+// Loads the donor's chosen pending nativities, in the order given.
+async function loadBatch(env,donorId,ids) {
+  const clean=[...new Set((Array.isArray(ids)?ids:[]).map(String).filter(v=>/^\d+$/.test(v)))].slice(0,200);
+  if(!clean.length) throw error('Add at least one nativity first.',400);
+  const arr=`{${clean.join(',')}}`;
+  const rows=await db(env)`SELECT n.*,u.name AS owner_name,u.phone AS owner_phone,u.email AS owner_email,u.address AS owner_address,u.city_state_zip AS owner_city_state_zip,u.donor_code AS owner_donor_code
+    FROM nativities n JOIN users u ON u.id=n.owner_user_id
+    WHERE n.owner_user_id=${donorId} AND n.id = ANY(${arr}::bigint[])`;
+  const byId=new Map(rows.map(r=>[String(r.id),r]));
+  const list=clean.map(id=>byId.get(id)).filter(Boolean);
+  if(list.length!==clean.length) throw error('One of these nativities was not found for this donor.',404);
+  for(const n of list){
+    if(n.submission_number.startsWith('DRAFT-')) throw error(n.submission_number+' is not finished yet.',400);
+    if(n.status!=='pending') throw error(n.submission_number+' is already checked in.',409);
+  }
+  return list;
+}
+
+async function batchRecord(env,list,extra) {
+  const n0=list[0];
+  const settings=await getSiteSettings(env);
+  const pieceRows=await db(env)`SELECT nativity_id, condition_notes FROM nativity_pieces WHERE nativity_id = ANY(${'{'+list.map(n=>n.id).join(',')+'}'}::bigint[]) AND piece_number=1`;
+  const cond=new Map(pieceRows.map(p=>[String(p.nativity_id),p.condition_notes]));
+  const nativities=list.map(n=>({id:String(n.id),submissionNumber:n.submission_number,description:n.description||'',pieceCount:n.piece_count,
+    condition:/^No condition notes recorded/.test(cond.get(String(n.id))||'')?'':(cond.get(String(n.id))||''),photoKey:n.display_photo_key||n.photo_key||''}));
+  return {version:5,agreementVersion:AGREEMENT_VERSION,batch:true,nativities,year:n0.event_year,organizer:'City of Seguin',event:'Stroll to the Stable',
+    location:'Nolte Building, 101 E. Nolte St, Seguin, TX',dates:eventDates(settings),fields:ownerFields(n0),donorCode:n0.owner_donor_code||'',...extra};
+}
+async function batchPhotos(env,record){
+  return Promise.all(record.nativities.map(async b=>{ if(!b.photoKey) return null; const o=await env.PHOTOS.get(b.photoKey); return o?new Uint8Array(await o.arrayBuffer()):null; }));
+}
+
+// GET /api/admin/donors/:id/batch-waiver-pdf?ids=1,2,3 — printable combined
+// waiver for a paper signature.
+export async function batchWaiverPdf(request,env,session,donorId) {
+  requireAdmin(session);
+  const ids=(new URL(request.url).searchParams.get('ids')||'').split(',');
+  const list=(await loadBatch(env,donorId,ids)).filter(n=>!n.waiver_signed);
+  if(!list.length) return error('These waivers are already signed.',409);
+  const record=await batchRecord(env,list,{method:'paper',signerName:ownerFields(list[0]).name,signingDate:'',audit:{enteredByAdmin:session.email,requestedAt:new Date().toISOString()}});
+  const pdf=await createWaiverPdf(record,null,'',await batchPhotos(env,record));
+  return new Response(pdf,{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="Stroll-to-the-Stable-Waiver-'+String(record.donorCode||'donor').replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf"','Cache-Control':'private, no-store'}});
+}
+
+// POST /api/admin/donors/:id/desk-checkin { ids, method, ... } — one waiver
+// for the whole batch (donor signs once on the admin's device, or the admin
+// confirms the printed batch waiver was signed), then every nativity in the
+// batch is checked in. Nativities already signed online are just checked in.
+export async function deskCheckInBatch(request,env,session,donorId) {
+  requireAdmin(session);
+  const body=await request.json().catch(()=>({}));
+  const list=await loadBatch(env,donorId,body.ids);
+  const noPhoto=list.filter(n=>!n.photo_key&&!n.display_photo_key);
+  if(noPhoto.length) return error('Add a photo for '+noPhoto.map(n=>n.submission_number).join(', ')+' first.',400);
+  const toSign=list.filter(n=>!n.waiver_signed);
+  for(const n of toSign) if(await saved(env,n)) return error(n.submission_number+' already has a signed waiver.',409);
+  const sql=db(env);
+
+  if(toSign.length){
+    const name=ownerFields(toSign[0]).name;
+    if(!name) return error('The donor needs a name before signing.',400);
+    const at=new Date().toISOString(), batchId=crypto.randomUUID();
+    let record, signedBy;
+    if(body.method==='device'){
+      if(body.releaseAccepted!==true||body.electronicSignatureConsent!==true) return error('The donor must check both boxes before signing.',400);
+      if(!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(body.signatureImage||'')||(body.signatureImage||'').length>300000) return error('Have the donor sign in the box.',400);
+      record=await batchRecord(env,toSign,{method:'digital',signerName:name,signingDate:new Date().toLocaleDateString('en-CA',{timeZone:'America/Chicago'}),signatureImage:body.signatureImage,
+        agreed:true,electronicSignatureConsent:true,releaseAccepted:true,completedAt:at,batchId,
+        audit:{signedAt:at,signedInPersonOnAdminDevice:true,enteredByAdmin:session.email,ipAddress:request.headers.get('CF-Connecting-IP')||null,userAgent:request.headers.get('User-Agent')||null,consentText:CONSENT_TEXT,releaseAcknowledgment:RELEASE_ACK,agreementVersion:AGREEMENT_VERSION}});
+      signedBy='Digital signature on admin device ('+session.email+'), batch waiver';
+    } else if(body.method==='paper'){
+      record=await batchRecord(env,toSign,{method:'paper',signerName:name,signingDate:'',paperVerifiedBy:session.email,paperVerifiedAt:at,completedAt:at,batchId,
+        audit:{enteredByAdmin:session.email,paperVerifiedBy:session.email,paperVerifiedAt:at,agreementVersion:AGREEMENT_VERSION}});
+      signedBy='Paper signature, verified by '+session.email+', batch waiver';
+    } else return error('Choose how the waiver was signed.',400);
+
+    const pdf=await createWaiverPdf(record,null,'',await batchPhotos(env,record));
+    if(record.audit) record.audit.signedPdfSha256=await sha256(pdf);
+    await env.PHOTOS.put(batchPdfKey(batchId),pdf,{httpMetadata:{contentType:'application/pdf'}});
+    await env.PHOTOS.put(batchKey(batchId),JSON.stringify(record),{httpMetadata:{contentType:'application/json'}});
+    const method=record.method;
+    for(const n of toSign){
+      const own={...record,signatureImage:undefined,submissionNumber:n.submission_number,batchPdfKey:batchPdfKey(batchId),batchSize:toSign.length};
+      await env.PHOTOS.put(key(n),JSON.stringify(own),{httpMetadata:{contentType:'application/json'}});
+      for(const k of [paperKey(n),draftKey(n),reviewKey(n),reviewPdfKey(n)]) await env.PHOTOS.delete(k);
+    }
+    const arr='{'+toSign.map(n=>n.id).join(',')+'}';
+    await sql`UPDATE nativities SET waiver_signed=true,waiver_method=${method},paper_by_admin=NULL,waiver_signed_by=${signedBy},waiver_signed_at=now(),updated_at=now() WHERE id = ANY(${arr}::bigint[])`;
+  }
+
+  const all='{'+list.map(n=>n.id).join(',')+'}';
+  const done=await sql`UPDATE nativities SET status='submitted',finalized_by=${session.email},finalized_at=now(),updated_at=now()
+    WHERE id = ANY(${all}::bigint[]) AND status='pending' AND waiver_signed RETURNING id, submission_number`;
+  return json({ok:true,checkedIn:done.map(r=>({id:String(r.id),submissionNumber:r.submission_number})),donorCode:list[0].owner_donor_code||null});
 }
 
 // Walk-in desk: record the waiver and check the nativity in, in one step.

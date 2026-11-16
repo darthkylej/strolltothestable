@@ -48,6 +48,11 @@
   .agreement h3 { font-size:15px; margin:12px 0 4px; color:#1f2733; }
   .agreement p { color:#1f2733; margin:0 0 8px; }
   .agreement h3:first-child { margin-top:0; }
+  .mini { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:rgba(8,16,31,.6); }
+  .mini .thumb { width:40px; height:40px; }
+  .mini .need { position:relative; overflow:hidden; color:#10172a; background:var(--gold); border-radius:999px; padding:4px 10px; font-weight:800; font-size:13px; white-space:nowrap; cursor:pointer; }
+  .mini .need input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+  .done-flash.added { background:rgba(16,92,52,.9); }
   .group-label { color:var(--muted); font-size:13px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; margin:4px 0 -2px; }
   .agreement .release-box { border:2px solid #9a7b2f; border-radius:8px; padding:8px 10px; margin:10px 0; }
   .check { display:flex; gap:10px; align-items:flex-start; margin:0 0 10px; font-size:15px; line-height:1.4; }
@@ -124,11 +129,12 @@
         </div>
       </div>
       <input id="addCondition" type="text" maxlength="2000" placeholder="Condition notes (optional)" aria-label="Condition notes (optional)">
-      <button class="btn btn-primary big" id="addBtn" type="submit" style="margin:0">Next: Waiver</button>
+      <button class="btn btn-primary big" id="addBtn" type="submit" style="margin:0">Add Nativity</button>
     </form>
 
     <div class="card" id="listCard" style="margin-top:14px">
       <div class="list" id="natList"></div>
+      <button type="button" class="btn btn-primary big hidden" id="batchBtn" style="margin:14px 0 0"></button>
     </div>
 
     <button type="button" class="btn btn-secondary big" id="finishBtn" style="margin-top:14px">Done with this donor</button>
@@ -143,12 +149,7 @@
       <button type="button" class="btn btn-outline x" id="sheetClose" aria-label="Close">×</button>
     </div>
 
-    <div id="sheetPhoto" class="hidden">
-      <label class="photo-pick" style="min-height:90px">
-        <span>📷 Photo required. Tap to add.</span>
-        <input id="sheetPhotoInput" type="file" accept="image/*" capture="environment" aria-label="Nativity photo">
-      </label>
-    </div>
+    <div class="list" id="batchList" style="margin-bottom:14px"></div>
 
     <div id="alreadySigned" class="hidden">
       <p style="margin:0 0 14px;color:var(--pasture);font-weight:700">✓ Waiver already signed</p>
@@ -180,7 +181,7 @@
 
 <div class="done-flash hidden" id="doneFlash" role="status" aria-live="assertive">
   <div class="ring">✓</div>
-  <div class="big-t">Checked in</div>
+  <div class="big-t" id="doneTitle">Checked in</div>
   <div class="sub" id="doneSub"></div>
 </div>
 
@@ -248,18 +249,20 @@ function render() {
   show($('listCard'), mine.length > 0);
   const thumb = (n) => n.photo_key ? `<img class="thumb" src="/photos/${esc(n.photo_key)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'thumb'}))">` : '<span class="thumb"></span>';
   $('natList').innerHTML = [
-    todo.length ? '<div class="group-label">Not finished</div>' : '',
-    ...todo.map((n) => `<button type="button" class="item" data-finish="${esc(n.id)}">
+    todo.length ? `<div class="group-label">Waiting for waiver · ${todo.length}</div>` : '',
+    ...todo.map((n) => `<a class="item" href="/admin-detail.html?id=${encodeURIComponent(n.id)}">
         ${thumb(n)}
         <div class="main"><div class="t">${esc(n.submission_number)}</div><div class="s">${esc(n.description || '')} · ${pcs(n.piece_count)}</div></div>
-        <span class="todo">Finish</span></button>`),
+        ${n.photo_key ? '' : '<span class="todo">No photo</span>'}</a>`),
     done.length ? `<div class="group-label">Checked in · ${done.length}</div>` : '',
     ...done.map((n) => `<a class="item" href="/admin-detail.html?id=${encodeURIComponent(n.id)}">
         ${thumb(n)}
         <div class="main"><div class="t">${esc(n.submission_number)}</div><div class="s">${esc(n.description || '')} · ${pcs(n.piece_count)}</div></div>
         <span class="ok-dot">✓</span></a>`),
   ].join('');
-  document.querySelectorAll('[data-finish]').forEach((b) => b.addEventListener('click', () => openSheet(nativities.find((n) => String(n.id) === b.dataset.finish))));
+  const batchBtn = $('batchBtn');
+  batchBtn.textContent = todo.length === 1 ? 'Waiver & Check In' : `Waiver & Check In All ${todo.length}`;
+  show(batchBtn, todo.length > 0);
 }
 async function load() {
   const data = await api('/api/admin/donors/' + encodeURIComponent(donorId));
@@ -292,12 +295,13 @@ function initDonor() {
     try {
       const created = await api(`/api/admin/donors/${encodeURIComponent(donorId)}/nativities`, { method:'POST',
         body: { description:$('addDescription').value, pieceCount:Number($('addCount').value), conditionNote:$('addCondition').value } });
-      try { await uploadPhotoTo(photo, `/api/admin/nativities/${created.id}/main-photo`); } catch (_) { /* the sheet asks for it again */ }
+      let photoOk = true;
+      try { await uploadPhotoTo(photo, `/api/admin/nativities/${created.id}/main-photo`); } catch (_) { photoOk = false; }
       resetAddForm();
       await load();
-      openSheet(nativities.find((n) => String(n.id) === String(created.id)));
+      flash('Added', created.submissionNumber + (photoOk ? '' : ' · photo did not upload'), true);
     } catch (err) { showError(err.message); }
-    finally { btn.disabled = false; btn.textContent = 'Next: Waiver'; }
+    finally { btn.disabled = false; btn.textContent = 'Add Nativity'; }
   });
 
   $('editDonorForm').addEventListener('submit', async (e) => {
@@ -309,6 +313,7 @@ function initDonor() {
     } catch (err) { showError(err.message); }
   });
 
+  $('batchBtn').addEventListener('click', openSheet);
   $('finishBtn').addEventListener('click', async () => {
     const btn = $('finishBtn'); btn.disabled = true;
     let note = '';
@@ -363,58 +368,72 @@ async function loadAgreement(id) {
   $('ackConsentText').textContent = agreement.consentText;
 }
 
-function openSheet(n) {
-  if (!n) return;
-  current = n; hideError();
-  $('sheetTitle').textContent = `Waiver · ${n.submission_number}`;
-  show($('sheetPhoto'), !n.photo_key);
-  show($('alreadySigned'), !!n.waiver_signed);
-  show($('chooseWaiver'), !n.waiver_signed);
+function batchItems() { return nativities.filter((n) => Number(n.event_year) === Number(eventYear) && n.status === 'pending'); }
+function renderBatchList() {
+  $('batchList').innerHTML = current.map((n) => `<div class="mini">
+      ${n.photo_key ? `<img class="thumb" src="/photos/${esc(n.photo_key)}" alt="">` : '<span class="thumb"></span>'}
+      <div class="main" style="flex:1;min-width:0"><div class="t" style="font-weight:700;color:var(--gold-bright)">${esc(n.submission_number)}</div>
+      <div class="s" style="color:var(--muted);font-size:13px">${esc(n.description || '')} · ${pcs(n.piece_count)}</div></div>
+      ${n.photo_key ? '' : `<label class="need">Add photo<input type="file" accept="image/*" capture="environment" data-photo="${esc(n.id)}"></label>`}
+    </div>`).join('');
+  $('batchList').querySelectorAll('[data-photo]').forEach((inp) => inp.addEventListener('change', async () => {
+    const f = inp.files[0]; if (!f) return;
+    try {
+      const r = await uploadPhotoTo(f, `/api/admin/nativities/${inp.dataset.photo}/main-photo`);
+      const n = current.find((x) => String(x.id) === inp.dataset.photo); if (n) n.photo_key = r.key;
+      renderBatchList();
+    } catch (err) { alert(err.message); }
+  }));
+}
+function openSheet() {
+  current = batchItems();
+  if (!current.length) return;
+  hideError();
+  const unsigned = current.filter((n) => !n.waiver_signed);
+  $('sheetTitle').textContent = current.length === 1 ? `Waiver · ${current[0].submission_number}` : `Waiver · ${current.length} nativities`;
+  renderBatchList();
+  show($('alreadySigned'), unsigned.length === 0);
+  show($('chooseWaiver'), unsigned.length > 0);
   $('ackRelease').checked = false; $('ackConsent').checked = false;
   $('signerLine').textContent = `Signer: ${donor.name}`;
   show($('sheet'), true);
   document.body.style.overflow = 'hidden';
   setMode('device');
-  loadAgreement(n.id).catch((e) => { $('agreementText').textContent = 'Could not load the waiver text. ' + e.message; });
+  loadAgreement(current[0].id).catch((e) => { $('agreementText').textContent = 'Could not load the waiver text. ' + e.message; });
 }
 function closeSheet() { show($('sheet'), false); document.body.style.overflow = ''; current = null; }
 $('sheetClose').addEventListener('click', closeSheet);
 
-$('sheetPhotoInput').addEventListener('change', async () => {
-  const f = $('sheetPhotoInput').files[0]; if (!f || !current) return;
-  try { const r = await uploadPhotoTo(f, `/api/admin/nativities/${current.id}/main-photo`); current.photo_key = r.key; show($('sheetPhoto'), false); }
-  catch (err) { showError(err.message); }
-});
 
-$('printBtn').addEventListener('click', async () => {
+$('printBtn').addEventListener('click', () => {
   if (!current) return;
-  const win = window.open('', '_blank');
-  try {
-    if (current.waiver_method !== 'paper') { await api(`/api/admin/nativities/${current.id}/paper-waiver`, { method:'POST', body:{} }); current.waiver_method = 'paper'; }
-    win.location = `/api/admin/nativities/${current.id}/waiver-pdf`;
-  } catch (err) { if (win) win.close(); showError(err.message); }
+  // The printed copy lists exactly the nativities in this batch.
+  window.open(`/api/admin/donors/${encodeURIComponent(donorId)}/batch-waiver-pdf?ids=${current.map((n) => n.id).join(',')}`, '_blank');
 });
 
-function flashDone(n) {
-  $('doneSub').textContent = `${n.submission_number}${donor.donorCode ? ' · ' + donor.donorCode : ''}`;
+function flash(title, sub, quick) {
+  $('doneTitle').textContent = title;
+  $('doneSub').textContent = sub;
+  $('doneFlash').classList.toggle('added', !!quick);
   show($('doneFlash'), true);
-  if (navigator.vibrate) navigator.vibrate(120);
-  clearTimeout(flashDone.t);
-  flashDone.t = setTimeout(() => show($('doneFlash'), false), 2200);
+  if (navigator.vibrate) navigator.vibrate(quick ? 60 : 150);
+  clearTimeout(flash.t);
+  flash.t = setTimeout(() => show($('doneFlash'), false), quick ? 1300 : 2400);
 }
 $('doneFlash').addEventListener('click', () => show($('doneFlash'), false));
 
 async function checkIn(body, btn) {
   if (!current) return;
-  if (!current.photo_key) { alert('Add a photo of the nativity first.'); return; }
+  const missing = current.filter((n) => !n.photo_key);
+  if (missing.length) { alert('Add a photo for ' + missing.map((n) => n.submission_number).join(', ') + ' first.'); return; }
   const label = btn.textContent; btn.disabled = true; btn.textContent = 'Checking in…';
   try {
-    const n = current;
-    await api(`/api/admin/nativities/${n.id}/desk-checkin`, { method:'POST', body });
-    checkedThisVisit.push(n.id);
+    const r = await api(`/api/admin/donors/${encodeURIComponent(donorId)}/desk-checkin`, { method:'POST', body: { ...body, ids: current.map((n) => n.id) } });
+    r.checkedIn.forEach((x) => checkedThisVisit.push(x.id));
     closeSheet();
     await load();
-    flashDone(n);
+    const count = r.checkedIn.length;
+    flash(count === 1 ? 'Checked in' : `${count} checked in`, (count === 1 ? r.checkedIn[0].submissionNumber : 'All nativities') + (donor.donorCode ? ' · ' + donor.donorCode : ''));
   } catch (err) { alert(err.message); }
   finally { btn.disabled = false; btn.textContent = label; }
 }
@@ -424,7 +443,7 @@ $('signBtn').addEventListener('click', () => {
   checkIn({ method:'device', releaseAccepted:true, electronicSignatureConsent:true, signatureImage: canvas.toDataURL('image/png') }, $('signBtn'));
 });
 $('paperBtn').addEventListener('click', () => {
-  if (!confirm(`Confirm ${donor.name} signed the printed waiver for ${current.submission_number}.`)) return;
+  if (!confirm(`Confirm ${donor.name} signed the printed waiver covering ${current.length === 1 ? current[0].submission_number : 'all ' + current.length + ' nativities'}.`)) return;
   checkIn({ method:'paper' }, $('paperBtn'));
 });
 $('checkInOnlyBtn').addEventListener('click', () => checkIn({}, $('checkInOnlyBtn')));
