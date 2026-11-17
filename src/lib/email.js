@@ -347,6 +347,31 @@ export async function sendDonorCheckInSummaryEmail(env, { to, name, donorCode, n
   });
 }
 
+// Top line of every admin alert. When an admin replies to an alert, only the
+// text above this line is sent on to the person (see messages.js).
+export const REPLY_MARKER = '##- Reply above this line -##';
+
+function adminAlertHtml({ heading, lead, quoteLabel, body, replyLine, openUrl, openLabel, threadCode }) {
+  return `
+      <div style="margin:0;padding:0 0 26px;background:#f4f1e8;font-family:Arial,Helvetica,sans-serif;color:#243142">
+        <div style="padding:10px 14px;color:#9a8f78;font-size:12px;text-align:center">${REPLY_MARKER}</div>
+        <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #ded8ca;border-radius:16px;overflow:hidden">
+          <div style="padding:20px 26px;background:#12233d;color:#fff">
+            <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#e8c878;font-weight:700">Stroll to the Stable</div>
+            <div style="margin:6px 0 0;font-size:21px;font-weight:700">${heading}</div>
+          </div>
+          <div style="padding:22px 26px">
+            <p style="margin:0 0 12px;line-height:1.55;font-size:15px">${lead}</p>
+            <div style="margin:0 0 6px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:.06em">${quoteLabel}</div>
+            <div style="padding:14px 16px;background:#f8f5ed;border-left:4px solid #c9a75a;border-radius:6px;line-height:1.6;font-size:15px">${body}</div>
+            <p style="margin:18px 0 14px;line-height:1.5;font-size:15px"><b>${replyLine}</b></p>
+            <a href="${openUrl}" style="display:inline-block;padding:10px 16px;background:#203a5f;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:14px">${openLabel}</a>
+            <p style="margin:16px 0 0;color:#9ca3af;font-size:12px">${threadCode}</p>
+          </div>
+        </div>
+      </div>`;
+}
+
 export async function sendMessageNotification(env, {
   to,
   contactEmail,
@@ -367,23 +392,17 @@ export async function sendMessageNotification(env, {
     from: { email: sourceAddress, name: 'Stroll to the Stable' },
     replyTo: sourceAddress,
     subject: `New message: ${subject || 'Stroll to the Stable question'} [${threadCode}]`,
-    text: `${contactEmail} sent the following message to ${sourceAddress}:\n\n${bodyText || ''}\n\nReply to this email to answer ${contactEmail}. Your reply is sent from ${sourceAddress}.\nOr open the Message Center: ${openUrl}`,
-    html: `
-      <div style="margin:0;padding:26px 14px;background:#f4f1e8;font-family:Arial,Helvetica,sans-serif;color:#243142">
-        <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #ded8ca;border-radius:16px;overflow:hidden">
-          <div style="padding:24px 28px;background:#12233d;color:#fff">
-            <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#e8c878;font-weight:700">Stroll to the Stable</div>
-            <h1 style="margin:7px 0 0;font-size:24px">New message received</h1>
-          </div>
-          <div style="padding:26px 28px">
-            <p style="margin:0 0 16px;line-height:1.6"><b>${escapeHtml(contactEmail)}</b> sent the following message to <b>${escapeHtml(sourceAddress)}</b>:</p>
-            <div style="padding:16px 18px;background:#f8f5ed;border:1px solid #e5ddca;border-radius:10px;line-height:1.65">${safeBody}</div>
-            <p style="margin:18px 0;color:#6b7280;font-size:13px">Conversation code: ${escapeHtml(threadCode)}</p>
-            <a href="${openUrl}" style="display:inline-block;padding:12px 18px;background:#203a5f;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Open Message Center</a>
-            <p style="margin:18px 0 0;color:#374151;font-size:14px;line-height:1.5"><b>Reply to this email to answer ${escapeHtml(contactEmail)}.</b> Your reply is sent to them from ${escapeHtml(sourceAddress)} and saved in the Message Center.</p>
-          </div>
-        </div>
-      </div>`,
+    text: `${REPLY_MARKER}\n\nNew message from ${contactEmail}\nSubject: ${subject || '(none)'}\n\n${bodyText || ''}\n\nReply to this email to answer ${contactEmail}. They will receive it from ${sourceAddress}.\nOpen the Message Center: ${openUrl}\n\n${threadCode}`,
+    html: adminAlertHtml({
+      heading: escapeHtml(subject || 'New message'),
+      lead: `New message from <b>${escapeHtml(contactEmail)}</b> to ${escapeHtml(sourceAddress)}.`,
+      quoteLabel: 'Their message',
+      body: safeBody,
+      replyLine: `Reply to this email to answer ${escapeHtml(contactEmail)}.`,
+      openUrl,
+      openLabel: 'Open Message Center',
+      threadCode: escapeHtml(threadCode),
+    }),
   });
 }
 
@@ -407,22 +426,17 @@ export async function sendMessageAnsweredNotification(env, {
     from: { email: sourceAddress, name: 'Stroll to the Stable' },
     replyTo: sourceAddress,
     subject: `Message answered [${threadCode}]`,
-    text: `${adminEmail} replied to ${contactEmail}:\n\n${bodyText || ''}\n\nView the conversation: ${openUrl}`,
-    html: `
-      <div style="margin:0;padding:26px 14px;background:#f4f1e8;font-family:Arial,Helvetica,sans-serif;color:#243142">
-        <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #ded8ca;border-radius:16px;overflow:hidden">
-          <div style="padding:22px 28px;background:#12233d;color:#fff">
-            <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#e8c878;font-weight:700">Stroll to the Stable</div>
-            <h1 style="margin:7px 0 0;font-size:22px">A message was answered</h1>
-          </div>
-          <div style="padding:26px 28px">
-            <p style="margin:0 0 15px;line-height:1.6"><b>${escapeHtml(adminEmail)}</b> replied to <b>${escapeHtml(contactEmail)}</b> from ${escapeHtml(sourceAddress)}:</p>
-            <div style="padding:16px 18px;background:#f8f5ed;border:1px solid #e5ddca;border-radius:10px;line-height:1.65">${safeBody}</div>
-            <p style="margin:18px 0;color:#6b7280;font-size:13px">Conversation code: ${escapeHtml(threadCode)}</p>
-            <a href="${openUrl}" style="display:inline-block;padding:12px 18px;background:#203a5f;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">View Conversation</a>
-          </div>
-        </div>
-      </div>`,
+    text: `${REPLY_MARKER}\n\n${adminEmail} answered ${contactEmail}:\n\n${bodyText || ''}\n\nReply to this email to send ${contactEmail} another message.\nView the conversation: ${openUrl}\n\n${threadCode}`,
+    html: adminAlertHtml({
+      heading: 'Message answered',
+      lead: `<b>${escapeHtml(adminEmail)}</b> answered <b>${escapeHtml(contactEmail)}</b>.`,
+      quoteLabel: 'The answer',
+      body: safeBody,
+      replyLine: `Reply to this email to send ${escapeHtml(contactEmail)} another message.`,
+      openUrl,
+      openLabel: 'View Conversation',
+      threadCode: escapeHtml(threadCode),
+    }),
   });
 }
 
