@@ -367,7 +367,7 @@ export async function sendMessageNotification(env, {
     from: { email: sourceAddress, name: 'Stroll to the Stable' },
     replyTo: sourceAddress,
     subject: `New message: ${subject || 'Stroll to the Stable question'} [${threadCode}]`,
-    text: `${contactEmail} sent the following message to ${sourceAddress}:\n\n${bodyText || ''}\n\nOpen the Message Center to reply: ${openUrl}`,
+    text: `${contactEmail} sent the following message to ${sourceAddress}:\n\n${bodyText || ''}\n\nReply to this email to answer ${contactEmail}. Your reply is sent from ${sourceAddress}.\nOr open the Message Center: ${openUrl}`,
     html: `
       <div style="margin:0;padding:26px 14px;background:#f4f1e8;font-family:Arial,Helvetica,sans-serif;color:#243142">
         <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #ded8ca;border-radius:16px;overflow:hidden">
@@ -380,7 +380,7 @@ export async function sendMessageNotification(env, {
             <div style="padding:16px 18px;background:#f8f5ed;border:1px solid #e5ddca;border-radius:10px;line-height:1.65">${safeBody}</div>
             <p style="margin:18px 0;color:#6b7280;font-size:13px">Conversation code: ${escapeHtml(threadCode)}</p>
             <a href="${openUrl}" style="display:inline-block;padding:12px 18px;background:#203a5f;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Open Message Center</a>
-            <p style="margin:18px 0 0;color:#6b7280;font-size:13px;line-height:1.5">This secure button signs you in automatically and opens the conversation. Reply from the Message Center so the response is sent from the Stroll to the Stable address and stays visible to the whole admin team.</p>
+            <p style="margin:18px 0 0;color:#374151;font-size:14px;line-height:1.5"><b>Reply to this email to answer ${escapeHtml(contactEmail)}.</b> Your reply is sent to them from ${escapeHtml(sourceAddress)} and saved in the Message Center.</p>
           </div>
         </div>
       </div>`,
@@ -451,13 +451,17 @@ export async function sendMessageCenterReply(env, {
   threadCode,
   inReplyTo,
   references,
+  attachments,
 }) {
   const cleanSubject = String(subject || 'Your Stroll to the Stable message')
     .replace(/\s*\[STTS-[A-Z0-9]+\]\s*$/i, '')
     .replace(/^Re:\s*/i, '')
     .trim();
 
-  const htmlBody = escapeHtml(bodyText || '').replace(/\n/g, '<br>');
+  // Links become clickable; everything else is plain escaped text.
+  const htmlBody = escapeHtml(bodyText || '')
+    .replace(/(https?:\/\/[^\s<>&]+(?:&amp;[^\s<>&]+)*)/g, '<a href="$1" style="color:#203a5f;word-break:break-all">$1</a>')
+    .replace(/\n/g, '<br>');
 
   const replyHeaders = {};
   const normalizedReplyTo = normalizeMessageId(inReplyTo);
@@ -488,6 +492,7 @@ export async function sendMessageCenterReply(env, {
         </div>
       </div>`,
     headers: Object.keys(replyHeaders).length ? replyHeaders : undefined,
+    ...(attachments && attachments.length ? { attachments } : {}),
   });
 }
 

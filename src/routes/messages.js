@@ -139,18 +139,26 @@ function cleanReplyText(text) {
 // legal disclaimers, and rejoins lines that plain-text email wrapped at a fixed
 // width. The stored text is not changed.
 const DISCLAIMER_START = /^\**\s*(confidential(ity)? notice|information notice|this (e-?mail|electronic mail)( message| transmission)? (is|and any)|disclaimer)\b/i;
-export function displayText(text) {
+export function displayText(text, { keepSignature = false } = {}) {
   let value = cleanReplyText(text) || String(text || '').trim();
   const lines = value.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     // "-- " is the standard signature separator; long notices may also start
     // without one.
-    if (/^--\s*$/.test(lines[i]) || (i > 0 && DISCLAIMER_START.test(line))) {
+    if (!keepSignature && (/^--\s*$/.test(lines[i]) || (i > 0 && DISCLAIMER_START.test(line)))) {
       value = lines.slice(0, i).join('\n').trim();
       break;
     }
   }
+  // Gmail turns large attachments into Drive links: a bare file name line,
+  // then <link>. Keep them as a link on their own line.
+  const fileLinks = [];
+  value = value.replace(/\s*\n\s*([^\s/\\<>]+\.(?:heic|jpe?g|png|gif|pdf|mov|mp4|docx?))\s*\n\s*<(https?:\/\/[^>\s]+)>\s*/gi, (m, name, url) => {
+    fileLinks.push(`${name}: ${url}`);
+    return ' ';
+  });
+  if (fileLinks.length) value = value.trimEnd() + '\n\nAttached files:\n' + fileLinks.join('\n');
   // Rejoin hard-wrapped lines inside a paragraph.
   return value.split(/\n{2,}/).map((para) => {
     const ls = para.split('\n');
@@ -283,14 +291,35 @@ export async function handleIncomingEmail(message, env) {
     // conversation answered and does not alert the other admins.
     const fromAdmin = await sql`SELECT 1 FROM admins WHERE lower(email) = ${sender} LIMIT 1`;
     if (fromAdmin.length) {
-      await sql`
-        INSERT INTO message_items (thread_id, direction, sender_email, admin_email, body_text, message_id, references_header)
-        VALUES (${thread.id}, 'outbound', ${sender}, ${sender}, ${bodyText}, ${messageId || null}, ${referencesHeader || null})
-      `;
-      await sql`
-        UPDATE message_threads SET status = 'answered', last_message_at = now(), updated_at = now()
-        WHERE id = ${thread.id}
-      `;
+      // Did the person already get this email directly (they were in To/Cc)?
+      const recipients = [...(parsed.to || []), ...(parsed.cc || [])]
+        .flatMap((r) => (r.group ? r.group : [r]))
+        .map((r) => String(r.address || '').toLowerCase());
+      const contactGotIt = recipients.includes(String(thread.contact_email || '').toLowerCase());
+      if (contactGotIt) {
+        await sql`
+          INSERT INTO message_items (thread_id, direction, sender_email, admin_email, body_text, message_id, references_header)
+          VALUES (${thread.id}, 'outbound', ${sender}, ${sender}, ${bodyText}, ${messageId || null}, ${referencesHeader || null})
+        `;
+        await sql`
+          UPDATE message_threads SET status = 'answered', last_message_at = now(), updated_at = now()
+          WHERE id = ${thread.id}
+        `;
+        return;
+      }
+      // Usually a reply to the admin alert email: send it on to the person as
+      // a clean Stroll to the Stable email, with any attached files.
+      const replyText = displayText(rawText, { keepSignature: true });
+      if (!replyText || replyText === '(No message text)') return;
+      const files = (parsed.attachments || [])
+        .filter((f) => f.content && (f.disposition !== 'inline' || (f.mimeType || '').startsWith('image/')))
+        .slice(0, 10);
+      const total = files.reduce((n, f) => n + (f.content?.byteLength || 0), 0);
+      await sendReplyToContact(env, thread, sender, replyText, {
+        attachments: total <= 15 * 1024 * 1024 && files.length
+          ? files.map((f) => ({ filename: f.filename || 'attachment', type: f.mimeType, content: f.content }))
+          : undefined,
+      });
       return;
     }
     // Anyone else (the contact, or someone copied in) reopens the
@@ -453,18 +482,22 @@ export async function replyToThread(request, env, session, id) {
   const sql = db(env);
   const rows = await sql`SELECT * FROM message_threads WHERE id = ${id}`;
   if (!rows.length) return error('Message conversation not found.', 404);
-  const thread = rows[0];
+  await sendReplyToContact(env, rows[0], session.email, bodyText);
+  return json({ ok: true });
+}
 
+// Sends an admin's answer to the person in the conversation as a Stroll to
+// the Stable email, records it, marks the conversation answered and lets the
+// other admins know. Used by the Message Center and by admins replying to an
+// alert email from their own mailbox.
+async function sendReplyToContact(env, thread, adminEmail, bodyText, { attachments } = {}) {
+  const sql = db(env);
   const history = await sql`
     SELECT direction, sender_email, admin_email, body_text, message_id, references_header, created_at
     FROM message_items
-    WHERE thread_id = ${id}
+    WHERE thread_id = ${thread.id}
     ORDER BY created_at, id
   `;
-  const cleanedHistory = history.map(item => ({
-    ...item,
-    body_text: cleanReplyText(item.body_text) || item.body_text,
-  }));
   const latestInbound = [...history].reverse().find(item => item.direction === 'inbound');
 
   const sendResult = await sendMessageCenterReply(env, {
@@ -475,31 +508,19 @@ export async function replyToThread(request, env, session, id) {
     threadCode: thread.thread_code,
     inReplyTo: latestInbound?.message_id || '',
     references: latestInbound?.references_header || '',
-    history: cleanedHistory,
+    attachments,
   });
 
   await sql`
-    INSERT INTO message_items (
-      thread_id,
-      direction,
-      sender_email,
-      admin_email,
-      body_text,
-      message_id
-    )
-    VALUES (
-      ${id},
-      'outbound',
-      ${thread.source_address},
-      ${session.email},
-      ${bodyText},
-      ${sendResult?.messageId || null}
-    )
+    INSERT INTO message_items (thread_id, direction, sender_email, admin_email, body_text, message_id)
+    VALUES (${thread.id}, 'outbound', ${thread.source_address}, ${adminEmail},
+            ${bodyText},
+            ${sendResult?.messageId || null})
   `;
   await sql`
     UPDATE message_threads
     SET status = 'answered', last_message_at = now(), updated_at = now()
-    WHERE id = ${id}
+    WHERE id = ${thread.id}
   `;
 
   const allAdmins = await sql`SELECT email FROM admins ORDER BY created_at`;
@@ -510,7 +531,7 @@ export async function replyToThread(request, env, session, id) {
     ? configured[thread.source_address]
     : adminEmails;
   const recipients = selected
-    .filter(email => email.toLowerCase() !== session.email.toLowerCase())
+    .filter(email => email.toLowerCase() !== String(adminEmail).toLowerCase())
     .filter(email => adminEmails.includes(email))
     .slice(0, 50);
   for (const recipient of recipients) {
@@ -518,7 +539,7 @@ export async function replyToThread(request, env, session, id) {
       const messageCenterUrl = await adminMessageLink(env, recipient, thread.id);
       await sendMessageAnsweredNotification(env, {
         to: [recipient],
-        adminEmail: session.email,
+        adminEmail,
         contactEmail: thread.contact_email,
         sourceAddress: thread.source_address,
         bodyText,
@@ -530,8 +551,6 @@ export async function replyToThread(request, env, session, id) {
       console.error(`Reply sent but answer notification failed for ${recipient}:`, err);
     }
   }
-
-  return json({ ok: true });
 }
 
 export async function deleteThread(request, env, session, id) {
