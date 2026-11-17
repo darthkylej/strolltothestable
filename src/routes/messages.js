@@ -135,6 +135,35 @@ function cleanReplyText(text) {
   return value;
 }
 
+// For showing a message in the Message Center: drops the email signature and
+// legal disclaimers, and rejoins lines that plain-text email wrapped at a fixed
+// width. The stored text is not changed.
+const DISCLAIMER_START = /^\**\s*(confidential(ity)? notice|information notice|this (e-?mail|electronic mail)( message| transmission)? (is|and any)|disclaimer)\b/i;
+export function displayText(text) {
+  let value = cleanReplyText(text) || String(text || '').trim();
+  const lines = value.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    // "-- " is the standard signature separator; long notices may also start
+    // without one.
+    if (/^--\s*$/.test(lines[i]) || (i > 0 && DISCLAIMER_START.test(line))) {
+      value = lines.slice(0, i).join('\n').trim();
+      break;
+    }
+  }
+  // Rejoin hard-wrapped lines inside a paragraph.
+  return value.split(/\n{2,}/).map((para) => {
+    const ls = para.split('\n');
+    let out = ls[0];
+    for (let i = 1; i < ls.length; i++) {
+      const prev = ls[i - 1], cur = ls[i];
+      const wrapped = prev.trim().length >= 55 && cur.trim() && !/^\s*([-*•]|\d+[.)])\s/.test(cur);
+      out += (wrapped ? ' ' : '\n') + (wrapped ? cur.trim() : cur);
+    }
+    return out;
+  }).join('\n\n').replace(/\n{3,}/g, '\n\n').trim() || '(No message text)';
+}
+
 const OWN_DOMAIN = 'strolltothestable.com';
 
 export function isAutomatedOrInternal(sender, headers) {
@@ -249,10 +278,27 @@ export async function handleIncomingEmail(message, env) {
       }
     }
   } else {
+    // An admin answering from their own mailbox with this address copied:
+    // record it as our reply. It keeps the original contact, marks the
+    // conversation answered and does not alert the other admins.
+    const fromAdmin = await sql`SELECT 1 FROM admins WHERE lower(email) = ${sender} LIMIT 1`;
+    if (fromAdmin.length) {
+      await sql`
+        INSERT INTO message_items (thread_id, direction, sender_email, admin_email, body_text, message_id, references_header)
+        VALUES (${thread.id}, 'outbound', ${sender}, ${sender}, ${bodyText}, ${messageId || null}, ${referencesHeader || null})
+      `;
+      await sql`
+        UPDATE message_threads SET status = 'answered', last_message_at = now(), updated_at = now()
+        WHERE id = ${thread.id}
+      `;
+      return;
+    }
+    // Anyone else (the contact, or someone copied in) reopens the
+    // conversation. The contact stays the person who started it, so replies
+    // from the Message Center keep going to them.
     await sql`
       UPDATE message_threads
       SET status = 'pending',
-          contact_email = ${sender || thread.contact_email},
           last_message_at = now(),
           updated_at = now()
       WHERE id = ${thread.id}
@@ -301,7 +347,7 @@ export async function handleIncomingEmail(message, env) {
         contactEmail: sender,
         sourceAddress,
         subject: thread.subject || subject,
-        bodyText,
+        bodyText: displayText(bodyText),
         threadId: thread.id,
         threadCode: thread.thread_code,
         messageCenterUrl,
@@ -370,7 +416,7 @@ export async function listThreads(request, env, session) {
     FROM message_threads
   `;
 
-  return json({ threads: rows, counts: counts[0] });
+  return json({ threads: rows.map((t) => ({ ...t, preview: displayText(t.preview) })), counts: counts[0] });
 }
 
 export async function getThread(request, env, session, id) {
@@ -391,7 +437,8 @@ export async function getThread(request, env, session, id) {
     thread: rows[0],
     messages: items.map(item => ({
       ...item,
-      body_text: cleanReplyText(item.body_text) || item.body_text,
+      body_text: displayText(item.body_text),
+      by_email: item.direction === 'outbound' && String(item.sender_email || '').toLowerCase() !== String(rows[0].source_address || '').toLowerCase(),
     })),
   });
 }
