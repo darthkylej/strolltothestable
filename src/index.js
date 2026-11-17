@@ -8,7 +8,6 @@ import * as nativities from './routes/nativities.js';
 import * as waivers from './routes/waivers.js';
 import * as admin from './routes/admin.js';
 import * as walkin from './routes/walkin.js';
-import { relayTest } from './routes/relayTest.js'; // TEMPORARY
 import * as settings from './routes/settings.js';
 import * as messages from './routes/messages.js';
 import { getTour } from './routes/tour.js';
@@ -283,7 +282,6 @@ async function handle(request, env, ctx) {
       if (path === '/api/admin/request-otp' && method === 'POST') return await adminAuth.requestOtp(request, env);
       if (path === '/api/admin/verify-otp' && method === 'POST') return await adminAuth.verifyOtp(request, env);
 
-      if (path === '/api/_relay-test' && method === 'POST') return await relayTest(request, env); // TEMPORARY
       if (path === '/api/tour' && method === 'GET') return await getTour(request, env, session);
 
       if (path === '/api/admin/participant-profile' && (method === 'GET' || method === 'POST')) return await adminAuth.participantProfile(request,env,session);
