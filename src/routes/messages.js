@@ -516,7 +516,7 @@ export async function replyToThread(request, env, session, id) {
 // the Stable email, records it, marks the conversation answered and lets the
 // other admins know. Used by the Message Center and by admins replying to an
 // alert email from their own mailbox.
-async function sendReplyToContact(env, thread, adminEmail, bodyText, { attachments } = {}) {
+export async function sendReplyToContact(env, thread, adminEmail, bodyText, { attachments } = {}) {
   const sql = db(env);
   const history = await sql`
     SELECT direction, sender_email, admin_email, body_text, message_id, references_header, created_at
