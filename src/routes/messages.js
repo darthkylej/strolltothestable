@@ -127,7 +127,7 @@ function cleanReplyText(text) {
       }
     }
 
-    if (/^Sent with Proton Mail$/i.test(line) || /^_{5,}$/.test(line)) {
+    if (/^Sent with Proton Mail\b/i.test(line) || /^_{5,}$/.test(line)) {
       return lines.slice(0, i).join('\n').trim();
     }
   }
@@ -170,6 +170,24 @@ export function displayText(text, { keepSignature = false } = {}) {
     }
     return out;
   }).join('\n\n').replace(/\n{3,}/g, '\n\n').trim() || '(No message text)';
+}
+
+// What an admin typed when replying to an alert: everything above the
+// alert's marker line (or the mail app's "On ... wrote:" quote). Returns ''
+// if what's left could still contain alert content, such as the admin's
+// automatic sign-in link, so it is never forwarded to the public.
+export function adminReplyText(rawText) {
+  let text = String(rawText || '').replace(/\r\n/g, '\n');
+  const markerAt = text.search(/#+-\s*Reply above this line\s*-#+/i);
+  if (markerAt >= 0) {
+    text = text.slice(0, markerAt);
+    // Drop the "On <date> ... wrote:" line and quote marks that precede it.
+    text = text.replace(/\n[^\n]*\n?[^\n]*wrote:\s*[>\s]*$/i, '').replace(/[>\s]+$/, '');
+  }
+  text = displayText(text, { keepSignature: true });
+  if (!text || text === '(No message text)') return '';
+  if (/admin-email-login|[?&]token=|Reply above this line|Open Message Center|View Conversation|sent the following message to/i.test(text)) return '';
+  return text;
 }
 
 const OWN_DOMAIN = 'strolltothestable.com';
@@ -309,8 +327,16 @@ export async function handleIncomingEmail(message, env) {
       }
       // Usually a reply to the admin alert email: send it on to the person as
       // a clean Stroll to the Stable email, with any attached files.
-      const replyText = displayText(rawText, { keepSignature: true });
-      if (!replyText || replyText === '(No message text)') return;
+      const replyText = adminReplyText(rawText);
+      if (!replyText) {
+        // Nothing safe to send (empty, or it still contained alert content):
+        // keep it in the Message Center for an admin to deal with.
+        await sql`
+          INSERT INTO message_items (thread_id, direction, sender_email, admin_email, body_text, message_id, references_header)
+          VALUES (${thread.id}, 'inbound', ${sender}, null, ${'[Not sent to ' + thread.contact_email + ' — please reply from the Message Center]\n\n' + bodyText}, ${messageId || null}, ${referencesHeader || null})
+        `;
+        return;
+      }
       const files = (parsed.attachments || [])
         .filter((f) => f.content && (f.disposition !== 'inline' || (f.mimeType || '').startsWith('image/')))
         .slice(0, 10);
