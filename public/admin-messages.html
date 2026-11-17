@@ -131,7 +131,7 @@
   .conversation-head h2 { margin:0 0 2px; color:var(--gold-bright); font-size:1rem; }
   .conversation-head p { margin:0; color:var(--muted); font-size:11px; overflow-wrap:anywhere; }
   .conversation-actions { display:flex; gap:5px; flex-wrap:wrap; align-items:center; margin-top:5px; }
-  .conversation-actions .btn { width:auto; margin:0; padding:4px 7px; font-size:10px; }
+  .conversation-actions .btn { width:auto; min-height:0; height:auto; margin:0; padding:5px 10px; font-size:11px; border-radius:999px; line-height:1.2; }
 
   .messages { padding:8px; display:grid; align-content:start; gap:6px; min-height:0; overflow:auto; }
   .bubble { max-width:92%; padding:5px 7px; border-radius:8px; line-height:1.25; font-size:12px; overflow-wrap:anywhere; align-self:start; }
@@ -273,8 +273,8 @@ function renderThreadList(threads) {
     const stateClass = t.status === 'pending' ? 'pending' : 'done';
     return `
       <button class="thread-row ${stateClass} ${String(t.id) === String(currentThreadId) ? 'active' : ''}" data-thread-id="${t.id}">
-        <span class="thread-email">${esc(t.contact_email)}</span>
-        <span class="thread-preview">${esc(snippet || 'No message text')}</span>
+        <span class="thread-email">${esc(t.subject || 'No subject')}</span>
+        <span class="thread-preview"><b>${esc(t.contact_email)}</b> · ${esc(snippet || 'No message text')}</span>
       </button>`;
   }).join('');
 }
@@ -326,7 +326,7 @@ async function loadThread(id) {
         ${messages.map(m => `
           <div class="bubble ${m.direction}"><div class="bubble-text">${esc(m.body_text)}</div><div class="bubble-meta">${m.direction === 'inbound'
               ? esc(m.sender_email)
-              : 'Sent by ' + esc(m.admin_email || 'admin')} · ${esc(new Date(m.created_at).toLocaleString())}</div></div>`).join('')}
+              : 'Sent by ' + esc(m.admin_email || 'admin') + (m.by_email ? ' (by email)' : '')} · ${esc(new Date(m.created_at).toLocaleString())}</div></div>`).join('')}
       </div>
       <div class="reply-box">
         <textarea id="replyText" placeholder="Type your reply…"></textarea>
@@ -336,8 +336,10 @@ async function loadThread(id) {
         </div>
       </div>`;
 
+    // Open at the start of the newest message, so its first lines are visible.
     const messageThread = document.getElementById('messageThread');
-    messageThread.scrollTop = messageThread.scrollHeight;
+    const lastBubble = messageThread.lastElementChild;
+    messageThread.scrollTop = lastBubble ? lastBubble.offsetTop - messageThread.offsetTop - 8 : 0;
 
     document.getElementById('sendReplyBtn').addEventListener('click', sendReply);
     document.getElementById('deleteConversationBtn').addEventListener('click', deleteConversation);
