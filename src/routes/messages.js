@@ -6,7 +6,6 @@ import { createSessionToken } from '../lib/auth.js';
 import {
   sendMessageNotification,
   sendMessageCenterReply,
-  sendMessageAnsweredNotification,
 } from '../lib/email.js';
 
 const ADMIN_EMAIL_LINK_TTL_MS = 24 * 60 * 60 * 1000;
@@ -513,8 +512,7 @@ export async function replyToThread(request, env, session, id) {
 }
 
 // Sends an admin's answer to the person in the conversation as a Stroll to
-// the Stable email, records it, marks the conversation answered and lets the
-// other admins know. Used by the Message Center and by admins replying to an
+// the Stable email, records it and marks the conversation answered. Used by the Message Center and by admins replying to an
 // alert email from their own mailbox.
 export async function sendReplyToContact(env, thread, adminEmail, bodyText, { attachments } = {}) {
   const sql = db(env);
@@ -548,35 +546,7 @@ export async function sendReplyToContact(env, thread, adminEmail, bodyText, { at
     SET status = 'answered', last_message_at = now(), updated_at = now()
     WHERE id = ${thread.id}
   `;
-
-  const allAdmins = await sql`SELECT email FROM admins ORDER BY created_at`;
-  const adminEmails = allAdmins.map(a => a.email).filter(Boolean);
-  const settings = await getSiteSettings(env);
-  const configured = settings.messageNotifications;
-  const selected = configured && Array.isArray(configured[thread.source_address])
-    ? configured[thread.source_address]
-    : adminEmails;
-  const recipients = selected
-    .filter(email => email.toLowerCase() !== String(adminEmail).toLowerCase())
-    .filter(email => adminEmails.includes(email))
-    .slice(0, 50);
-  for (const recipient of recipients) {
-    try {
-      const messageCenterUrl = await adminMessageLink(env, recipient, thread.id);
-      await sendMessageAnsweredNotification(env, {
-        to: [recipient],
-        adminEmail,
-        contactEmail: thread.contact_email,
-        sourceAddress: thread.source_address,
-        bodyText,
-        threadId: thread.id,
-        threadCode: thread.thread_code,
-        messageCenterUrl,
-      });
-    } catch (err) {
-      console.error(`Reply sent but answer notification failed for ${recipient}:`, err);
-    }
-  }
+  // Admins are only emailed about incoming messages, not about replies.
 }
 
 export async function deleteThread(request, env, session, id) {
