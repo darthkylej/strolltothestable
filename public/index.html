@@ -216,6 +216,7 @@
   }
   /* Desktop: "View My Submissions" sits directly under "Submit your Nativity". */
   #viewSubmissions { grid-column: 1; grid-row: 2; }
+  #volunteerHost { grid-column: 2; grid-row: 2; }
   .landing-actions > .landing-btn { width: 100%; box-sizing: border-box; justify-content: center; text-align: center; }
 
   .landing-btn {
@@ -357,7 +358,7 @@
     .landing-title { font-size: clamp(2.55rem, 13vw, 4.1rem); }
     .hours-grid { grid-template-columns: 1fr; }
     .landing-actions { display: grid; grid-template-columns: 1fr; }
-    #viewSubmissions { grid-column: auto; grid-row: auto; }
+    #viewSubmissions, #volunteerHost { grid-column: auto; grid-row: auto; }
     .landing-btn { width: 100%; }
   }
 
@@ -496,6 +497,7 @@
       <a class="landing-btn primary" id="tourButton" href="/tour.html">Scroll to the Stable</a>
       <button class="landing-btn secondary" id="submitNativity" type="button">Submit your Nativity</button>
       <a class="landing-btn secondary" id="viewSubmissions" href="/login.html">View My Submissions</a>
+      <a class="landing-btn secondary" id="volunteerHost" href="https://www.signupgenius.com/go/8050C4CAAAD22A1F85-67742613-astroll#/" target="_blank" rel="noopener">Volunteer as a Bethlehem Host</a>
     </div>
 
     <p class="landing-contact landing-about"><a href="/about.html">What is A Stroll to the Stable?</a></p>
