@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Backfill Addresses — Stroll to the Stable</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .row { padding:12px 0; border-bottom:1px solid var(--border); }
+  .row .n { color:var(--gold-bright); font-weight:700; overflow-wrap:anywhere; }
+  .row .s { color:var(--muted); font-size:14px; margin-top:3px; overflow-wrap:anywhere; }
+  .row .warn { color:#ffd9a0; }
+  .actions { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0; }
+  .actions .btn { width:auto; margin:0; }
+  #summary { margin:12px 0; line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="page">
+  <p><a class="link" href="/admin-dashboard.html">‹ Admin</a></p>
+  <p class="eyebrow">One-time tool</p>
+  <h1>Backfill Addresses</h1>
+  <p>Copies each donor's address from the waivers they filled in onto their account. Only empty address fields are filled; nothing already on an account is changed, and no waiver is touched. Preview first.</p>
+  <div class="error-banner" data-error-banner></div>
+  <div class="actions">
+    <button class="btn btn-secondary" id="previewBtn" type="button">Preview</button>
+    <button class="btn btn-primary" id="applyBtn" type="button" disabled>Apply to accounts</button>
+  </div>
+  <div id="summary"></div>
+  <div id="rows"></div>
+</div>
+<script src="/js/app.js"></script>
+<script>
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' })[c]);
+const addr = (a) => [a?.address, a?.cityStateZip].filter(Boolean).join(', ');
+let previewed = false;
+
+async function runAll(apply) {
+  hideError();
+  const rows = []; let after = 0;
+  document.getElementById('rows').innerHTML = '';
+  document.getElementById('summary').textContent = apply ? 'Applying…' : 'Reading waivers…';
+  for (let guard = 0; guard < 100; guard++) {
+    const r = await api('/api/admin/backfill-addresses?after=' + after + '&limit=3', { method: apply ? 'POST' : 'GET' });
+    rows.push(...r.users);
+    after = r.next;
+    if (r.done) break;
+  }
+  return rows;
+}
+
+function render(rows, apply) {
+  const fillable = rows.filter((u) => u.fill.address || u.fill.cityStateZip);
+  const conflicts = rows.filter((u) => u.conflict);
+  const none = rows.filter((u) => !u.chosen);
+  document.getElementById('summary').innerHTML = apply
+    ? `<strong>Done.</strong> Updated ${rows.filter((u) => u.applied).length} account${rows.filter((u) => u.applied).length === 1 ? '' : 's'}. ${none.length} had no address in any waiver.`
+    : `<strong>${rows.length}</strong> accounts are missing an address. <strong>${fillable.length}</strong> can be filled from a waiver, <strong>${conflicts.length}</strong> have waivers with different addresses (the newest is used), <strong>${none.length}</strong> have none to copy.`;
+  document.getElementById('rows').innerHTML = rows.map((u) => `
+    <div class="row">
+      <div class="n">${esc(u.name)}</div>
+      <div class="s">${u.chosen ? `${apply && u.applied ? 'Filled' : 'Will fill'}: ${esc(addr(u.chosen))} <span>(${esc(u.chosen.source)}, ${esc(u.chosen.submission)})</span>` : 'No address found in any waiver. They will be asked on their next login.'}</div>
+      ${u.conflict ? `<div class="s warn">Also found: ${u.others.map((o) => esc(addr(o))).join(' · ')}</div>` : ''}
+      ${u.chosen && !u.fill.address && !u.fill.cityStateZip ? '<div class="s">Nothing to fill (account already has these).</div>' : ''}
+    </div>`).join('');
+  return fillable.length;
+}
+
+document.getElementById('previewBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('previewBtn'); btn.disabled = true;
+  try { const rows = await runAll(false); document.getElementById('applyBtn').disabled = render(rows, false) === 0; previewed = true; }
+  catch (e) { showError(e.message); document.getElementById('summary').textContent = ''; }
+  finally { btn.disabled = false; }
+});
+document.getElementById('applyBtn').addEventListener('click', async () => {
+  if (!previewed || !confirm('Fill the empty address fields on these accounts?')) return;
+  const btn = document.getElementById('applyBtn'); btn.disabled = true;
+  try { const rows = await runAll(true); render(rows, true); }
+  catch (e) { showError(e.message); btn.disabled = false; }
+});
+</script>
+</body>
+</html>
