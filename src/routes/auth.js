@@ -221,9 +221,7 @@ export async function updateAccount(request, env, session) {
   const email = String(body?.email ?? '').trim();
   const address = String(body?.address ?? '').trim();
   const cityStateZip = String(body?.cityStateZip ?? '').trim();
-  if (!name || !phone || !email || !address || !cityStateZip) {
-    return error('Name, phone, email, address, and city/state/ZIP are all required.');
-  }
+  if (!name || !phone || !email) return error('Name, phone, and email are all required.');
   if (name.length > 100 || phone.length > 40 || email.length > 254 || address.length > 200 || cityStateZip.length > 200) {
     return error('One of the fields is too long.');
   }
@@ -241,7 +239,7 @@ export async function updateAccount(request, env, session) {
     const taken = await sql`SELECT 1 FROM users WHERE lower(email) = lower(${email}) AND id <> ${session.userId} LIMIT 1`;
     if (taken.length) return error('Another account already uses that email address.', 409);
   }
-  await sql`UPDATE users SET name = ${name}, phone = ${phone}, email = ${email}, address = ${address}, city_state_zip = ${cityStateZip} WHERE id = ${session.userId}`;
+  await sql`UPDATE users SET name = ${name}, phone = ${phone}, email = ${email}, address = ${address || null}, city_state_zip = ${cityStateZip || null} WHERE id = ${session.userId}`;
   const waiversCleared = identityChanged ? await resetWaiversForUser(env, session.userId) : 0;
   return json({ ok: true, changed: true, waiversCleared });
 }
