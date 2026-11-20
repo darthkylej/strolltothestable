@@ -21,6 +21,8 @@
   <div class="error-banner" data-error-banner></div>
   <div class="notice ok" id="successMsg" style="display:none"></div>
 
+  <div class="notice warn" id="completePrompt" style="display:none"><strong>One more step.</strong> Please fill in the missing information below before you continue. It goes on your waiver, so a volunteer won't have to ask for it again.</div>
+
   <div class="notice warn" id="resetPrompt" style="display:none">You're logged in. Set a new password below so you can log in with it next time.</div>
 
   <section class="section" id="passwordSection">
@@ -46,11 +48,13 @@
 
   <section class="section">
     <h2>My Information</h2>
-    <div class="notice warn" id="infoWarning">Your name, phone and email appear on your waivers. Changing them clears the waiver of any nativity that is not checked in yet, so you'll sign a fresh one. Checked-in nativities are not affected.</div>
+    <div class="notice warn" id="infoWarning">Your name, phone and email appear on your waivers. Changing one of them clears the waiver of any nativity that is not checked in yet, so you'll sign a fresh one. Checked-in nativities are not affected. Changing your address does not clear anything.</div>
     <form id="infoForm">
       <div class="field"><label for="name">Full name</label><input type="text" id="name" autocomplete="name" required></div>
       <div class="field"><label for="phone">Phone</label><input type="tel" id="phone" autocomplete="tel" required></div>
       <div class="field"><label for="email">Email</label><input type="email" id="email" autocomplete="email" inputmode="email" required></div>
+      <div class="field"><label for="address">Street address</label><input type="text" id="address" autocomplete="street-address" maxlength="200" required></div>
+      <div class="field"><label for="cityStateZip">City, state, ZIP</label><input type="text" id="cityStateZip" autocomplete="off" maxlength="200" placeholder="Seguin, TX 78155" required></div>
       <button type="submit" class="btn btn-primary" id="infoBtn">Save My Information</button>
     </form>
   </section>
@@ -58,6 +62,13 @@
 <script src="/js/app.js"></script>
 <script>
 let account = null;
+const INFO_FIELDS = ['name', 'phone', 'email', 'address', 'cityStateZip'];
+// Where to go once the information is complete: the page the donor was sent
+// from, but only if it is one of the donor pages.
+function afterCompleteUrl() {
+  const next = new URLSearchParams(location.search).get('next') || '';
+  return /^\/(dashboard|my-nativity|waiver|lend-photo|lend-pieces)\.html(\?[^#]*)?$/.test(next) ? next : '/dashboard.html';
+}
 function success(msg) {
   const el = document.getElementById('successMsg');
   el.textContent = msg; el.style.display = msg ? 'block' : 'none';
@@ -67,7 +78,18 @@ function success(msg) {
 async function load() {
   try {
     account = await api('/api/account');
-    for (const k of ['name', 'phone', 'email']) document.getElementById(k).value = account[k] || '';
+    for (const k of INFO_FIELDS) document.getElementById(k).value = account[k] || '';
+    if (account.profileComplete === false) {
+      document.getElementById('completePrompt').style.display = 'block';
+      const first = INFO_FIELDS.find((k) => !String(account[k] || '').trim());
+      // A first-login visit goes straight to the empty field; a password-reset
+      // visit keeps focus on the new password box.
+      if (first && !(account.canResetWithoutCurrent && new URLSearchParams(location.search).get('reset') === '1')) {
+        document.getElementById(first).focus();
+      }
+    } else {
+      document.getElementById('completePrompt').style.display = 'none';
+    }
     const recovering = account.canResetWithoutCurrent;
     document.getElementById('currentField').style.display = recovering ? 'none' : 'block';
     if (recovering && new URLSearchParams(location.search).get('reset') === '1') {
@@ -97,14 +119,20 @@ document.getElementById('passwordForm').addEventListener('submit', async (e) => 
 
 document.getElementById('infoForm').addEventListener('submit', async (e) => {
   e.preventDefault(); hideError(); success('');
-  const body = { name: document.getElementById('name').value, phone: document.getElementById('phone').value, email: document.getElementById('email').value };
-  const changed = ['name', 'phone', 'email'].some((k) => body[k].trim() !== (account[k] || ''));
+  const body = {};
+  for (const k of INFO_FIELDS) body[k] = document.getElementById(k).value;
+  const changed = INFO_FIELDS.some((k) => body[k].trim() !== String(account[k] || '').trim());
   if (!changed) { success('No changes to save.'); return; }
-  if (!confirm('Saving will clear the waiver of any nativity that is not checked in yet, so you will need to sign it again. Continue?')) return;
+  // Only name, phone and email appear on a signed waiver as account details.
+  const identityChanged = ['name', 'phone', 'email'].some((k) => body[k].trim() !== String(account[k] || '').trim());
+  const hadValues = ['name', 'phone', 'email'].every((k) => String(account[k] || '').trim());
+  if (identityChanged && hadValues && !confirm('Saving will clear the waiver of any nativity that is not checked in yet, so you will need to sign it again. Continue?')) return;
+  const wasIncomplete = account.profileComplete === false;
   const btn = document.getElementById('infoBtn'); btn.disabled = true;
   try {
     const r = await api('/api/account', { method: 'PATCH', body });
     await load();
+    if (wasIncomplete && account.profileComplete) { window.location.href = afterCompleteUrl(); return; }
     success(r.waiversCleared
       ? `Information saved. ${r.waiversCleared} waiver${r.waiversCleared === 1 ? ' was' : 's were'} cleared; please sign ${r.waiversCleared === 1 ? 'it' : 'them'} again from My Nativities.`
       : 'Information saved.');

@@ -184,36 +184,65 @@ export async function sessionStatus(request,env,session) {
 
 const RECOVERY_WINDOW_MS = 30 * 60 * 1000;
 
-export async function getAccount(request, env, session) {
-  if (session?.kind !== 'user') return error('Please log in.', 401);
-  const rows = await db(env)`SELECT name, phone, email, donor_code AS "donorCode" FROM users WHERE id = ${session.userId}`;
-  if (!rows.length) return error('Please log in.', 401);
-  const canResetWithoutCurrent = !!session.recoveredAt && Date.now() - session.recoveredAt < RECOVERY_WINDOW_MS;
-  return json({ ...rows[0], canResetWithoutCurrent }, { headers: { 'Cache-Control': 'no-store' } });
+// Everything a waiver needs from the account. A donor whose account lacks any
+// of these (for example one a volunteer created at the walk-in desk) is sent to
+// My Information to fill them in before using the rest of the site.
+function missingProfileFields(row) {
+  const blank = (v) => !String(v ?? '').trim();
+  const missing = [];
+  if (blank(row.name)) missing.push('name');
+  if (blank(row.phone)) missing.push('phone');
+  if (blank(row.email)) missing.push('email');
+  if (blank(row.address)) missing.push('address');
+  if (blank(row.city_state_zip)) missing.push('cityStateZip');
+  return missing;
 }
 
-// Donor edits their name, phone or email. Any change clears the waivers of
-// submissions that are not checked in yet, because the waiver shows them.
+export async function getAccount(request, env, session) {
+  if (session?.kind !== 'user') return error('Please log in.', 401);
+  const rows = await db(env)`SELECT name, phone, email, address, city_state_zip, donor_code AS "donorCode" FROM users WHERE id = ${session.userId}`;
+  if (!rows.length) return error('Please log in.', 401);
+  const { city_state_zip: cityStateZip, ...account } = rows[0];
+  const missing = missingProfileFields(rows[0]);
+  const canResetWithoutCurrent = !!session.recoveredAt && Date.now() - session.recoveredAt < RECOVERY_WINDOW_MS;
+  return json({ ...account, cityStateZip, missing, profileComplete: missing.length === 0, canResetWithoutCurrent }, { headers: { 'Cache-Control': 'no-store' } });
+}
+
+// Donor edits their contact details. A change to name, phone or email clears
+// the waivers of submissions that are not checked in yet, because the waiver
+// shows them. Address changes do not: a waiver the donor signed keeps the
+// address they reviewed, and an unsigned desk paper waiver prints the current
+// one when it is printed.
 export async function updateAccount(request, env, session) {
   if (session?.kind !== 'user') return error('Please log in.', 401);
   const body = await request.json();
   const name = String(body?.name ?? '').trim();
   const phone = String(body?.phone ?? '').trim();
   const email = String(body?.email ?? '').trim();
-  if (!name || !phone || !email) return error('Name, phone, and email are all required.');
-  if (name.length > 100 || phone.length > 40 || email.length > 254) return error('One of the fields is too long.');
+  const address = String(body?.address ?? '').trim();
+  const cityStateZip = String(body?.cityStateZip ?? '').trim();
+  if (!name || !phone || !email || !address || !cityStateZip) {
+    return error('Name, phone, email, address, and city/state/ZIP are all required.');
+  }
+  if (name.length > 100 || phone.length > 40 || email.length > 254 || address.length > 200 || cityStateZip.length > 200) {
+    return error('One of the fields is too long.');
+  }
   if (!EMAIL_RE.test(email)) return error('Enter a valid email address.');
   const sql = db(env);
-  const rows = await sql`SELECT name, phone, email FROM users WHERE id = ${session.userId}`;
+  const rows = await sql`SELECT name, phone, email, address, city_state_zip FROM users WHERE id = ${session.userId}`;
   if (!rows.length) return error('Please log in.', 401);
   const cur = rows[0];
-  if (cur.name === name && cur.phone === phone && cur.email.toLowerCase() === email.toLowerCase() && cur.email === email) {
+  const identityChanged = cur.name !== name || cur.phone !== phone || String(cur.email ?? '') !== email;
+  const addressChanged = String(cur.address ?? '').trim() !== address || String(cur.city_state_zip ?? '').trim() !== cityStateZip;
+  if (!identityChanged && !addressChanged) {
     return json({ ok: true, changed: false, waiversCleared: 0 });
   }
-  const taken = await sql`SELECT 1 FROM users WHERE lower(email) = lower(${email}) AND id <> ${session.userId} LIMIT 1`;
-  if (taken.length) return error('Another account already uses that email address.', 409);
-  await sql`UPDATE users SET name = ${name}, phone = ${phone}, email = ${email} WHERE id = ${session.userId}`;
-  const waiversCleared = await resetWaiversForUser(env, session.userId);
+  if (identityChanged) {
+    const taken = await sql`SELECT 1 FROM users WHERE lower(email) = lower(${email}) AND id <> ${session.userId} LIMIT 1`;
+    if (taken.length) return error('Another account already uses that email address.', 409);
+  }
+  await sql`UPDATE users SET name = ${name}, phone = ${phone}, email = ${email}, address = ${address}, city_state_zip = ${cityStateZip} WHERE id = ${session.userId}`;
+  const waiversCleared = identityChanged ? await resetWaiversForUser(env, session.userId) : 0;
   return json({ ok: true, changed: true, waiversCleared });
 }
 

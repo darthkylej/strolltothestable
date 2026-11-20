@@ -91,7 +91,8 @@ export async function listDonors(request, env, session) {
 // POST /api/admin/donors — create an account for someone at the desk.
 export async function createDonor(request, env, session) {
   requireAdmin(session);
-  const { fields, problem } = readDonorFields(await request.json());
+  const body = await request.json();
+  const { fields, problem } = readDonorFields(body);
   if (problem) return error(problem);
 
   const sql = db(env);
@@ -101,6 +102,26 @@ export async function createDonor(request, env, session) {
       return json({
         error: `${existing[0].name}${existing[0].donor_code ? ` (${existing[0].donor_code})` : ''} already uses that email address.`,
         existing: { id: existing[0].id, donorCode: existing[0].donor_code, name: existing[0].name },
+      }, { status: 409 });
+    }
+  }
+
+  // The same person is easy to enter twice (especially with no email to match
+  // on), so a matching name or phone number is flagged first. The desk can
+  // open the existing donor or confirm that this is someone new.
+  if (body?.allowDuplicate !== true) {
+    const digits = (fields.phone || '').replace(/\D/g, '');
+    const phoneDigits = digits.length >= 7 ? digits : null;
+    const dupes = await sql`
+      SELECT id, donor_code, name, phone, email FROM users
+      WHERE lower(btrim(name)) = lower(${fields.name})
+         OR (${phoneDigits}::text IS NOT NULL AND regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = ${phoneDigits})
+      ORDER BY id LIMIT 5
+    `;
+    if (dupes.length) {
+      return json({
+        error: 'Someone with a matching name or phone number is already in the system.',
+        duplicates: dupes.map((u) => ({ id: u.id, donorCode: u.donor_code, name: u.name, phone: u.phone, email: u.email })),
       }, { status: 409 });
     }
   }
