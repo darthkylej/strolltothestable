@@ -63,18 +63,3 @@ async function uploadPhoto(file) {
   return data.key;
 }
 
-
-// Donors whose account is missing contact details or an address (for example
-// one a volunteer created at the walk-in desk) fill them in on My Account
-// before going any further. Only the pages a donor works in are gated.
-(function () {
-  const GATED = ['/dashboard.html', '/my-nativity.html', '/waiver.html', '/lend-photo.html', '/lend-pieces.html'];
-  if (!GATED.includes(location.pathname)) return;
-  fetch('/api/account', { cache: 'no-store' })
-    .then((res) => (res.ok ? res.json() : null))
-    .then((account) => {
-      if (!account || account.profileComplete !== false) return;
-      location.replace('/account.html?complete=1&next=' + encodeURIComponent(location.pathname + location.search));
-    })
-    .catch(() => {});
-})();

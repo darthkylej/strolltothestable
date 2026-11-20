@@ -64,19 +64,23 @@ export async function getWaiver(request,env,session,id) {
   const draftObj=existing?null:await env.PHOTOS.get(draftKey(n));
   const draft=draftObj?JSON.parse(await draftObj.text()):null;
   let prefill=existing?.fields||draft?.fields||null;
-  const accountFields={name:n.owner_name,phone:n.owner_phone,email:n.owner_email};
   if(!prefill){const prior=await sql`SELECT id FROM nativities WHERE owner_user_id=${n.owner_user_id} AND id<>${n.id} ORDER BY created_at DESC LIMIT 20`;for(const row of prior){const previous=await env.PHOTOS.get(`_waivers/${row.id}.json`);if(previous){const w=JSON.parse(await previous.text());if(w.fields){prefill=w.fields;break;}}}}
   const pieces=await sql`SELECT piece_number,description,condition_notes FROM nativity_pieces WHERE nativity_id=${n.id} ORDER BY piece_number`;
   const submissions=[{submission_number:n.submission_number,story:n.story,piece_count:n.piece_count,pieces}];
   const settings=await getSiteSettings(env);
   const dates=eventDates(settings);
   const paper=existing?null:await paperChoice(env,n);
-  // Name, phone and email always come from the account (edited on My Account).
-  if(!existing) prefill={...(prefill||{}),...accountFields};
-  // Address comes from the account when the donor has not typed one for this waiver.
   if(!existing){
-    if(!String(prefill.address||'').trim()) prefill.address=n.owner_address||'';
-    if(!String(prefill.cityStateZip||'').trim()) prefill.cityStateZip=n.owner_city_state_zip||'';
+    // Name and email always come from the account (edited on My Account), and so does the
+    // phone once the account has one. An account with no phone lets the donor enter it here.
+    prefill={...(prefill||{}),name:n.owner_name,email:n.owner_email,phone:n.owner_phone||prefill?.phone||''};
+    // The address is kept on the account (saved whenever a waiver is signed). A draft of this
+    // waiver keeps whatever the donor typed; otherwise the account's address beats an older waiver's.
+    const account={address:n.owner_address||'',cityStateZip:n.owner_city_state_zip||''};
+    for(const k of ['address','cityStateZip']){
+      const typed=draft?.fields?.[k];
+      prefill[k]=(draft&&String(typed||'').trim())?typed:(account[k]||prefill[k]||'');
+    }
   }
   return json({ waiver:existing, draft, signed:!!existing, paper:paper?{requestedAt:paper.requestedAt}:null, owner:{name:n.owner_name,phone:n.owner_phone,email:n.owner_email}, prefill, submissions, year:n.event_year, dates, organizer:'City of Seguin', agreement:{version:AGREEMENT_VERSION,sections:agreementSections(dates),releaseAck:RELEASE_ACK,consentText:CONSENT_TEXT} },{headers:{'Cache-Control':'no-store'}});
 }
@@ -109,7 +113,7 @@ export async function previewWaiver(request,env,session,id) {
   if(await saved(env,n)) return error('This waiver is already signed.',409);
   const body=await request.json();
   const f=body.fields||{};
-  const fields={name:String(n.owner_name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
+  const fields={name:String(n.owner_name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:String(n.owner_phone||f.phone||'').trim().slice(0,40),email:n.owner_email};
   if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all participant information before reviewing the PDF.',400);
   const record=await waiverRecord(env,n,fields,{signerName:'',signingDate:''});
   const pdf=await createWaiverPdf(record,null,'',await nativityPhoto(env,record));
@@ -128,7 +132,7 @@ export async function saveWaiver(request,env,session,id) {
   const body=await request.json();
   if(!['digital','paper'].includes(body.method)) return error('Choose how to sign the waiver.');
   const f=body.fields || {};
-  const fields={name:String(n.owner_name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:n.owner_phone,email:n.owner_email};
+  const fields={name:String(n.owner_name||'').trim(),address:String(f.address||'').trim(),cityStateZip:String(f.cityStateZip||'').trim(),phone:String(n.owner_phone||f.phone||'').trim().slice(0,40),email:n.owner_email};
   if(['name','address','cityStateZip','phone','email'].some(k=>!fields[k])) return error('Complete all required waiver fields.');
   if(body.method==='digital' && body.releaseAccepted!==true) return error('Confirm that you have read and accept the Release of Liability.',400);
   if(body.method==='digital' && (!body.agreed || body.electronicSignatureConsent!==true || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(body.signatureImage||'') || (body.signatureImage||'').length>300000)) return error('Read the agreement and draw your signature.');
@@ -147,6 +151,9 @@ export async function saveWaiver(request,env,session,id) {
   if(!reviewedPdf || await sha256(await reviewedPdf.arrayBuffer())!==review.hash) return error('The reviewed PDF could not be verified. Review it again.',409);
   const current=await waiverRecord(env,n,fields,{signerName:'',signingDate:''});
   if(JSON.stringify(current)!==JSON.stringify(review.record)) return error('The waiver information changed. Review the updated PDF before signing.',409);
+  // Keep what the donor entered on their account too, so their next waiver is prefilled.
+  // A phone number is only filled in when the account has none (changing one clears waivers).
+  await sql`UPDATE users SET address=${fields.address},city_state_zip=${fields.cityStateZip},phone=CASE WHEN COALESCE(btrim(phone),'')='' THEN ${fields.phone} ELSE phone END WHERE id=${n.owner_user_id}`;
   const signedAt=new Date().toISOString();
   if(body.method==='paper') {
     if(await paperChoice(env,n)) return error('You already chose to sign a paper copy at drop-off.',409);
