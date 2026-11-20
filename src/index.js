@@ -6,6 +6,7 @@ import * as auth from './routes/auth.js';
 import * as adminAuth from './routes/adminAuth.js';
 import * as nativities from './routes/nativities.js';
 import * as waivers from './routes/waivers.js';
+import * as backfillAddresses from './routes/backfillAddresses.js';
 import * as admin from './routes/admin.js';
 import * as walkin from './routes/walkin.js';
 import * as settings from './routes/settings.js';
@@ -302,6 +303,9 @@ async function handle(request, env, ctx) {
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/desk-checkin$/)) && method === 'POST') return await waivers.deskCheckIn(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/admin\/donors\/(\d+)\/desk-checkin$/)) && method === 'POST') return await waivers.deskCheckInBatch(request,env,session,m[1]);
       if ((m = path.match(/^\/api\/admin\/donors\/(\d+)\/batch-waiver-pdf$/)) && method === 'GET') return await waivers.batchWaiverPdf(request,env,session,m[1]);
+
+      // TEMPORARY: copy addresses from waivers onto accounts (see routes/backfillAddresses.js).
+      if (path === '/api/admin/backfill-addresses' && (method === 'GET' || method === 'POST')) return await backfillAddresses.run(request, env, session, method === 'POST');
 
       // Walk-in desk: admin-created donors and quick nativity entry.
       if (path === '/api/admin/donors' && method === 'GET') return await walkin.listDonors(request, env, session);
