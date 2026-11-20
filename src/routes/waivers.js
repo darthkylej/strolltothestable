@@ -73,6 +73,11 @@ export async function getWaiver(request,env,session,id) {
   const paper=existing?null:await paperChoice(env,n);
   // Name, phone and email always come from the account (edited on My Account).
   if(!existing) prefill={...(prefill||{}),...accountFields};
+  // Address comes from the account when the donor has not typed one for this waiver.
+  if(!existing){
+    if(!String(prefill.address||'').trim()) prefill.address=n.owner_address||'';
+    if(!String(prefill.cityStateZip||'').trim()) prefill.cityStateZip=n.owner_city_state_zip||'';
+  }
   return json({ waiver:existing, draft, signed:!!existing, paper:paper?{requestedAt:paper.requestedAt}:null, owner:{name:n.owner_name,phone:n.owner_phone,email:n.owner_email}, prefill, submissions, year:n.event_year, dates, organizer:'City of Seguin', agreement:{version:AGREEMENT_VERSION,sections:agreementSections(dates),releaseAck:RELEASE_ACK,consentText:CONSENT_TEXT} },{headers:{'Cache-Control':'no-store'}});
 }
 export async function saveWaiverDraft(request,env,session,id) {

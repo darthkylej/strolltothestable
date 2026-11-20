@@ -88,6 +88,7 @@
       <input id="newName" type="text" maxlength="100" placeholder="Name" aria-label="Name" required>
       <input id="newPhone" type="tel" maxlength="40" placeholder="Phone (optional)" aria-label="Phone (optional)">
       <input id="newEmail" type="email" maxlength="254" placeholder="Email (optional)" aria-label="Email (optional)">
+      <div class="muted-line hidden" id="newEmailHint" style="margin:-4px 0 10px;color:var(--gold-bright)">No email: they won't be able to log in later, sign online, or get a receipt.</div>
       <div class="list" id="possibleMatches" style="margin-bottom:12px"></div>
       <button class="btn btn-primary big" id="createDonorBtn" type="submit" style="margin:0">Start</button>
     </form>
@@ -100,6 +101,7 @@
         <div style="flex:1;min-width:0">
           <div style="font-size:1.3rem;font-weight:800;color:var(--gold-bright);overflow-wrap:anywhere" id="donorName"></div>
           <div class="muted-line" id="donorContact" style="margin:2px 0 0"></div>
+          <div class="muted-line hidden" id="noEmailNote" style="margin:4px 0 0;color:var(--gold-bright)">No email on file: they can't log in, sign online, or get a receipt. Tap Edit to add one.</div>
         </div>
         <span class="code-chip" id="donorCode" style="flex:0 0 auto"></span>
       </div>
@@ -219,16 +221,35 @@ function initFind() {
     if (t.length < 3) { $('possibleMatches').innerHTML = ''; return; }
     findDonors(t, $('possibleMatches')).catch(() => {});
   }, 350));
+  const syncEmailHint = () => show($('newEmailHint'), !$('newEmail').value.trim() && !!$('newName').value.trim());
+  $('newEmail').addEventListener('input', syncEmailHint);
+  $('newName').addEventListener('input', syncEmailHint);
+  const dupLine = (d) => `${d.name}${d.donorCode ? ` (${d.donorCode})` : ''}${[d.phone, d.email].filter(Boolean).length ? ' - ' + [d.phone, d.email].filter(Boolean).join(' · ') : ''}`;
+  async function createDonor(allowDuplicate) {
+    const res = await fetch('/api/admin/donors', { method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ name:$('newName').value, phone:$('newPhone').value, email:$('newEmail').value, allowDuplicate }) });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 409 && data.existing) {
+      if (confirm(`${data.error}\n\nOpen that donor?`)) { location.href = '/admin-walkin.html?donor=' + encodeURIComponent(data.existing.id); return true; }
+      return false;
+    }
+    if (res.status === 409 && data.duplicates?.length) {
+      const first = data.duplicates[0];
+      if (confirm(`${data.error}\n\n${data.duplicates.map(dupLine).join('\n')}\n\nOK = open ${first.name}'s account.\nCancel = this is someone new.`)) {
+        location.href = '/admin-walkin.html?donor=' + encodeURIComponent(first.id); return true;
+      }
+      if (!confirm('Create a new account anyway?')) return false;
+      return createDonor(true);
+    }
+    if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+    location.href = '/admin-walkin.html?donor=' + encodeURIComponent(data.donor.id);
+    return true;
+  }
   $('newDonorForm').addEventListener('submit', async (e) => {
     e.preventDefault(); hideError();
     const btn = $('createDonorBtn'); btn.disabled = true;
     try {
-      const res = await fetch('/api/admin/donors', { method:'POST', headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ name:$('newName').value, phone:$('newPhone').value, email:$('newEmail').value }) });
-      const data = await res.json().catch(() => ({}));
-      if (res.status === 409 && data.existing && confirm(`${data.error}\n\nOpen that donor?`)) { location.href = '/admin-walkin.html?donor=' + encodeURIComponent(data.existing.id); return; }
-      if (!res.ok) throw new Error(data.error || 'Something went wrong.');
-      location.href = '/admin-walkin.html?donor=' + encodeURIComponent(data.donor.id);
+      if (!(await createDonor(false))) btn.disabled = false;
     } catch (err) { showError(err.message); btn.disabled = false; }
   });
   $('donorSearch').focus();
@@ -239,6 +260,7 @@ function render() {
   $('donorName').textContent = donor.name;
   $('donorContact').textContent = [donor.phone, donor.email].filter(Boolean).join(' · ') || 'No phone or email';
   $('donorCode').textContent = donor.donorCode || '';
+  show($('noEmailNote'), !donor.email);
   show($('donorCode'), !!donor.donorCode);
   $('editName').value = donor.name || ''; $('editPhone').value = donor.phone || ''; $('editEmail').value = donor.email || '';
   document.title = `${donor.name} — Walk-In Desk`;

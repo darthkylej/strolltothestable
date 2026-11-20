@@ -138,15 +138,17 @@ function cardState(n) {
   };
   if (n.status === 'pending' && !n.waiver_signed && n.waiver_method === 'paper') return {
     pill: 'Ready for drop-off', cls: 'ready',
-    body: `<div class="next-step">You'll sign the waiver on paper at drop-off.</div>`,
-    button: '',
+    body: `<div class="next-step">You'll sign the waiver on paper at drop-off, or you can sign it online now.</div>`,
+    button: `<a class="btn btn-secondary" href="/waiver.html?id=${n.id}">Sign Online Instead</a>`,
   };
   if (n.status === 'pending' && !n.waiver_signed) return {
     pill: 'Waiver needed', cls: 'action',
     body: `<div class="next-step"><strong>Next:</strong> sign the waiver to finish your registration.</div>`,
     button: `<a class="btn btn-primary" href="/waiver.html?id=${n.id}">Sign Waiver</a>`,
   };
-  const waiverLink = '';
+  const waiverLink = n.waiver_signed
+    ? `<a class="btn btn-secondary" href="/api/nativities/${n.id}/waiver-pdf" target="_blank" rel="noopener">View Signed Waiver</a>`
+    : '';
   if (n.status === 'pending') return {
     pill: 'Ready for drop-off', cls: 'ready',
     body: '',
