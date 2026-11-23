@@ -34,6 +34,11 @@
   .big { font-size:1.1rem; padding:15px; }
   .hidden { display:none !important; }
   .muted-line { color:var(--muted); font-size:14px; margin:6px 0 0; }
+  .code-panel { margin-top:12px; padding:14px; border:1px solid var(--border-strong); border-radius:14px; background:rgba(8,16,31,.6); }
+  .code-note { margin:0 0 10px; padding:10px 12px; border-radius:12px; background:rgba(40,33,18,.55); border:1px solid rgba(242,199,110,.45); color:var(--gold-bright); }
+  .chain-step { display:flex; align-items:center; gap:10px; padding:9px 11px; border:1px solid var(--border); border-radius:12px; }
+  .chain-step .main { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .chain-step .arrow { white-space:nowrap; font-weight:800; }
 
   /* Waiver sheet */
   .sheet { position:fixed; inset:0; z-index:50; background:rgba(3,7,15,.86); display:flex; align-items:flex-end; justify-content:center; }
@@ -105,7 +110,30 @@
         </div>
         <span class="code-chip" id="donorCode" style="flex:0 0 auto"></span>
       </div>
-      <button type="button" class="linkbtn" id="editToggle" style="margin-top:6px">Edit</button>
+      <div class="row" style="justify-content:flex-start;gap:14px;margin-top:6px">
+        <button type="button" class="linkbtn" id="editToggle" style="flex:0 0 auto">Edit</button>
+        <button type="button" class="linkbtn" id="codeToggle" style="flex:0 0 auto">Change donor ID</button>
+      </div>
+      <div id="codePanel" class="hidden code-panel">
+        <h2 style="margin:0 0 6px">Change donor ID</h2>
+        <p class="muted-line" style="margin:0 0 10px">Use this when nativities were labeled with the wrong donor ID. Nothing is saved until you press Save. The old ID is added to each of the donor's nativities as a private admin note. Waivers already signed and emails already sent keep the ID they show.</p>
+        <div class="list" id="codeChain" style="margin-bottom:10px"></div>
+        <div id="codeAsk">
+          <div class="code-note hidden" id="codeTakenNote"></div>
+          <label for="codeInput" id="codeLabel" style="display:block;font-weight:700;margin:0 0 6px"></label>
+          <div class="row">
+            <input id="codeInput" type="text" inputmode="numeric" maxlength="12" placeholder="D-1012" autocomplete="off" autocapitalize="characters" style="margin:0">
+            <button type="button" class="btn btn-secondary" id="codeNext" style="margin:0;flex:0 0 auto;width:auto;padding:12px 18px">Next</button>
+          </div>
+          <div class="muted-line" id="codeFree"></div>
+        </div>
+        <div class="muted-line hidden" id="codeErr" role="alert" style="color:#ff9b8f;font-weight:700;margin:0 0 10px"></div>
+        <div id="codeReady" class="hidden">
+          <p style="margin:0 0 10px;color:var(--pasture);font-weight:700" id="codeReadyText"></p>
+          <button type="button" class="btn btn-primary big" id="codeSave" style="margin:0">Save</button>
+        </div>
+        <button type="button" class="btn btn-outline" id="codeCancel" style="margin:10px 0 0">Cancel</button>
+      </div>
       <form id="editDonorForm" class="hidden" style="margin-top:10px" autocomplete="off">
         <input id="editName" type="text" maxlength="100" placeholder="Name" aria-label="Name" required>
         <input id="editPhone" type="tel" maxlength="40" placeholder="Phone (optional)" aria-label="Phone (optional)">
@@ -308,6 +336,7 @@ function initDonor() {
     show($('photoPreview'), true); show($('photoPrompt'), false);
   });
   $('editToggle').addEventListener('click', () => show($('editDonorForm'), $('editDonorForm').classList.contains('hidden')));
+  initCodeChange();
 
   $('addForm').addEventListener('submit', async (e) => {
     e.preventDefault(); hideError();
@@ -350,6 +379,95 @@ function initDonor() {
   });
 
   load().catch((err) => showError(err.message));
+}
+
+/* ── Change donor ID ────────────────────────────────────────── */
+// A new ID that another donor already holds can only be saved together with a
+// new ID for that donor, and so on, until every ID is free. The chain is built
+// here one step at a time and saved all at once.
+let codeChain = [], codeAsking = null;
+// "1012", "d1012", "D 1012" all mean D-1012. Returns null if not an ID.
+function cleanCode(v) {
+  const m = String(v || '').trim().match(/^d?[\s-]*(\d{4})$/i);
+  return m && Number(m[1]) >= 1001 ? `D-${m[1]}` : null;
+}
+const codeOf = (c) => c || 'no ID';
+function codeErr(msg) { $('codeErr').textContent = msg || ''; show($('codeErr'), !!msg); }
+function renderCodeChange() {
+  $('codeChain').innerHTML = codeChain.map((c) => `<div class="chain-step"><div class="main"><b>${esc(c.name)}</b></div>
+      <span class="arrow">${esc(codeOf(c.from))} → <span style="color:var(--gold-bright)">${esc(c.to)}</span></span></div>`).join('');
+  show($('codeAsk'), !!codeAsking);
+  show($('codeReady'), !codeAsking && codeChain.length > 0);
+  if (codeAsking) {
+    $('codeLabel').textContent = `New ID for ${codeAsking.name} (now ${codeOf(codeAsking.from)})`;
+    // IDs given up earlier in the chain and not yet reused, e.g. for a swap.
+    const taken = new Set(codeChain.map((c) => c.to));
+    const free = codeChain.map((c) => c.from).filter((c) => c && !taken.has(c));
+    $('codeFree').textContent = free.length ? `Free now: ${free.join(', ')}` : '';
+    $('codeInput').value = '';
+    setTimeout(() => $('codeInput').focus(), 0);
+  } else if (codeChain.length) {
+    $('codeReadyText').textContent = codeChain.length === 1 ? 'Ready to save this change.' : `Ready to save all ${codeChain.length} changes together.`;
+  }
+}
+function startCodeChange() {
+  codeChain = []; codeAsking = { donorId:String(donor.id), name:donor.name, from:donor.donorCode || null };
+  show($('codeTakenNote'), false); codeErr();
+  show($('codePanel'), true); show($('editDonorForm'), false);
+  renderCodeChange();
+}
+function stopCodeChange() { codeChain = []; codeAsking = null; show($('codePanel'), false); }
+async function codeNext() {
+  codeErr();
+  const to = cleanCode($('codeInput').value);
+  if (!to) { codeErr('Enter a donor ID: D- and four digits, like D-1012.'); return; }
+  if (to === codeAsking.from) { codeErr(`${to} is already ${codeAsking.name}'s ID.`); return; }
+  const dup = codeChain.find((c) => c.to === to);
+  if (dup) { codeErr(`${to} is already going to ${dup.name} in this change. Pick another ID.`); return; }
+  const step = { ...codeAsking, to };
+  const btn = $('codeNext'); btn.disabled = true;
+  try {
+    const r = await api('/api/admin/donor-codes/check', { method:'POST', body:{ changes:[...codeChain, step] } });
+    const holder = r.conflicts.find((c) => c.code === to);
+    const first = codeChain.length === 0;
+    let msg = `${first ? 'Change' : 'Then change'} ${step.name}'s donor ID from ${codeOf(step.from)} to ${to}?`;
+    if (holder) msg += `\n\n${to} already belongs to ${holder.donor.name}. You'll pick a new ID for ${holder.donor.name} next.`;
+    msg += '\n\nNothing is saved yet.';
+    if (!confirm(msg)) return;
+    codeChain.push(step);
+    if (holder) {
+      codeAsking = { donorId:holder.donor.id, name:holder.donor.name, from:holder.donor.donorCode };
+      $('codeTakenNote').textContent = `${to} already belongs to ${holder.donor.name}. What should ${holder.donor.name}'s ID change to?`;
+      show($('codeTakenNote'), true);
+    } else {
+      codeAsking = null; show($('codeTakenNote'), false);
+    }
+    renderCodeChange();
+  } catch (err) { codeErr(err.message); }
+  finally { btn.disabled = false; }
+}
+async function codeSave() {
+  const lines = codeChain.map((c) => `${c.name}: ${codeOf(c.from)} → ${c.to}`).join('\n');
+  if (!confirm(`Save ${codeChain.length === 1 ? 'this donor ID change' : 'these donor ID changes'}?\n\n${lines}`)) return;
+  codeErr();
+  const btn = $('codeSave'); btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const r = await api('/api/admin/donor-codes/apply', { method:'POST', body:{ changes:codeChain.map(({ donorId, from, to }) => ({ donorId, from, to })) } });
+    const mine = r.changed.find((c) => String(c.donorId) === String(donor.id));
+    stopCodeChange();
+    await load();
+    flash('Donor ID changed', r.changed.length === 1 ? `${mine ? mine.to : ''}` : `${r.changed.length} donors updated`);
+    const noteWarn = r.notesFailed ? `\n\n${r.notesFailed} admin note${r.notesFailed === 1 ? '' : 's'} with the old ID could not be added. The ID change is saved.` : '';
+    if (r.changed.length > 1 || noteWarn) alert('Saved:\n\n' + r.changed.map((c) => `${c.name}: ${codeOf(c.from)} → ${c.to}`).join('\n') + noteWarn);
+  } catch (err) { codeErr(err.message); }
+  finally { btn.disabled = false; btn.textContent = 'Save'; }
+}
+function initCodeChange() {
+  $('codeToggle').addEventListener('click', () => ($('codePanel').classList.contains('hidden') ? startCodeChange() : stopCodeChange()));
+  $('codeCancel').addEventListener('click', stopCodeChange);
+  $('codeNext').addEventListener('click', codeNext);
+  $('codeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); codeNext(); } });
+  $('codeSave').addEventListener('click', codeSave);
 }
 
 /* ── Waiver sheet ───────────────────────────────────────────── */

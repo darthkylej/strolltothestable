@@ -9,6 +9,7 @@ import * as waivers from './routes/waivers.js';
 import * as backfillAddresses from './routes/backfillAddresses.js';
 import * as admin from './routes/admin.js';
 import * as walkin from './routes/walkin.js';
+import * as donorCodes from './routes/donorCodes.js';
 import * as settings from './routes/settings.js';
 import * as messages from './routes/messages.js';
 import { getTour } from './routes/tour.js';
@@ -315,6 +316,9 @@ async function handle(request, env, ctx) {
       if ((m = path.match(/^\/api\/admin\/donors\/(\d+)\/nativities$/)) && method === 'POST') return await walkin.addNativity(request, env, session, m[1]);
       if ((m = path.match(/^\/api\/admin\/donors\/(\d+)\/waivers-pdf$/)) && method === 'GET') return await walkin.waiversPdf(request, env, session, m[1]);
       if ((m = path.match(/^\/api\/admin\/donors\/(\d+)\/checkin-summary$/)) && method === 'POST') return await walkin.sendCheckInSummary(request, env, session, m[1]);
+      // Fixing mislabeled donor codes (one donor, or a chain of swaps saved together).
+      if (path === '/api/admin/donor-codes/check' && method === 'POST') return await donorCodes.check(request, env, session);
+      if (path === '/api/admin/donor-codes/apply' && method === 'POST') return await donorCodes.apply(request, env, session);
 
       if ((m = path.match(/^\/api\/nativities\/(\d+)$/)) && method === 'GET') {
         return await nativities.getOne(request, env, session, m[1]);
