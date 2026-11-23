@@ -151,7 +151,7 @@
       <h3>Main Submitted Photo</h3>
       <img id="mainPhoto" class="photo-frame" alt="Submitted nativity photo">
       <p id="noMainPhoto" class="section-note">No main photo is attached.</p>
-      <input type="file" id="mainPhotoInput" accept="image/*" capture="environment">
+      <input type="file" id="mainPhotoInput" accept="image/*">
       <div class="action-row" style="margin-top:10px">
         <button class="btn btn-secondary" id="uploadMainBtn" type="button">Upload / Replace Main Photo</button>
         <button class="btn btn-danger" id="clearMainBtn" type="button" style="display:none">Remove Main Photo</button>
@@ -183,7 +183,7 @@
     <summary>Virtual Tour display photo</summary>
     <img id="displayPhoto" class="photo-frame" alt="Nativity display photo">
     <p id="noDisplayPhoto" class="section-note">No display photo yet.</p>
-    <input type="file" id="displayPhotoInput" accept="image/*" capture="environment">
+    <input type="file" id="displayPhotoInput" accept="image/*">
     <div class="action-row" style="margin-top:12px">
       <button class="btn btn-secondary" id="uploadDisplayBtn">Upload / Replace Display Photo</button>
       <button class="btn btn-danger" id="clearDisplayBtn" style="display:none">Remove Display Photo</button>
@@ -243,7 +243,7 @@ function pieceMarkup(piece, index) {
         <textarea rows="3" data-piece-condition placeholder="Condition at check-in">${esc(piece.condition_notes || '')}</textarea>
       </div>
       ${piece.photo_key ? `<img class="piece-photo" src="/photos/${esc(piece.photo_key)}" alt="Photo of piece ${index + 1}">` : '<p class="section-note" data-no-piece-photo>No photo attached to this piece.</p>'}
-      <input type="file" data-piece-photo-input accept="image/*" capture="environment">
+      <input type="file" data-piece-photo-input accept="image/*">
       <div class="action-row" style="margin-top:10px">
         <button class="btn btn-secondary" type="button" data-upload-piece-photo ${hasId ? '' : 'disabled'}>Upload / Replace Photo</button>
         ${piece.photo_key && hasId ? '<button class="btn btn-danger" type="button" data-clear-piece-photo>Remove Photo</button>' : ''}
