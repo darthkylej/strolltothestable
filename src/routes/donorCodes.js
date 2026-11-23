@@ -10,6 +10,7 @@
 import { db } from '../lib/db.js';
 import { json, error, requireAdmin } from '../lib/util.js';
 import { normalizeDonorCode } from './admin.js';
+import { getAdminNote, setAdminNote } from '../lib/siteSettings.js';
 
 const MAX_CHANGES = 20;
 const MIN_CODE = 1001;
@@ -121,9 +122,38 @@ export async function apply(request, env, session) {
   }
   const saved = results[2];
   console.log('Donor codes changed by', session.email, JSON.stringify(changes.map((c) => ({ id: c.donorId, from: c.from, to: c.to }))));
+  const notesFailed = await noteOldCodes(env, sql, changes, session.email);
   return json({
     ok: true,
+    notesFailed,
     changed: changes.map((c) => ({ donorId: c.donorId, name: c.name, from: c.from, to: c.to })),
     saved: saved.map((u) => ({ id: String(u.id), name: u.name, donorCode: u.donor_code })),
   });
+}
+
+// The new code is used everywhere, but the old one is kept as a line added to
+// the private admin note of each of the donor's nativities, so the old code
+// can still be traced. Existing notes are kept; later changes add
+// more lines, so the note holds the whole history. Returns how many notes
+// could not be written (the code change itself is already saved).
+async function noteOldCodes(env, sql, changes, adminEmail) {
+  const day = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric' });
+  const rows = await sql`
+    SELECT id, owner_user_id FROM nativities
+    WHERE owner_user_id = ANY(${idArray(changes.map((c) => c.donorId))}::bigint[])
+      AND submission_number NOT LIKE 'DRAFT-%'
+  `;
+  let failed = 0;
+  for (const n of rows) {
+    const c = changes.find((x) => x.donorId === String(n.owner_user_id));
+    const line = `Donor ID changed from ${c.from || 'no ID'} to ${c.to} on ${day} by ${adminEmail}.`;
+    try {
+      const cur = (await getAdminNote(env, n.id)).trim();
+      await setAdminNote(env, n.id, cur ? `${cur}\n${line}` : line, adminEmail);
+    } catch (err) {
+      failed++;
+      console.error('Could not add donor ID note to nativity', n.id, err);
+    }
+  }
+  return failed;
 }

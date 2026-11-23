@@ -116,7 +116,7 @@
       </div>
       <div id="codePanel" class="hidden code-panel">
         <h2 style="margin:0 0 6px">Change donor ID</h2>
-        <p class="muted-line" style="margin:0 0 10px">Use this when nativities were labeled with the wrong donor ID. Nothing is saved until you press Save. Waivers already signed and emails already sent keep the ID they show.</p>
+        <p class="muted-line" style="margin:0 0 10px">Use this when nativities were labeled with the wrong donor ID. Nothing is saved until you press Save. The old ID is added to each of the donor's nativities as a private admin note. Waivers already signed and emails already sent keep the ID they show.</p>
         <div class="list" id="codeChain" style="margin-bottom:10px"></div>
         <div id="codeAsk">
           <div class="code-note hidden" id="codeTakenNote"></div>
@@ -457,7 +457,8 @@ async function codeSave() {
     stopCodeChange();
     await load();
     flash('Donor ID changed', r.changed.length === 1 ? `${mine ? mine.to : ''}` : `${r.changed.length} donors updated`);
-    if (r.changed.length > 1) alert('Saved:\n\n' + r.changed.map((c) => `${c.name}: ${codeOf(c.from)} → ${c.to}`).join('\n'));
+    const noteWarn = r.notesFailed ? `\n\n${r.notesFailed} admin note${r.notesFailed === 1 ? '' : 's'} with the old ID could not be added. The ID change is saved.` : '';
+    if (r.changed.length > 1 || noteWarn) alert('Saved:\n\n' + r.changed.map((c) => `${c.name}: ${codeOf(c.from)} → ${c.to}`).join('\n') + noteWarn);
   } catch (err) { codeErr(err.message); }
   finally { btn.disabled = false; btn.textContent = 'Save'; }
 }
