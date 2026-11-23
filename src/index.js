@@ -16,6 +16,7 @@ import { getTour } from './routes/tour.js';
 import { error } from './lib/util.js';
 import { getSiteSettings, submissionsAreOpen } from './lib/siteSettings.js';
 import { openEventDays, dateRangeText, hoursCardsHtml, hoursSentence } from './lib/eventSchedule.js';
+import * as photoDownloads from './routes/photoDownloads.js';
 
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -402,6 +403,14 @@ async function handle(request, env, ctx) {
       }
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/display-photo\/clear$/)) && method === 'POST') {
         return await admin.clearDisplayPhoto(request, env, session, m[1]);
+      }
+
+      // Photo downloads: donors get only their own nativities' photos; admins get any.
+      if ((m = path.match(/^\/api\/nativities\/(\d+)\/photo-download\/(main|all|piece-\d+)$/)) && method === 'GET') {
+        return await photoDownloads.donorDownload(request, env, session, m[1], m[2]);
+      }
+      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/photo-download\/(main|display|all|piece-\d+)$/)) && method === 'GET') {
+        return await photoDownloads.adminDownload(request, env, session, m[1], m[2]);
       }
 
       return error('Not found', 404);

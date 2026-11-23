@@ -47,6 +47,8 @@
   .desk-row.note { background:rgba(242,199,110,.10); border-color:rgba(242,199,110,.32); color:#ffe7b5; }
   .desk-row a { color:inherit; font-weight:700; margin-left:6px; }
   .desk-pieces-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:16px 0 6px; }
+  .photo-dl-row { display:flex; flex-wrap:wrap; gap:6px 16px; margin:0 0 10px; }
+  .photo-dl-row a { color:var(--gold-bright); font-weight:700; font-size:14px; }
   .link-btn { background:none; border:0; color:var(--gold-bright); text-decoration:underline; cursor:pointer; font:inherit; padding:4px; width:auto; margin:0; }
   .desk-pieces { list-style:none; margin:0; padding:0; display:grid; gap:6px; }
   .desk-piece { display:grid; grid-template-columns:28px 26px 1fr auto; gap:8px; align-items:center; padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:rgba(8,16,31,.5); cursor:pointer; }
@@ -88,6 +90,7 @@
   <div class="card desk-card" id="deskCard">
     <div class="desk-contact" id="deskContact"></div>
     <a id="deskPhotoLink" target="_blank" rel="noopener" style="display:none"><img id="deskPhoto" class="desk-photo" alt="Main photo of the nativity"></a>
+    <div class="photo-dl-row" id="deskDownloads"></div>
     <p class="desk-hint" id="deskDescription" style="display:none;margin:0 0 8px;color:var(--wood)"></p>
     <div class="desk-row" id="waiverRow">Loading…</div>
     <div class="desk-row note" id="deskNote" style="display:none"></div>
@@ -151,6 +154,7 @@
       <h3>Main Submitted Photo</h3>
       <img id="mainPhoto" class="photo-frame" alt="Submitted nativity photo">
       <p id="noMainPhoto" class="section-note">No main photo is attached.</p>
+      <div class="photo-dl-row" id="mainPhotoDownload"></div>
       <input type="file" id="mainPhotoInput" accept="image/*">
       <div class="action-row" style="margin-top:10px">
         <button class="btn btn-secondary" id="uploadMainBtn" type="button">Upload / Replace Main Photo</button>
@@ -183,6 +187,7 @@
     <summary>Virtual Tour display photo</summary>
     <img id="displayPhoto" class="photo-frame" alt="Nativity display photo">
     <p id="noDisplayPhoto" class="section-note">No display photo yet.</p>
+    <div class="photo-dl-row" id="displayPhotoDownload"></div>
     <input type="file" id="displayPhotoInput" accept="image/*">
     <div class="action-row" style="margin-top:12px">
       <button class="btn btn-secondary" id="uploadDisplayBtn">Upload / Replace Display Photo</button>
@@ -196,6 +201,7 @@
 </div>
 <script src="/js/app.js"></script>
 <script src="/js/waiver-sheet.js"></script>
+<script src="/js/photo-download.js"></script>
 <script>
 const params = new URLSearchParams(window.location.search);
 const id = params.get('id');
@@ -242,7 +248,7 @@ function pieceMarkup(piece, index) {
         <label>Condition Notes</label>
         <textarea rows="3" data-piece-condition placeholder="Condition at check-in">${esc(piece.condition_notes || '')}</textarea>
       </div>
-      ${piece.photo_key ? `<img class="piece-photo" src="/photos/${esc(piece.photo_key)}" alt="Photo of piece ${index + 1}">` : '<p class="section-note" data-no-piece-photo>No photo attached to this piece.</p>'}
+      ${piece.photo_key ? `<img class="piece-photo" src="/photos/${esc(piece.photo_key)}" alt="Photo of piece ${index + 1}">${hasId ? `<div class="photo-dl-row"><a data-photo-download href="/api/admin/nativities/${id}/photo-download/piece-${esc(piece.id)}">Download photo</a></div>` : ''}` : '<p class="section-note" data-no-piece-photo>No photo attached to this piece.</p>'}
       <input type="file" data-piece-photo-input accept="image/*">
       <div class="action-row" style="margin-top:10px">
         <button class="btn btn-secondary" type="button" data-upload-piece-photo ${hasId ? '' : 'disabled'}>Upload / Replace Photo</button>
@@ -279,6 +285,11 @@ function renderPhotos(nativity) {
     noMain.style.display = 'block';
     clearMain.style.display = 'none';
   }
+
+  document.getElementById('mainPhotoDownload').innerHTML = nativity.photo_key
+    ? `<a data-photo-download href="/api/admin/nativities/${id}/photo-download/main">Download photo</a>` : '';
+  document.getElementById('displayPhotoDownload').innerHTML = nativity.display_photo_key
+    ? `<a data-photo-download href="/api/admin/nativities/${id}/photo-download/display">Download photo</a>` : '';
 
   const displayImg = document.getElementById('displayPhoto');
   const noDisplay = document.getElementById('noDisplayPhoto');
@@ -358,6 +369,14 @@ function renderDesk(n, pieces, note, isDraft) {
   } else {
     photoLink.style.display = 'none';
   }
+  // Admins can download any photo on this submission, or all of them as a zip.
+  const photoCount = (n.photo_key ? 1 : 0) + (n.display_photo_key && n.display_photo_key !== n.photo_key ? 1 : 0)
+    + pieces.filter((p) => p.photo_key).length;
+  const dl = [];
+  if (photoKey) dl.push(`<a data-photo-download href="/api/admin/nativities/${id}/photo-download/${n.photo_key ? 'main' : 'display'}">Download photo</a>`);
+  if (photoCount > 1) dl.push(`<a data-photo-download data-zip href="/api/admin/nativities/${id}/photo-download/all">Download all ${photoCount} photos (zip)</a>`);
+  document.getElementById('deskDownloads').innerHTML = dl.join('');
+
   const descEl = document.getElementById('deskDescription');
   descEl.style.display = n.description ? 'block' : 'none';
   descEl.textContent = n.description || '';

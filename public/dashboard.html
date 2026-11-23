@@ -182,7 +182,7 @@ function cardHtml(n) {
         ${n.description ? `<p class="nat-desc">${esc(n.description)}</p>` : ''}
         ${st.body}
         ${st.button}
-        <div class="nat-more">View details, waiver and edits ›</div>
+        <div class="nat-more">View details, photos, waiver and edits ›</div>
         ${submissionsOpen && n.status === 'returned' && Number(n.event_year) < CURRENT_YEAR
           ? `<button class="btn btn-secondary" onclick="resubmit(${n.id})">Submit Again This Year</button>`
           : ''}
