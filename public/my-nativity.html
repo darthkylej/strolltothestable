@@ -22,6 +22,9 @@
   .section h2 { margin:0 0 8px; }
   .actions { display:grid; gap:10px; margin-top:12px; }
   .actions .btn { margin:0; }
+  .photo-downloads { display:flex; flex-wrap:wrap; gap:8px 16px; margin:8px 0 0; }
+  .photo-downloads a, .piece-dl { color:var(--gold-bright); font-weight:700; font-size:14px; }
+  .piece-dl { display:inline-block; margin-top:4px; }
   .danger-zone { margin-top:28px; padding-top:16px; border-top:1px solid var(--border); }
 </style>
 </head>
@@ -33,6 +36,7 @@
 
   <div id="content" style="display:none">
     <img class="nat-photo" id="photo" alt="Your nativity">
+    <div class="photo-downloads" id="photoDownloads"></div>
     <div class="head-row">
       <div>
         <span class="status-pill" id="pill"></span>
@@ -81,6 +85,7 @@
   </div>
 </div>
 <script src="/js/app.js"></script>
+<script src="/js/photo-download.js"></script>
 <script>
 const id = new URLSearchParams(location.search).get('id');
 let current = null, newPhotoKey = null;
@@ -110,6 +115,12 @@ function render(n, pieces) {
   const st = state(n);
   document.getElementById('photo').src = n.photo_key ? '/photos/' + n.photo_key : '';
   document.getElementById('photo').style.display = n.photo_key ? 'block' : 'none';
+  // Download links for the donor's own photos (the server checks ownership).
+  const photoCount = (n.photo_key ? 1 : 0) + pieces.filter((p) => p.photo_key).length;
+  const downloads = [];
+  if (n.photo_key) downloads.push(`<a data-photo-download href="/api/nativities/${n.id}/photo-download/main">Download photo</a>`);
+  if (photoCount > 1) downloads.push(`<a data-photo-download data-zip href="/api/nativities/${n.id}/photo-download/all">Download all ${photoCount} photos (zip)</a>`);
+  document.getElementById('photoDownloads').innerHTML = downloads.join('');
   document.getElementById('meta').textContent = `${n.event_year} · ${pieces.length} piece${pieces.length === 1 ? '' : 's'}`;
   document.getElementById('number').textContent = draft ? 'Not finished' : n.submission_number;
   const pill = document.getElementById('pill');
@@ -130,7 +141,7 @@ function render(n, pieces) {
 
   document.getElementById('pieces').innerHTML = pieces.length ? pieces.map((p, i) => `
     <li><span class="num">${i + 1}.</span>
-      <span><span class="desc">${esc(p.description)}</span><br><span class="cond">${esc(p.condition_notes)}</span></span>
+      <span><span class="desc">${esc(p.description)}</span><br><span class="cond">${esc(p.condition_notes)}</span>${p.photo_key ? `<br><a class="piece-dl" data-photo-download href="/api/nativities/${n.id}/photo-download/piece-${p.id}">Download photo</a>` : ''}</span>
       ${p.photo_key ? `<img src="/photos/${esc(p.photo_key)}" alt="">` : '<span></span>'}</li>`).join('')
     : '<li><span></span><span class="muted">No pieces listed yet.</span><span></span></li>';
 
