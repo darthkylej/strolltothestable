@@ -181,7 +181,8 @@ export async function uploadPhoto(request, env, session) {
 // Deletes storage objects that no remaining nativity or piece still uses
 // (resubmitted nativities share photos with the original).
 export async function removeUnreferencedPhotos(sql, env, keys) {
-  const unique = [...new Set(keys.filter(Boolean))];
+  // Photo bank images are owned by the bank and removed only from there.
+  const unique = [...new Set(keys.filter(Boolean))].filter((k) => !String(k).startsWith('photo-bank/'));
   for (const k of unique) {
     const used = await sql`
       SELECT 1 FROM nativities WHERE photo_key = ${k} OR display_photo_key = ${k}

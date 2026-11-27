@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Display Photos — Stroll to the Stable Admin</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .pb-header { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; flex-wrap:wrap; margin-bottom:12px; }
+  .pb-header h1 { margin:0; }
+  .pb-header .btn { width:auto; margin:0; padding:9px 14px; min-height:0; font-size:14px; }
+  .intro { color:var(--wood); margin:0 0 14px; font-size:15px; }
+  .tabs { display:flex; gap:8px; margin:0 0 16px; }
+  .tab { flex:1; padding:11px 10px; border-radius:14px; border:1.5px solid var(--border); background:rgba(8,16,31,.6); color:var(--text); font:inherit; font-weight:700; font-size:15px; cursor:pointer; }
+  .tab.active { border-color:var(--gold); background:rgba(242,199,110,.16); color:var(--gold-bright); }
+  .tab .n { color:var(--gold-bright); }
+  .file-btn { position:relative; overflow:hidden; }
+  .file-btn input { position:absolute; inset:0; opacity:0; width:100%; height:100%; cursor:pointer; font-size:0; }
+  .hint { color:var(--muted); font-size:13px; margin:2px 0 0; }
+  .progress { display:none; margin:12px 0 0; }
+  .bar { height:8px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden; margin-top:6px; }
+  .bar > div { height:100%; width:0; background:var(--gold); transition:width .2s; }
+  .failed { display:none; margin-top:10px; color:#ffd3cc; font-size:14px; }
+  .failed .btn { width:auto; display:inline-block; margin:6px 0 0; padding:8px 14px; min-height:0; font-size:14px; }
+  .counts { font-size:15px; margin:0 0 10px; }
+  .counts b { color:var(--gold-bright); }
+  .strip { display:grid; grid-template-columns:repeat(auto-fill,minmax(74px,1fr)); gap:6px; }
+  .strip img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; border:1px solid var(--border); background:#0b1424; }
+  .strip .done { outline:2px solid var(--pasture); outline-offset:-2px; }
+
+  .match-top { display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:10px; }
+  .match-top select { width:auto; margin:0; padding:8px 10px; font-size:14px; }
+  .viewer { text-align:center; }
+  .viewer img { max-width:100%; max-height:46vh; border-radius:14px; border:1px solid var(--border); background:#0b1424; }
+  .viewer-meta { margin:8px 0 2px; font-size:14px; color:var(--wood); }
+  .viewer-status { font-size:15px; margin:2px 0 8px; }
+  .viewer-status.ok { color:var(--pasture); }
+  .nav-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .nav-row .btn { width:auto; margin:0; padding:9px 14px; min-height:0; font-size:14px; flex:0 0 auto; }
+  .sugg-head { display:flex; justify-content:space-between; gap:8px; align-items:baseline; flex-wrap:wrap; margin:16px 0 6px; }
+  .sugg-head h2 { margin:0; font-size:1.05rem; color:var(--gold-bright); }
+  .index-line { font-size:13px; color:var(--muted); }
+  .index-line button { border:0; background:transparent; color:var(--gold-bright); font:inherit; text-decoration:underline; cursor:pointer; padding:0; }
+  .search { margin:6px 0 10px; }
+  .search input { margin:0; }
+  .cands { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
+  .cand { text-align:left; border:1px solid var(--border); border-radius:12px; background:rgba(8,16,31,.7); padding:6px; cursor:pointer; color:var(--text); font:inherit; }
+  .cand:hover { border-color:var(--border-strong); }
+  .cand img { width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:8px; background:#0b1424; display:block; }
+  .cand .num { font-weight:800; font-size:13px; color:var(--gold-bright); margin-top:4px; }
+  .cand .who { font-size:12px; color:var(--wood); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cand .tag { display:inline-block; margin-top:3px; padding:1px 7px; border-radius:999px; font-size:11px; background:rgba(154,215,167,.14); border:1px solid rgba(154,215,167,.35); color:#d6f2dc; }
+  .cand .score { float:right; font-size:11px; color:var(--muted); }
+  .more { margin-top:10px; }
+
+  .sheet { display:none; position:fixed; inset:0; z-index:50; background:rgba(3,7,14,.88); overflow:auto; padding:16px 12px 40px; }
+  .sheet.open { display:block; }
+  .sheet-inner { max-width:860px; margin:0 auto; }
+  .compare { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .compare figure { margin:0; }
+  .compare img { width:100%; max-height:52vh; object-fit:contain; border-radius:12px; background:#0b1424; border:1px solid var(--border); }
+  .compare figcaption { font-size:12px; color:var(--muted); text-align:center; margin-top:3px; }
+  .sheet h2 { margin:0 0 4px; color:var(--gold-bright); font-size:1.2rem; }
+  .sheet .details { font-size:14px; color:var(--wood); margin:8px 0 12px; overflow-wrap:anywhere; }
+  .sheet .warn { color:#ffd3cc; font-size:14px; margin:0 0 10px; }
+  .toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:60; display:none; gap:12px; align-items:center; padding:11px 16px; border-radius:14px; background:#13233f; border:1px solid var(--border-strong); box-shadow:var(--shadow); font-size:14px; max-width:calc(100% - 24px); }
+  .toast button { border:0; background:transparent; color:var(--gold-bright); font:inherit; font-weight:800; text-decoration:underline; cursor:pointer; padding:0; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<div class="page wide">
+  <div class="pb-header">
+    <div>
+      <p class="eyebrow">Stroll to the Stable · Admin</p>
+      <h1>Display Photos</h1>
+    </div>
+    <a class="btn btn-outline" href="/admin-dashboard.html">← Admin Home</a>
+  </div>
+  <p class="intro">Photograph the nativities on display in any order. The photos wait in the bank until you match each one to its nativity, where it becomes the display photo in the tour. The donor's own photo is never changed.</p>
+
+  <div class="error-banner" data-error-banner></div>
+
+  <div class="tabs">
+    <button type="button" class="tab active" data-tab="shoot">Take photos</button>
+    <button type="button" class="tab" data-tab="match">Match <span class="n" id="unmatchedTab"></span></button>
+  </div>
+
+  <section id="shootTab">
+    <div class="card">
+      <div class="btn-row">
+        <label class="btn btn-primary file-btn">Take a photo
+          <input type="file" id="cameraInput" accept="image/*" capture="environment">
+        </label>
+        <label class="btn btn-secondary file-btn">Add from your photos
+          <input type="file" id="libraryInput" accept="image/*" multiple>
+        </label>
+      </div>
+      <p class="hint">Fastest: shoot them all with your phone's camera, then use Add from your photos and pick them all at once. They're kept in the order you took them. Keep this page open until the uploads finish.</p>
+      <div class="progress" id="progress">
+        <div id="progressText"></div>
+        <div class="bar"><div id="progressBar"></div></div>
+      </div>
+      <div class="failed" id="failed">
+        <div id="failedText"></div>
+        <button type="button" class="btn btn-outline" id="retryBtn">Try those again</button>
+      </div>
+    </div>
+    <p class="counts" id="counts"></p>
+    <div class="strip" id="strip"></div>
+  </section>
+
+  <section id="matchTab" hidden>
+    <div class="match-top">
+      <select id="filter" aria-label="Which photos">
+        <option value="unmatched">Not matched yet</option>
+        <option value="all">All bank photos</option>
+      </select>
+      <span class="index-line" id="position"></span>
+    </div>
+    <div id="viewerEmpty" class="empty-state" hidden></div>
+    <div id="viewer" class="viewer" hidden>
+      <a id="bankLink" target="_blank" rel="noopener"><img id="bankImg" alt="Photo from the bank"></a>
+      <div class="viewer-meta" id="bankMeta"></div>
+      <div class="viewer-status" id="bankStatus"></div>
+      <div class="nav-row">
+        <button type="button" class="btn btn-outline" id="prevBtn">◀ Back</button>
+        <button type="button" class="btn btn-outline" id="nextBtn">Skip ▶</button>
+        <button type="button" class="btn btn-outline" id="unmatchBtn" hidden>Unmatch</button>
+        <button type="button" class="btn btn-danger" id="deleteBtn" hidden>Delete photo</button>
+      </div>
+
+      <div class="sugg-head">
+        <h2 id="candTitle">Best guesses</h2>
+        <span class="index-line" id="indexLine"></span>
+      </div>
+      <div class="search">
+        <input type="search" id="search" placeholder="Search by number (e.g. 123), donor ID, name or pieces" autocomplete="off">
+      </div>
+      <div class="cands" id="cands"></div>
+      <button type="button" class="btn btn-outline more" id="moreBtn" hidden>Show more</button>
+    </div>
+  </section>
+</div>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-inner">
+    <h2 id="sheetTitle"></h2>
+    <div class="compare">
+      <figure><img id="cmpBank" alt="Bank photo"><figcaption>New photo</figcaption></figure>
+      <figure><img id="cmpDonor" alt="Donor photo"><figcaption>Donor's photo</figcaption></figure>
+    </div>
+    <div class="details" id="sheetDetails"></div>
+    <p class="warn" id="sheetWarn" hidden></p>
+    <div class="btn-row">
+      <button type="button" class="btn btn-primary" id="useBtn">Use as display photo</button>
+      <button type="button" class="btn btn-outline" id="cancelBtn">Not this one</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toastText"></span><button type="button" id="toastUndo" hidden>Undo</button></div>
+
+<script src="/js/app.js"></script>
+<script src="/js/photo-bank.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let photos = [];          // bank photos, in the order taken
+let cands = [];           // nativities
+let current = null;       // id of the bank photo on screen
+let shown = 12;           // how many candidate tiles to show
+let indexing = false;
+const queue = [];         // files waiting to upload
+let uploading = 0, uploadedThisRun = 0, totalThisRun = 0;
+const failedFiles = [];
+
+function esc(value) {
+  return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+}
+const photoUrl = (key) => '/photos/' + String(key).split('/').map(encodeURIComponent).join('/');
+
+async function adminApi(path, options = {}) {
+  const res = await fetch(path, {
+    method: options.method || 'GET',
+    headers: options.headers || (options.body !== undefined && !(options.body instanceof Blob) ? { 'Content-Type': 'application/json' } : undefined),
+    body: options.body instanceof Blob ? options.body : (options.body !== undefined ? JSON.stringify(options.body) : undefined),
+  });
+  if (res.status === 401) {
+    window.location.href = '/admin-login.html?next=' + encodeURIComponent(location.pathname);
+    throw new Error('Admin login required');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { const err = new Error(data.error || 'Something went wrong.'); err.status = res.status; err.data = data; throw err; }
+  return data;
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────
+function setTab(name) {
+  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
+  $('shootTab').hidden = name !== 'shoot';
+  $('matchTab').hidden = name !== 'match';
+  try { localStorage.setItem('photoBankTab', name); } catch (_) {}
+  if (name === 'match') renderMatch();
+}
+document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => setTab(t.dataset.tab)));
+
+// ── Taking photos ────────────────────────────────────────────────────
+function addFiles(list) {
+  const files = [...list].filter((f) => f && (!f.type || f.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp)$/i.test(f.name)));
+  if (!files.length) return;
+  if (!uploading && !queue.length) { uploadedThisRun = 0; totalThisRun = 0; }
+  queue.push(...files);
+  totalThisRun += files.length;
+  pump();
+}
+$('cameraInput').addEventListener('change', (e) => { addFiles(e.target.files); e.target.value = ''; });
+$('libraryInput').addEventListener('change', (e) => { addFiles(e.target.files); e.target.value = ''; });
+$('retryBtn').addEventListener('click', () => { const again = failedFiles.splice(0); renderFailed(); addFiles(again); });
+
+function pump() {
+  while (uploading < 2 && queue.length) {
+    const file = queue.shift();
+    uploading++;
+    uploadOne(file)
+      .then((photo) => { uploadedThisRun++; photos.push(photo); sortPhotos(); })
+      .catch((err) => { failedFiles.push(file); console.error(err); })
+      .finally(() => { uploading--; renderProgress(); renderFailed(); renderCounts(); pump(); });
+  }
+  renderProgress();
+}
+
+async function uploadOne(file) {
+  const prepared = await PhotoBank.prepareFile(file);
+  const headers = { 'Content-Type': 'image/jpeg', 'X-Fingerprint': prepared.fingerprint, 'X-File-Name': encodeURIComponent(file.name || '') };
+  if (prepared.takenAt && !isNaN(prepared.takenAt)) headers['X-Taken-At'] = prepared.takenAt.toISOString();
+  const data = await adminApi('/api/admin/photo-bank', { method: 'POST', headers, body: prepared.blob });
+  return { ...data.photo, fingerprint: prepared.fingerprint, nativity_id: null, submission_number: null };
+}
+
+function renderProgress() {
+  const busy = uploading + queue.length;
+  $('progress').style.display = totalThisRun ? 'block' : 'none';
+  const done = uploadedThisRun + failedFiles.length;
+  $('progressText').textContent = busy
+    ? `Uploading ${Math.min(done + 1, totalThisRun)} of ${totalThisRun}…`
+    : `${uploadedThisRun} of ${totalThisRun} uploaded.`;
+  $('progressBar').style.width = totalThisRun ? Math.round((done / totalThisRun) * 100) + '%' : '0';
+}
+function renderFailed() {
+  $('failed').style.display = failedFiles.length ? 'block' : 'none';
+  $('failedText').textContent = failedFiles.length === 1 ? '1 photo did not upload.' : `${failedFiles.length} photos did not upload.`;
+}
+window.addEventListener('beforeunload', (e) => { if (uploading || queue.length) { e.preventDefault(); e.returnValue = ''; } });
+
+function sortPhotos() {
+  const t = (p) => new Date(p.taken_at || p.uploaded_at).getTime() || 0;
+  photos.sort((a, b) => t(a) - t(b) || Number(a.id) - Number(b.id));
+}
+
+function renderCounts() {
+  const unmatched = photos.filter((p) => !p.nativity_id).length;
+  $('counts').innerHTML = photos.length
+    ? `<b>${photos.length}</b> photo${photos.length === 1 ? '' : 's'} in the bank · <b>${unmatched}</b> not matched yet`
+    : 'No photos in the bank yet.';
+  $('unmatchedTab').textContent = unmatched ? `(${unmatched})` : '';
+  const recent = photos.slice(-24).reverse();
+  $('strip').innerHTML = recent.map((p) => `<img loading="lazy" src="${photoUrl(p.photo_key)}" class="${p.nativity_id ? 'done' : ''}" alt="">`).join('');
+}
+
+// ── Matching ─────────────────────────────────────────────────────────
+function visiblePhotos() {
+  return $('filter').value === 'all' ? photos : photos.filter((p) => !p.nativity_id);
+}
+function bankKeys() { return new Set(photos.map((p) => p.photo_key)); }
+
+function renderMatch() {
+  const list = visiblePhotos();
+  if (!list.length) {
+    $('viewer').hidden = true;
+    $('viewerEmpty').hidden = false;
+    $('viewerEmpty').textContent = photos.length ? 'Every bank photo is matched. Nice work.' : 'No photos in the bank yet. Take some first.';
+    $('position').textContent = '';
+    return;
+  }
+  let i = list.findIndex((p) => p.id === current);
+  if (i < 0) i = 0;
+  const p = list[i];
+  if (current !== p.id) { current = p.id; shown = 12; $('search').value = ''; }
+  $('viewer').hidden = false;
+  $('viewerEmpty').hidden = true;
+  $('position').textContent = `Photo ${i + 1} of ${list.length}`;
+  $('bankImg').src = photoUrl(p.photo_key);
+  $('bankLink').href = photoUrl(p.photo_key);
+  const when = new Date(p.taken_at || p.uploaded_at);
+  $('bankMeta').textContent = `Taken ${when.toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}${p.original_name ? ' · ' + p.original_name : ''}`;
+  $('bankStatus').className = 'viewer-status' + (p.nativity_id ? ' ok' : '');
+  $('bankStatus').textContent = p.nativity_id ? `Display photo of ${p.submission_number}` : 'Not matched yet';
+  $('prevBtn').disabled = i === 0;
+  $('nextBtn').disabled = i === list.length - 1;
+  $('unmatchBtn').hidden = !p.nativity_id;
+  $('deleteBtn').hidden = !!p.nativity_id;
+  if (!p.fingerprint) fingerprintBankPhoto(p);
+  renderCandidates();
+}
+
+function move(step) {
+  const list = visiblePhotos();
+  const i = list.findIndex((p) => p.id === current);
+  const next = list[Math.max(0, Math.min(list.length - 1, i + step))];
+  if (next) { current = next.id; renderMatch(); window.scrollTo({ top: $('matchTab').offsetTop - 10, behavior: 'smooth' }); }
+}
+$('prevBtn').addEventListener('click', () => move(-1));
+$('nextBtn').addEventListener('click', () => move(1));
+$('filter').addEventListener('change', renderMatch);
+
+async function fingerprintBankPhoto(p) {
+  if (p._fpTried) return;
+  p._fpTried = true;
+  try {
+    const fp = await PhotoBank.fingerprintUrl(photoUrl(p.photo_key));
+    p.fingerprint = fp;
+    adminApi(`/api/admin/photo-bank/${p.id}/fingerprint`, { method:'POST', body:{ fingerprint: fp } }).catch(() => {});
+    if (p.id === current) renderCandidates();
+  } catch (_) {}
+}
+
+function matchesQuery(c, q) {
+  if (!q) return true;
+  const digits = q.replace(/^(sts[-\s]*)?(20\d\d[-\s]*)?/i, '');
+  if (/^\d{1,4}$/.test(digits)) {
+    const n = Number(digits);
+    const tail = Number(String(c.submission_number).slice(-4));
+    if (tail === n) return true;
+    const dc = String(c.owner_donor_code || '').match(/(\d+)$/);
+    if (/^\d{4}$/.test(digits) && dc && Number(dc[1]) === n) return true;
+    return false;
+  }
+  const dq = q.match(/^d[\s-]*(\d{3,9})$/i);
+  if (dq) return String(c.owner_donor_code || '').toUpperCase() === `D-${dq[1]}`;
+  const hay = `${c.submission_number} ${c.owner_donor_code || ''} ${c.owner_name || ''} ${c.description || ''}`.toLowerCase();
+  return q.toLowerCase().split(/\s+/).every((w) => hay.includes(w));
+}
+
+function renderCandidates() {
+  const p = photos.find((x) => x.id === current);
+  if (!p) return;
+  const q = $('search').value.trim();
+  const keys = bankKeys();
+  const scored = cands.map((c) => ({ c, score: p.fingerprint && c.fingerprint ? PhotoBank.similarity(p.fingerprint, c.fingerprint) : null }));
+  let list;
+  if (q) {
+    list = scored.filter(({ c }) => matchesQuery(c, q));
+    list.sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || String(a.c.submission_number).localeCompare(String(b.c.submission_number)));
+    $('candTitle').textContent = `${list.length} found`;
+  } else {
+    // Best guesses leave out nativities that already have a bank photo as
+    // their display photo; search finds those.
+    list = scored.filter(({ c, score }) => score !== null && !(c.display_photo_key && keys.has(c.display_photo_key)));
+    list.sort((a, b) => b.score - a.score);
+    $('candTitle').textContent = list.length ? 'Best guesses' : 'Search for the nativity';
+  }
+  const page = list.slice(0, shown);
+  $('cands').innerHTML = page.map(({ c, score }) => {
+    const hasDisplay = c.display_photo_key && c.display_photo_key === p.photo_key ? 'This photo'
+      : c.display_photo_key && keys.has(c.display_photo_key) ? 'Matched'
+      : c.display_photo_key ? 'Has display photo' : '';
+    return `<button type="button" class="cand" data-id="${esc(c.id)}">
+      ${c.photo_key ? `<img loading="lazy" src="${photoUrl(c.photo_key)}" alt="">` : '<img alt="">'}
+      <div class="num">${esc(c.submission_number)}</div>
+      <div class="who">${esc(c.owner_name || '')}${c.owner_donor_code ? ' · ' + esc(c.owner_donor_code) : ''}</div>
+      <div class="who">${Number(c.piece_count) || 0} piece${Number(c.piece_count) === 1 ? '' : 's'}</div>
+      ${hasDisplay ? `<span class="tag">${esc(hasDisplay)}</span>` : ''}
+    </button>`;
+  }).join('') || `<div class="empty-state">${q ? 'No nativity matches that search.' : 'Type a number, donor ID or name above.'}</div>`;
+  $('moreBtn').hidden = list.length <= shown;
+  renderIndexLine();
+}
+$('search').addEventListener('input', () => { shown = 12; renderCandidates(); });
+$('moreBtn').addEventListener('click', () => { shown += 24; renderCandidates(); });
+$('cands').addEventListener('click', (e) => {
+  const btn = e.target.closest('.cand');
+  if (btn) openSheet(cands.find((c) => String(c.id) === btn.dataset.id));
+});
+
+// ── Suggestions index (fingerprints of the donors' photos) ───────────
+function renderIndexLine() {
+  const withPhoto = cands.filter((c) => c.photo_key);
+  const ready = withPhoto.filter((c) => c.fingerprint).length;
+  if (indexing) { $('indexLine').textContent = `Preparing guesses… ${ready} of ${withPhoto.length}`; return; }
+  if (ready >= withPhoto.length) { $('indexLine').textContent = ''; return; }
+  $('indexLine').innerHTML = `Guesses ready for ${ready} of ${withPhoto.length} · <button type="button" id="indexBtn">Prepare guesses</button>`;
+  $('indexBtn').addEventListener('click', buildIndex);
+}
+
+async function buildIndex() {
+  if (indexing) return;
+  if (!confirm('This looks at every donor photo once (about 130 MB, best on Wi-Fi) so the page can guess matches. Go ahead?')) return;
+  indexing = true;
+  renderIndexLine();
+  const todo = cands.filter((c) => c.photo_key && !c.fingerprint);
+  const pending = [];
+  const flush = async () => {
+    const items = pending.splice(0);
+    if (items.length) await adminApi('/api/admin/photo-bank/fingerprints', { method:'POST', body:{ items } }).catch((e) => console.error(e));
+  };
+  let next = 0;
+  const worker = async () => {
+    while (next < todo.length) {
+      const c = todo[next++];
+      try {
+        c.fingerprint = await PhotoBank.fingerprintUrl(photoUrl(c.photo_key));
+        pending.push({ photo_key: c.photo_key, fingerprint: c.fingerprint });
+        if (pending.length >= 20) await flush();
+      } catch (_) { /* photo missing; skip it */ }
+      if (next % 10 === 0) renderIndexLine();
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  await flush();
+  indexing = false;
+  renderCandidates();
+}
+
+// ── Confirm a match ──────────────────────────────────────────────────
+let sheetCand = null;
+function openSheet(c) {
+  const p = photos.find((x) => x.id === current);
+  if (!c || !p) return;
+  sheetCand = c;
+  $('sheetTitle').textContent = c.submission_number;
+  $('cmpBank').src = photoUrl(p.photo_key);
+  $('cmpDonor').src = c.photo_key ? photoUrl(c.photo_key) : '';
+  const desc = String(c.description || '').trim();
+  $('sheetDetails').innerHTML = `${esc(c.owner_name || '')}${c.owner_donor_code ? ' · ' + esc(c.owner_donor_code) : ''} · ${Number(c.piece_count) || 0} pieces${desc ? '<br>' + esc(desc.length > 220 ? desc.slice(0, 220) + '…' : desc) : ''}`;
+  const already = c.display_photo_key && c.display_photo_key !== p.photo_key;
+  $('sheetWarn').hidden = !already;
+  $('sheetWarn').innerHTML = already ? 'This nativity already has a display photo. Using this one replaces it. <a href="' + photoUrl(c.display_photo_key) + '" target="_blank" rel="noopener">See the current one</a>' : '';
+  $('useBtn').textContent = c.display_photo_key === p.photo_key ? 'Already its display photo' : already ? 'Replace display photo' : 'Use as display photo';
+  $('useBtn').disabled = c.display_photo_key === p.photo_key;
+  $('sheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeSheet() { $('sheet').classList.remove('open'); document.body.style.overflow = ''; sheetCand = null; }
+$('cancelBtn').addEventListener('click', closeSheet);
+$('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) closeSheet(); });
+
+$('useBtn').addEventListener('click', async () => {
+  const c = sheetCand, p = photos.find((x) => x.id === current);
+  if (!c || !p) return;
+  const replace = !!(c.display_photo_key && c.display_photo_key !== p.photo_key);
+  if (replace && !confirm(`Replace the display photo of ${c.submission_number}?`)) return;
+  $('useBtn').disabled = true;
+  try {
+    const res = await adminApi(`/api/admin/photo-bank/${p.id}/match`, { method:'POST', body:{ nativityId: c.id, replace } });
+    applyMatch(p, c);
+    closeSheet();
+    const list = visiblePhotos();
+    if ($('filter').value === 'unmatched') {
+      // The matched photo leaves this list; show the next one taken after it.
+      const nextPhoto = photos.filter((x) => !x.nativity_id).find((x) => photoOrder(x) > photoOrder(p)) || list[0];
+      current = nextPhoto ? nextPhoto.id : null;
+    }
+    renderCounts();
+    renderMatch();
+    toast(`Display photo set for ${c.submission_number}.`, res.replacedKey ? null : () => undo(p));
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    $('useBtn').disabled = false;
+  }
+});
+
+function photoOrder(p) { return photos.indexOf(p); }
+
+function applyMatch(p, c) {
+  for (const x of cands) if (x.display_photo_key === p.photo_key) x.display_photo_key = null;
+  for (const x of photos) if (x.nativity_id === c.id) { x.nativity_id = null; x.submission_number = null; }
+  c.display_photo_key = p.photo_key;
+  p.nativity_id = c.id;
+  p.submission_number = c.submission_number;
+}
+
+async function undo(p) {
+  try {
+    await adminApi(`/api/admin/photo-bank/${p.id}/unmatch`, { method:'POST', body:{} });
+    for (const x of cands) if (x.display_photo_key === p.photo_key) x.display_photo_key = null;
+    p.nativity_id = null; p.submission_number = null;
+    current = p.id;
+    renderCounts(); renderMatch();
+    toast('Undone.');
+  } catch (err) { showError(err.message); }
+}
+
+$('unmatchBtn').addEventListener('click', async () => {
+  const p = photos.find((x) => x.id === current);
+  if (!p || !p.nativity_id) return;
+  if (!confirm(`Take this photo off ${p.submission_number}? It goes back to the bank.`)) return;
+  await undo(p);
+});
+
+$('deleteBtn').addEventListener('click', async () => {
+  const p = photos.find((x) => x.id === current);
+  if (!p || p.nativity_id) return;
+  if (!confirm('Delete this photo from the bank? This cannot be undone.')) return;
+  try {
+    await adminApi(`/api/admin/photo-bank/${p.id}`, { method:'DELETE' });
+    const list = visiblePhotos();
+    const i = list.findIndex((x) => x.id === p.id);
+    photos = photos.filter((x) => x.id !== p.id);
+    const after = visiblePhotos();
+    current = after.length ? after[Math.min(i, after.length - 1)].id : null;
+    renderCounts(); renderMatch();
+  } catch (err) { showError(err.message); }
+});
+
+let toastTimer = null;
+function toast(text, onUndo) {
+  $('toastText').textContent = text;
+  $('toastUndo').hidden = !onUndo;
+  $('toastUndo').onclick = onUndo ? () => { $('toast').style.display = 'none'; onUndo(); } : null;
+  $('toast').style.display = 'flex';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { $('toast').style.display = 'none'; }, 6000);
+}
+
+// ── Start ────────────────────────────────────────────────────────────
+(async function init() {
+  try {
+    const [bank, list] = await Promise.all([adminApi('/api/admin/photo-bank'), adminApi('/api/admin/photo-bank/candidates')]);
+    photos = bank.photos || [];
+    cands = list.nativities || [];
+    sortPhotos();
+    renderCounts();
+    let tab = 'shoot';
+    try { tab = localStorage.getItem('photoBankTab') || 'shoot'; } catch (_) {}
+    setTab(tab === 'match' ? 'match' : 'shoot');
+  } catch (err) {
+    showError(err.message);
+  }
+})();
+</script>
+</body>
+</html>

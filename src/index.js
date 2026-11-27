@@ -18,6 +18,7 @@ import { error } from './lib/util.js';
 import { getSiteSettings, submissionsAreOpen } from './lib/siteSettings.js';
 import { openEventDays, dateRangeText, hoursCardsHtml, hoursSentence } from './lib/eventSchedule.js';
 import * as photoDownloads from './routes/photoDownloads.js';
+import * as photoBank from './routes/photoBank.js';
 
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -413,6 +414,16 @@ async function handle(request, env, ctx) {
       if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/display-photo\/clear$/)) && method === 'POST') {
         return await admin.clearDisplayPhoto(request, env, session, m[1]);
       }
+
+      // Display photo bank: shoot photos in a row, match them to nativities later.
+      if (path === '/api/admin/photo-bank' && method === 'GET') return await photoBank.list(request, env, session);
+      if (path === '/api/admin/photo-bank' && method === 'POST') return await photoBank.upload(request, env, session);
+      if (path === '/api/admin/photo-bank/candidates' && method === 'GET') return await photoBank.candidates(request, env, session);
+      if (path === '/api/admin/photo-bank/fingerprints' && method === 'POST') return await photoBank.saveFingerprints(request, env, session);
+      if ((m = path.match(/^\/api\/admin\/photo-bank\/(\d+)\/fingerprint$/)) && method === 'POST') return await photoBank.setFingerprint(request, env, session, m[1]);
+      if ((m = path.match(/^\/api\/admin\/photo-bank\/(\d+)\/match$/)) && method === 'POST') return await photoBank.match(request, env, session, m[1]);
+      if ((m = path.match(/^\/api\/admin\/photo-bank\/(\d+)\/unmatch$/)) && method === 'POST') return await photoBank.unmatch(request, env, session, m[1]);
+      if ((m = path.match(/^\/api\/admin\/photo-bank\/(\d+)$/)) && method === 'DELETE') return await photoBank.remove(request, env, session, m[1]);
 
       // Photo downloads: donors get only their own nativities' photos; admins get any.
       if ((m = path.match(/^\/api\/nativities\/(\d+)\/photo-download\/(main|all|piece-\d+)$/)) && method === 'GET') {
