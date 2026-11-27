@@ -7,9 +7,8 @@ import { consume, clientIp } from '../lib/rateLimit.js';
 // Keys are stored; labels are what admins see.
 export const HELP_AREAS = {
   build: 'Build and set up',
-  hosting: 'Hosting',
   checkin: 'Nativity check-in and check-out',
-  event_host: 'Hosts during the event',
+  event_host: 'Hosting during the event',
   nativities: 'Lending nativities',
 };
 
@@ -46,7 +45,8 @@ export async function submitInterest(request, env) {
   const email = String(body.email || '').trim().toLowerCase();
   const phone = String(body.phone || '').trim().replace(/\s+/g, ' ');
   const note = String(body.note || '').trim();
-  const areas = [...new Set((Array.isArray(body.helpAreas) ? body.helpAreas : []).map(String))]
+  // 'hosting' was an earlier, duplicate option; count it as hosting during the event.
+  const areas = [...new Set((Array.isArray(body.helpAreas) ? body.helpAreas : []).map(String).map((k) => (k === 'hosting' ? 'event_host' : k)))]
     .filter((key) => Object.hasOwn(HELP_AREAS, key));
 
   if (!name) return error('Please enter your name.');
