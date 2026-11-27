@@ -407,7 +407,8 @@ export async function uploadDisplayPhoto(request, env, session, id) {
 
   const key = await putAdminPhoto(request, env, `display/${id}`);
   if (key instanceof Response) return key;
-  await sql`UPDATE nativities SET display_photo_key = ${key}, updated_at = now() WHERE id = ${id}`;
+  // A new display photo clears "needs a better photo", which puts it back on the Scroll.
+  await sql`UPDATE nativities SET display_photo_key = ${key}, needs_better_photo = FALSE, needs_better_photo_by = NULL, needs_better_photo_at = NULL, updated_at = now() WHERE id = ${id}`;
   return json({ ok: true, key });
 }
 

@@ -26,6 +26,14 @@
   .tour-title { color:var(--gold-bright); margin:0 0 8px; font-family:'Fraunces', Georgia, serif; }
   .tour-caption { color:var(--wood); margin:0; line-height:1.55; white-space:pre-wrap; }
   .tour-story { color:var(--wood); font-style:italic; margin:0; }
+  /* Admin-only controls (never shown to visitors). */
+  .admin-bar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin:0 0 12px; padding:10px 12px; border-radius:12px; background:rgba(19,35,63,.85); border:1px solid var(--border-strong, rgba(255,255,255,.25)); font-size:14px; }
+  .admin-bar .num { color:var(--gold-bright); font-weight:700; }
+  .admin-bar label { display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--wood); font-weight:600; }
+  .admin-bar input { width:20px; height:20px; margin:0; accent-color:#d9b45a; cursor:pointer; }
+  .admin-bar .hidden-note { flex-basis:100%; color:#ffd3cc; font-size:13px; display:none; }
+  .tour-card.flagged .admin-bar .hidden-note { display:block; }
+  .tour-card.flagged .tour-media, .tour-card.flagged .tour-story { opacity:.45; }
 </style>
 </head>
 <body class="tour-page">
@@ -47,7 +55,7 @@
 async function load() {
   try {
     const [tourData, settings] = await Promise.all([
-      api('/api/tour?v=3'),
+      api('/api/tour?v=4'),
       api('/api/settings'),
     ]);
 
@@ -74,11 +82,49 @@ async function load() {
       return;
     }
 
+    isAdmin = !!tourData.isAdmin;
+    if (isAdmin) {
+      const flagged = tour.filter((i) => i.type === 'nativity' && i.needsBetterPhoto).length;
+      gallery.insertAdjacentHTML('beforebegin', `<div class="empty-state" style="margin-bottom:18px" id="adminNote">Admin view: untick "On the Scroll" to hide a nativity from visitors and mark it as needing a better photo. Tick it again to put it back. A new display photo also puts it back. <span id="flaggedCount">${flagged}</span> hidden right now.</div>`);
+    }
     gallery.innerHTML = tour.map(renderItem).join('');
   } catch (err) {
     showError(err.message);
   }
 }
+
+let isAdmin = false;
+
+function adminBar(item) {
+  if (!isAdmin) return '';
+  return `<div class="admin-bar">
+    <span class="num">${escapeHtml(item.submissionNumber || '')}</span>
+    <label><input type="checkbox" data-scroll-toggle="${escapeAttr(item.id)}" ${item.needsBetterPhoto ? '' : 'checked'}> On the Scroll</label>
+    <span class="hidden-note">Hidden from visitors · needs a better photo</span>
+  </div>`;
+}
+
+document.getElementById('gallery').addEventListener('change', async (e) => {
+  const box = e.target.closest('[data-scroll-toggle]');
+  if (!box) return;
+  const card = box.closest('.tour-card');
+  const needsBetterPhoto = !box.checked;
+  box.disabled = true;
+  hideError();
+  try {
+    const res = await api(`/api/admin/nativities/${encodeURIComponent(box.dataset.scrollToggle)}/needs-better-photo`, { method: 'POST', body: { needsBetterPhoto } });
+    card.classList.toggle('flagged', !!res.needsBetterPhoto);
+    box.checked = !res.needsBetterPhoto;
+  } catch (err) {
+    box.checked = !needsBetterPhoto;
+    showError(err.message);
+  } finally {
+    box.disabled = false;
+    const count = document.getElementById('flaggedCount');
+    if (count) count.textContent = document.querySelectorAll('.tour-card.flagged').length;
+  }
+});
+
 
 function renderItem(item) {
   if (item.type === 'media') {
@@ -95,7 +141,8 @@ function renderItem(item) {
   }
 
   return `
-    <div class="card tour-card">
+    <div class="card tour-card${isAdmin && item.needsBetterPhoto ? ' flagged' : ''}">
+      ${adminBar(item)}
       ${item.photoKey ? `<img class="tour-media" src="/photos/${escapeAttr(item.photoKey)}" alt="Nativity display" loading="lazy" decoding="async" width="1200" height="900">` : ''}
       ${item.story ? `<p class="tour-story">${escapeHtml(item.story)}</p>` : ''}
     </div>`;
