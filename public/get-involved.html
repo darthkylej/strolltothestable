@@ -17,9 +17,9 @@
   .optional { color:var(--muted); font-weight:500; font-size:13px; }
   .checks { display:grid; gap:8px; margin:0; padding:0; border:0; }
   .checks legend { font-weight:600; font-size:15px; color:var(--gold-bright); margin-bottom:7px; padding:0; }
-  .check { display:flex; align-items:center; gap:12px; padding:11px 14px; border:1.5px solid rgba(255,229,158,.22); border-radius:14px; background:rgba(5,12,24,.72); cursor:pointer; font-size:16px; line-height:1.35; }
-  .check input { width:20px; height:20px; flex:0 0 auto; margin:0; accent-color:#f2c76e; }
-  .check:has(input:checked) { border-color:rgba(255,229,158,.55); background:rgba(242,199,110,.10); }
+  .checks .check { display:flex; margin:0; font-weight:500; color:var(--text); align-items:center; gap:12px; padding:11px 14px; border:1.5px solid rgba(255,229,158,.22); border-radius:14px; background:rgba(5,12,24,.72); cursor:pointer; font-size:16px; line-height:1.35; }
+  .checks .check input { width:20px; height:20px; flex:0 0 auto; margin:0; accent-color:#f2c76e; }
+  .checks .check:has(input:checked) { border-color:rgba(255,229,158,.55); background:rgba(242,199,110,.10); }
   .hp-field { position:absolute; left:-10000px; width:1px; height:1px; overflow:hidden; }
   .thanks { display:none; text-align:center; padding:6px 0; }
   .thanks p { margin:0 0 16px; }
