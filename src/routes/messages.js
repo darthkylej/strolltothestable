@@ -1,6 +1,7 @@
 import PostalMime from 'postal-mime';
 import { db } from '../lib/db.js';
 import { json, error, requireAdmin } from '../lib/util.js';
+import { consume, clientIp } from '../lib/rateLimit.js';
 import { getSiteSettings } from '../lib/siteSettings.js';
 import { createSessionToken } from '../lib/auth.js';
 import {
@@ -57,6 +58,10 @@ export async function ensureMessageSchema(env) {
   `;
   await sql`ALTER TABLE message_items ADD COLUMN IF NOT EXISTS message_id TEXT`;
   await sql`ALTER TABLE message_items ADD COLUMN IF NOT EXISTS references_header TEXT`;
+  // 'email' for messages sent to our addresses; 'feedback' for the website's
+  // Feedback form. Feedback can be anonymous, so contact_email may be ''.
+  await sql`ALTER TABLE message_threads ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'email'`;
+  await sql`ALTER TABLE message_threads ADD COLUMN IF NOT EXISTS contact_name TEXT`;
   await sql`CREATE INDEX IF NOT EXISTS idx_message_threads_status ON message_threads (status)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_message_threads_contact ON message_threads (lower(contact_email))`;
   await sql`CREATE INDEX IF NOT EXISTS idx_message_threads_last_message ON message_threads (last_message_at DESC)`;
@@ -327,6 +332,14 @@ export async function handleIncomingEmail(message, env) {
       // Usually a reply to the admin alert email: send it on to the person as
       // a clean Stroll to the Stable email, with any attached files.
       const replyText = adminReplyText(rawText);
+      if (!thread.contact_email) {
+        // Anonymous website feedback: there is no one to send a reply to.
+        await sql`
+          INSERT INTO message_items (thread_id, direction, sender_email, admin_email, body_text, message_id, references_header)
+          VALUES (${thread.id}, 'inbound', ${sender}, null, ${'[Admin note by email. Not sent to anyone: this feedback has no email address.]\n\n' + bodyText}, ${messageId || null}, ${referencesHeader || null})
+        `;
+        return;
+      }
       if (!replyText) {
         // Nothing safe to send (empty, or it still contained alert content):
         // keep it in the Message Center for an admin to deal with.
@@ -383,6 +396,13 @@ export async function handleIncomingEmail(message, env) {
     WHERE id = ${thread.id}
   `;
 
+  await notifyAdmins(env, thread, { sourceAddress, contactEmail: sender, subject, bodyText });
+}
+
+// Emails the admins chosen for this address (all admins by default) about a
+// new incoming message or website feedback.
+async function notifyAdmins(env, thread, { sourceAddress, contactEmail, subject, bodyText, canReply = true }) {
+  const sql = db(env);
   const admins = await sql`SELECT email FROM admins ORDER BY created_at`;
   const adminEmails = admins.map(a => a.email).filter(Boolean);
   const settings = await getSiteSettings(env);
@@ -398,18 +418,75 @@ export async function handleIncomingEmail(message, env) {
       const messageCenterUrl = await adminMessageLink(env, recipient, thread.id);
       await sendMessageNotification(env, {
         to: [recipient],
-        contactEmail: sender,
+        contactEmail,
         sourceAddress,
         subject: thread.subject || subject,
         bodyText: displayText(bodyText),
         threadId: thread.id,
         threadCode: thread.thread_code,
         messageCenterUrl,
+        canReply,
       });
     } catch (err) {
       console.error(`Message stored but notification email failed for ${recipient}:`, err);
     }
   }
+}
+
+const FEEDBACK_ADDRESS = 'info@strolltothestable.com';
+const EMAIL_PATTERN = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+
+// Public Feedback form (no sign-in). Saved in the admin Message Center as a
+// 'feedback' conversation that only admins can see.
+export async function submitFeedback(request, env) {
+  const body = await request.json();
+  // Honeypot: a hidden field people never fill in. Pretend it worked.
+  if (String(body.website || '').trim()) return json({ ok: true });
+
+  const message = String(body.message || '').trim();
+  const name = String(body.name || '').trim().replace(/\s+/g, ' ');
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!message) return error('Please type your feedback.');
+  if (message.length > 4000) return error('Please keep your feedback under 4,000 characters.');
+  if (name.length > 100) return error('Please keep your name under 100 characters.');
+  if (email && (email.length > 200 || !EMAIL_PATTERN.test(email))) return error('Please check your email address, or leave it blank.');
+
+  const sql = db(env);
+  const ip = clientIp(request);
+  if (!(await consume(sql, `feedback:${ip}`, 5, 3600))) {
+    return error('Thanks! We have received several messages from you recently. Please try again later.', 429);
+  }
+
+  await ensureMessageSchema(env);
+  const subject = name ? `Website feedback from ${name}` : 'Website feedback';
+  const senderLabel = email || 'website feedback form';
+  let thread;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const rows = await sql`
+        INSERT INTO message_threads (thread_code, contact_email, contact_name, source_address, subject, status, kind)
+        VALUES (${makeThreadCode()}, ${email}, ${name || null}, ${FEEDBACK_ADDRESS}, ${subject}, 'pending', 'feedback')
+        RETURNING *
+      `;
+      thread = rows[0];
+      break;
+    } catch (err) {
+      if (attempt === 2) throw err;
+    }
+  }
+  await sql`
+    INSERT INTO message_items (thread_id, direction, sender_email, body_text)
+    VALUES (${thread.id}, 'inbound', ${senderLabel}, ${message})
+  `;
+
+  await notifyAdmins(env, thread, {
+    sourceAddress: FEEDBACK_ADDRESS,
+    contactEmail: email || (name ? `${name} (no email given)` : 'someone who left no email'),
+    subject,
+    bodyText: message,
+    canReply: Boolean(email),
+  });
+  return json({ ok: true });
 }
 
 export async function listThreads(request, env, session) {
@@ -523,6 +600,9 @@ export async function sendReplyToContact(env, thread, adminEmail, bodyText, { at
     ORDER BY created_at, id
   `;
   const latestInbound = [...history].reverse().find(item => item.direction === 'inbound');
+  if (!thread.contact_email) {
+    throw error('This feedback was sent without an email address, so there is no one to reply to.');
+  }
 
   const sendResult = await sendMessageCenterReply(env, {
     to: thread.contact_email,

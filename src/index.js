@@ -12,6 +12,7 @@ import * as walkin from './routes/walkin.js';
 import * as donorCodes from './routes/donorCodes.js';
 import * as settings from './routes/settings.js';
 import * as messages from './routes/messages.js';
+import * as volunteers from './routes/volunteers.js';
 import { getTour } from './routes/tour.js';
 import { error } from './lib/util.js';
 import { getSiteSettings, submissionsAreOpen } from './lib/siteSettings.js';
@@ -282,6 +283,11 @@ async function handle(request, env, ctx) {
       if (path === '/api/forgot-login' && method === 'POST') return await auth.forgotLogin(request, env);
       if (path === '/api/recover-login' && method === 'POST') return await auth.recoverLogin(request, env);
 
+      // Public forms that need no sign-in: Feedback (goes to the admin Message
+      // Center) and Get Involved (goes to the admin Volunteer Interest list).
+      if (path === '/api/feedback' && method === 'POST') return await messages.submitFeedback(request, env);
+      if (path === '/api/get-involved' && method === 'POST') return await volunteers.submitInterest(request, env);
+
       if (path === '/api/admin/request-otp' && method === 'POST') return await adminAuth.requestOtp(request, env);
       if (path === '/api/admin/verify-otp' && method === 'POST') return await adminAuth.verifyOtp(request, env);
 
@@ -351,6 +357,9 @@ async function handle(request, env, ctx) {
       if (path === '/api/admin/tour-media' && method === 'DELETE') return await admin.deleteTourMedia(request, env, session);
 
       if (path === '/api/admin/messages' && method === 'GET') return await messages.listThreads(request, env, session);
+      if (path === '/api/admin/volunteer-interest' && method === 'GET') return await volunteers.listInterest(request, env, session);
+      if (path === '/api/admin/volunteer-interest.csv' && method === 'GET') return await volunteers.exportInterestCsv(request, env, session);
+      if ((m = path.match(/^\/api\/admin\/volunteer-interest\/(\d+)$/)) && method === 'DELETE') return await volunteers.deleteInterest(request, env, session, m[1]);
       if (path === '/api/admin/message-notifications' && method === 'GET') return await admin.getMessageNotificationSettings(request, env, session);
       if (path === '/api/admin/message-notifications' && method === 'POST') return await admin.updateMessageNotificationSettings(request, env, session);
 
