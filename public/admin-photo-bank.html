@@ -50,6 +50,9 @@
   .cand .num { font-weight:800; font-size:13px; color:var(--gold-bright); margin-top:4px; }
   .cand .who { font-size:12px; color:var(--wood); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .cand .tag { display:inline-block; margin-top:3px; padding:1px 7px; border-radius:999px; font-size:11px; background:rgba(154,215,167,.14); border:1px solid rgba(154,215,167,.35); color:#d6f2dc; }
+  .pick-note { margin:0 0 10px; font-size:13px; color:var(--wood); }
+  .pick-note button { border:0; background:transparent; color:var(--gold-bright); font:inherit; text-decoration:underline; cursor:pointer; padding:0; }
+  .cand .why { font-size:11px; color:var(--muted); margin-top:3px; line-height:1.3; }
   .cand .score { float:right; font-size:11px; color:var(--muted); }
   .more { margin-top:10px; }
 
@@ -137,6 +140,7 @@
       <div class="search">
         <input type="search" id="search" placeholder="Search by number (e.g. 123), donor ID, name or pieces" autocomplete="off">
       </div>
+      <p class="pick-note" id="pickNote" hidden></p>
       <div class="cands" id="cands"></div>
       <button type="button" class="btn btn-outline more" id="moreBtn" hidden>Show more</button>
     </div>
@@ -170,6 +174,7 @@ let cands = [];           // nativities
 let current = null;       // id of the bank photo on screen
 let shown = 12;           // how many candidate tiles to show
 let indexing = false;
+let showGuesses = false; // show colour guesses instead of Claude's picks
 const queue = [];         // files waiting to upload
 let uploading = 0, uploadedThisRun = 0, totalThisRun = 0;
 const failedFiles = [];
@@ -285,7 +290,7 @@ function renderMatch() {
   let i = list.findIndex((p) => p.id === current);
   if (i < 0) i = 0;
   const p = list[i];
-  if (current !== p.id) { current = p.id; shown = 12; $('search').value = ''; }
+  if (current !== p.id) { current = p.id; shown = 12; showGuesses = false; $('search').value = ''; }
   $('viewer').hidden = false;
   $('viewerEmpty').hidden = true;
   $('position').textContent = `Photo ${i + 1} of ${list.length}`;
@@ -348,7 +353,17 @@ function renderCandidates() {
   const keys = bankKeys();
   const scored = cands.map((c) => ({ c, score: p.fingerprint && c.fingerprint ? PhotoBank.similarity(p.fingerprint, c.fingerprint) : null }));
   let list;
-  if (q) {
+  const picks = (p.suggestions || [])
+    .map((s) => ({ c: cands.find((c) => String(c.id) === String(s.nativity_id)), score: null, why: s.note }))
+    .filter((x) => x.c);
+  const usePicks = !q && !showGuesses && (picks.length || p.suggested_at);
+  $('pickNote').hidden = !usePicks;
+  if (usePicks) {
+    list = picks;
+    $('candTitle').textContent = picks.length ? "Claude's picks" : 'Search for the nativity';
+    $('pickNote').innerHTML = `${esc(p.suggest_note || (picks.length > 1 ? 'Closest matches first.' : 'Tap it to compare, then confirm.'))} <button type="button" id="guessBtn">Show other guesses</button>`;
+    $('guessBtn').addEventListener('click', () => { showGuesses = true; shown = 12; renderCandidates(); });
+  } else if (q) {
     list = scored.filter(({ c }) => matchesQuery(c, q));
     list.sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || String(a.c.submission_number).localeCompare(String(b.c.submission_number)));
     $('candTitle').textContent = `${list.length} found`;
@@ -360,7 +375,7 @@ function renderCandidates() {
     $('candTitle').textContent = list.length ? 'Best guesses' : 'Search for the nativity';
   }
   const page = list.slice(0, shown);
-  $('cands').innerHTML = page.map(({ c, score }) => {
+  $('cands').innerHTML = page.map(({ c, score, why }) => {
     const hasDisplay = c.display_photo_key && c.display_photo_key === p.photo_key ? 'This photo'
       : c.display_photo_key && keys.has(c.display_photo_key) ? 'Matched'
       : c.display_photo_key ? 'Has display photo' : '';
@@ -370,8 +385,9 @@ function renderCandidates() {
       <div class="who">${esc(c.owner_name || '')}${c.owner_donor_code ? ' · ' + esc(c.owner_donor_code) : ''}</div>
       <div class="who">${Number(c.piece_count) || 0} piece${Number(c.piece_count) === 1 ? '' : 's'}</div>
       ${hasDisplay ? `<span class="tag">${esc(hasDisplay)}</span>` : ''}
+      ${why ? `<div class="why">${esc(why)}</div>` : ''}
     </button>`;
-  }).join('') || `<div class="empty-state">${q ? 'No nativity matches that search.' : 'Type a number, donor ID or name above.'}</div>`;
+  }).join('') || (usePicks ? '' : `<div class="empty-state">${q ? 'No nativity matches that search.' : 'Type a number, donor ID or name above.'}</div>`);
   $('moreBtn').hidden = list.length <= shown;
   renderIndexLine();
 }

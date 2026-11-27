@@ -43,6 +43,20 @@ export function ensurePhotoBankSchema(env) {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
       `;
+      // Picks made by looking at each bank photo against the donor photos.
+      // Suggestions only: an admin still chooses the match on the page.
+      await sql`
+        CREATE TABLE IF NOT EXISTS photo_bank_suggestions (
+          bank_id BIGINT NOT NULL REFERENCES photo_bank(id) ON DELETE CASCADE,
+          nativity_id BIGINT NOT NULL REFERENCES nativities(id) ON DELETE CASCADE,
+          rank INT NOT NULL DEFAULT 1,
+          note TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          PRIMARY KEY (bank_id, nativity_id)
+        )
+      `;
+      await sql`ALTER TABLE photo_bank ADD COLUMN IF NOT EXISTS suggest_note TEXT`;
+      await sql`ALTER TABLE photo_bank ADD COLUMN IF NOT EXISTS suggested_at TIMESTAMPTZ`;
     })().catch((err) => { ensured = null; throw err; });
   }
   return ensured;
@@ -91,11 +105,20 @@ export async function list(request, env, session) {
   const sql = db(env);
   const photos = await sql`
     SELECT b.id, b.photo_key, b.fingerprint, b.taken_at, b.uploaded_at, b.original_name, b.uploaded_by,
-           b.matched_by, b.matched_at,
+           b.matched_by, b.matched_at, b.suggest_note, b.suggested_at,
            n.id AS nativity_id, n.submission_number
     FROM photo_bank b
     LEFT JOIN nativities n ON n.display_photo_key = b.photo_key
     ORDER BY COALESCE(b.taken_at, b.uploaded_at), b.id`;
+  const picks = await sql`
+    SELECT bank_id, nativity_id, rank, note FROM photo_bank_suggestions ORDER BY bank_id, rank, nativity_id`;
+  const byBank = new Map();
+  for (const r of picks) {
+    const k = String(r.bank_id);
+    if (!byBank.has(k)) byBank.set(k, []);
+    byBank.get(k).push({ nativity_id: String(r.nativity_id), rank: Number(r.rank), note: r.note || '' });
+  }
+  for (const p of photos) p.suggestions = byBank.get(String(p.id)) || [];
   return json({ photos });
 }
 

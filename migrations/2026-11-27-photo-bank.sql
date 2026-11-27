@@ -20,3 +20,15 @@ CREATE TABLE IF NOT EXISTS photo_fingerprints (
   fingerprint TEXT NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Picks for each bank photo (suggestions only; an admin chooses the match).
+CREATE TABLE IF NOT EXISTS photo_bank_suggestions (
+  bank_id BIGINT NOT NULL REFERENCES photo_bank(id) ON DELETE CASCADE,
+  nativity_id BIGINT NOT NULL REFERENCES nativities(id) ON DELETE CASCADE,
+  rank INT NOT NULL DEFAULT 1,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (bank_id, nativity_id)
+);
+ALTER TABLE photo_bank ADD COLUMN IF NOT EXISTS suggest_note TEXT;
+ALTER TABLE photo_bank ADD COLUMN IF NOT EXISTS suggested_at TIMESTAMPTZ;
