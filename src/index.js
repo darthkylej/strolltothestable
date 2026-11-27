@@ -1,4 +1,4 @@
-import { getSession } from './lib/auth.js';
+import { getSession, getAdminSession } from './lib/auth.js';
 import { pageCategory, recordPageView, getPageViewStats } from './lib/pageViews.js';
 import { db } from './lib/db.js';
 import { json, requireAdmin } from './lib/util.js';
@@ -292,7 +292,7 @@ async function handle(request, env, ctx) {
       if (path === '/api/admin/request-otp' && method === 'POST') return await adminAuth.requestOtp(request, env);
       if (path === '/api/admin/verify-otp' && method === 'POST') return await adminAuth.verifyOtp(request, env);
 
-      if (path === '/api/tour' && method === 'GET') return await getTour(request, env, session);
+      if (path === '/api/tour' && method === 'GET') return await getTour(request, env, await getAdminSession(request, env));
 
       if (path === '/api/admin/participant-profile' && (method === 'GET' || method === 'POST')) return await adminAuth.participantProfile(request,env,session);
       if (path === '/api/nativities' && method === 'GET') return await nativities.listMine(request, env, session);
