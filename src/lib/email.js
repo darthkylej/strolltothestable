@@ -381,24 +381,28 @@ export async function sendMessageNotification(env, {
   threadId,
   threadCode,
   messageCenterUrl,
+  canReply = true,
 }) {
   if (!Array.isArray(to) || to.length === 0) return;
 
   const openUrl = messageCenterUrl || `https://strolltothestable.com/admin-messages.html?id=${encodeURIComponent(threadId)}`;
   const safeBody = escapeHtml(bodyText || '').replace(/\n/g, '<br>');
+  const replyText = canReply
+    ? `Reply to this email to answer ${contactEmail}. They will receive it from ${sourceAddress}.`
+    : 'No email address was given, so there is no way to reply.';
 
   await send(env, {
     to,
     from: { email: sourceAddress, name: 'Stroll to the Stable' },
     replyTo: sourceAddress,
     subject: `New message: ${subject || 'Stroll to the Stable question'} [${threadCode}]`,
-    text: `${REPLY_MARKER}\n\nNew message from ${contactEmail}\nSubject: ${subject || '(none)'}\n\n${bodyText || ''}\n\nReply to this email to answer ${contactEmail}. They will receive it from ${sourceAddress}.\nOpen the Message Center: ${openUrl}\n\n${threadCode}`,
+    text: `${REPLY_MARKER}\n\nNew message from ${contactEmail}\nSubject: ${subject || '(none)'}\n\n${bodyText || ''}\n\n${replyText}\nOpen the Message Center: ${openUrl}\n\n${threadCode}`,
     html: adminAlertHtml({
       heading: escapeHtml(subject || 'New message'),
       lead: `New message from <b>${escapeHtml(contactEmail)}</b> to ${escapeHtml(sourceAddress)}.`,
       quoteLabel: 'Their message',
       body: safeBody,
-      replyLine: `Reply to this email to answer ${escapeHtml(contactEmail)}.`,
+      replyLine: canReply ? `Reply to this email to answer ${escapeHtml(contactEmail)}.` : 'No email address was given, so there is no way to reply.',
       openUrl,
       openLabel: 'Open Message Center',
       threadCode: escapeHtml(threadCode),

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get Involved — Stroll to the Stable</title>
+<meta name="description" content="Volunteer with A Stroll to the Stable in Seguin: sign up to host this year, or tell us how you'd like to help next year.">
+<link rel="stylesheet" href="/style.css">
+<style>
+  .involved p { color:var(--wood); line-height:1.6; }
+  .involved h2 { margin:0 0 8px; font-size:1.3rem; color:var(--gold-bright); }
+  .hosts-card { text-align:center; }
+  .hosts-card p { margin:0 0 16px; }
+  .hosts-card .btn { margin-bottom:0; }
+  .help-list { margin:0 0 6px; padding-left:22px; color:var(--text); line-height:1.7; }
+  .help-list li::marker { color:var(--gold); }
+  .optional { color:var(--muted); font-weight:500; font-size:13px; }
+  .checks { display:grid; gap:8px; margin:0; padding:0; border:0; }
+  .checks legend { font-weight:600; font-size:15px; color:var(--gold-bright); margin-bottom:7px; padding:0; }
+  .check { display:flex; align-items:center; gap:12px; padding:11px 14px; border:1.5px solid rgba(255,229,158,.22); border-radius:14px; background:rgba(5,12,24,.72); cursor:pointer; font-size:16px; line-height:1.35; }
+  .check input { width:20px; height:20px; flex:0 0 auto; margin:0; accent-color:#f2c76e; }
+  .check:has(input:checked) { border-color:rgba(255,229,158,.55); background:rgba(242,199,110,.10); }
+  .hp-field { position:absolute; left:-10000px; width:1px; height:1px; overflow:hidden; }
+  .thanks { display:none; text-align:center; padding:6px 0; }
+  .thanks p { margin:0 0 16px; }
+  .contact-line { margin:18px 0 0; font-size:.92rem; text-align:center; }
+  .contact-line a { color:var(--gold-bright); }
+</style>
+</head>
+<body>
+<div class="page involved">
+  <p><a class="link" href="/index.html">‹ Home</a></p>
+  <p class="eyebrow">Stroll to the Stable</p>
+  <h1>Get Involved</h1>
+
+  <div class="card hosts-card">
+    <h2>Volunteer this year</h2>
+    <p>Help welcome visitors as a Bethlehem host during this year's event. Pick a shift on our sign-up page.</p>
+    <a class="btn btn-primary" id="hostsLink" href="https://www.signupgenius.com/go/8050C4CAAAD22A1F85-67742613-astroll#/" target="_blank" rel="noopener">2026 Hosts Needed!</a>
+  </div>
+
+  <h2 style="margin-top:26px">We need a lot of help next year</h2>
+  <p>This event takes a lot of work, and we need volunteers to make it happen. We need help with:</p>
+  <ul class="help-list">
+    <li>The build and set up</li>
+    <li>Hosting</li>
+    <li>Nativity check-in and check-out</li>
+    <li>Hosts during the event</li>
+    <li>And we need <strong>LOTS</strong> of nativities!</li>
+  </ul>
+  <p>If you'd like to help, leave your contact information and we'll reach out when planning begins.</p>
+
+  <div id="formArea">
+    <div class="error-banner" data-error-banner></div>
+    <form id="interestForm" novalidate>
+      <div class="field">
+        <label for="name">Name</label>
+        <input type="text" id="name" autocomplete="name" maxlength="100" required>
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" autocomplete="email" inputmode="email" maxlength="200">
+      </div>
+      <div class="field">
+        <label for="phone">Phone</label>
+        <input type="tel" id="phone" autocomplete="tel" maxlength="40">
+        <p class="hint">An email or a phone number is fine. Whichever is easiest to reach you.</p>
+      </div>
+      <div class="field">
+        <fieldset class="checks">
+          <legend>I'd like to help with</legend>
+          <label class="check"><input type="checkbox" name="helpAreas" value="build"> Build and set up</label>
+          <label class="check"><input type="checkbox" name="helpAreas" value="hosting"> Hosting</label>
+          <label class="check"><input type="checkbox" name="helpAreas" value="checkin"> Nativity check-in and check-out</label>
+          <label class="check"><input type="checkbox" name="helpAreas" value="event_host"> Hosts during the event</label>
+          <label class="check"><input type="checkbox" name="helpAreas" value="nativities"> Lending nativities</label>
+        </fieldset>
+      </div>
+      <div class="field">
+        <label for="note">Anything else? <span class="optional">(optional)</span></label>
+        <textarea id="note" maxlength="2000" rows="4"></textarea>
+      </div>
+      <div class="hp-field" aria-hidden="true">
+        <label for="website">Website</label>
+        <input type="text" id="website" tabindex="-1" autocomplete="off">
+      </div>
+      <button type="submit" class="btn btn-primary" id="sendBtn">Count Me In</button>
+    </form>
+  </div>
+
+  <div class="card thanks" id="thanks">
+    <h2>Thank you!</h2>
+    <p>We've saved your information and will reach out when planning for next year begins.</p>
+    <a class="btn btn-outline" href="/index.html" style="margin-bottom:0">Back to Home</a>
+  </div>
+
+  <p class="contact-line">Questions? Email <a href="mailto:info@strolltothestable.com">info@strolltothestable.com</a>.</p>
+</div>
+<script src="/js/app.js"></script>
+<script>
+document.getElementById('interestForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideError();
+  const name = document.getElementById('name').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const note = document.getElementById('note').value.trim();
+  const helpAreas = [...document.querySelectorAll('input[name="helpAreas"]:checked')].map((el) => el.value);
+  if (!name) { showError('Please enter your name.'); return; }
+  if (!email && !phone) { showError('Please enter an email address or a phone number so we can reach you.'); return; }
+  if (!helpAreas.length && !note) { showError('Please pick at least one way you would like to help, or leave a note.'); return; }
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  try {
+    await api('/api/get-involved', {
+      method: 'POST',
+      body: { name, email, phone, helpAreas, note, website: document.getElementById('website').value },
+    });
+    document.getElementById('formArea').style.display = 'none';
+    document.getElementById('thanks').style.display = 'block';
+    document.getElementById('thanks').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (err) {
+    showError(err.message);
+    btn.disabled = false;
+    btn.textContent = 'Count Me In';
+  }
+});
+</script>
+</body>
+</html>

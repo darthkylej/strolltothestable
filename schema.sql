@@ -143,7 +143,9 @@ CREATE TABLE message_threads (
                        CHECK (status IN ('pending', 'answered', 'closed')),
     last_message_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    kind             TEXT NOT NULL DEFAULT 'email',   -- 'email' or 'feedback' (website Feedback form)
+    contact_name     TEXT                             -- name given on the Feedback form, if any
 );
 CREATE INDEX idx_message_threads_status ON message_threads (status);
 CREATE INDEX idx_message_threads_contact ON message_threads (lower(contact_email));
@@ -161,6 +163,20 @@ CREATE TABLE message_items (
     references_header TEXT                        -- References header, for email threading
 );
 CREATE INDEX idx_message_items_thread ON message_items (thread_id, created_at);
+
+-- ── Get Involved interest list ─────────────────────────────────────────
+-- People who want to help with a future event. help_areas holds keys from
+-- HELP_AREAS in src/routes/volunteers.js.
+CREATE TABLE volunteer_interest (
+    id          BIGSERIAL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    email       TEXT NOT NULL DEFAULT '',
+    phone       TEXT NOT NULL DEFAULT '',
+    help_areas  TEXT[] NOT NULL DEFAULT '{}',
+    note        TEXT NOT NULL DEFAULT '',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_volunteer_interest_created ON volunteer_interest (created_at DESC);
 
 -- ── Attempt limiter ────────────────────────────────────────────────────
 -- Counts registrations, login failures and admin-code requests/failures so

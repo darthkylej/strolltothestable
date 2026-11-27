@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Volunteer Interest — Stroll to the Stable Admin</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .vol-header { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; flex-wrap:wrap; margin-bottom:14px; }
+  .vol-header h1 { margin:0; }
+  .vol-header .btn { width:auto; margin:0; padding:9px 14px; min-height:0; font-size:14px; }
+  .vol-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .intro { color:var(--wood); margin:0 0 14px; font-size:15px; }
+  .summary { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 16px; }
+  .chip { display:inline-flex; gap:5px; align-items:center; padding:4px 10px; border:1px solid var(--border); border-radius:999px; background:rgba(8,16,31,.6); font-size:13px; cursor:pointer; color:var(--text); font-family:inherit; }
+  .chip b { color:var(--gold-bright); }
+  .chip.active { border-color:var(--gold); background:rgba(242,199,110,.16); }
+  .entry { padding:14px 16px; margin-bottom:10px; }
+  .entry-head { display:flex; justify-content:space-between; gap:10px; align-items:baseline; flex-wrap:wrap; }
+  .entry-name { margin:0; font-size:1.08rem; color:var(--gold-bright); font-family:'Inter', system-ui, sans-serif; font-weight:700; }
+  .entry-when { color:var(--muted); font-size:12px; }
+  .entry-contact { margin:4px 0 6px; font-size:15px; overflow-wrap:anywhere; }
+  .entry-contact a { color:var(--text); }
+  .tags { display:flex; flex-wrap:wrap; gap:5px; margin:6px 0; }
+  .tag { padding:2px 9px; border-radius:999px; background:rgba(154,215,167,.14); border:1px solid rgba(154,215,167,.35); color:#d6f2dc; font-size:12px; }
+  .entry-note { margin:6px 0 0; white-space:pre-wrap; color:var(--wood); font-size:14px; overflow-wrap:anywhere; }
+  .delete-entry { margin-top:6px; border:0; background:transparent; color:rgba(255,158,139,.6); padding:0; font:inherit; font-size:12px; cursor:pointer; text-decoration:underline; }
+  .delete-entry:hover { color:var(--barn-red); }
+</style>
+</head>
+<body>
+<div class="page wide">
+  <div class="vol-header">
+    <div>
+      <p class="eyebrow">Stroll to the Stable · Admin</p>
+      <h1>Volunteer Interest</h1>
+    </div>
+    <div class="vol-actions">
+      <a class="btn btn-outline" id="csvBtn" href="/api/admin/volunteer-interest.csv">Download CSV</a>
+      <a class="btn btn-outline" href="/admin-dashboard.html">← Admin Home</a>
+    </div>
+  </div>
+  <p class="intro">People who signed up on the Get Involved page to help with a future event.</p>
+
+  <div class="error-banner" data-error-banner></div>
+  <div class="summary" id="summary"></div>
+  <div id="list"><div class="empty-state">Loading…</div></div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+let entries = [];
+let areas = {};
+let filter = '';
+
+function esc(value) {
+  return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+}
+
+async function adminApi(path, options = {}) {
+  const res = await fetch(path, { method: options.method || 'GET' });
+  if (res.status === 401) {
+    window.location.href = '/admin-login.html?next=' + encodeURIComponent(location.pathname);
+    throw new Error('Admin login required');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+  return data;
+}
+
+function renderSummary() {
+  const counts = Object.fromEntries(Object.keys(areas).map((k) => [k, 0]));
+  for (const e of entries) for (const k of e.help_areas || []) if (k in counts) counts[k]++;
+  const chip = (key, label, n) => `<button type="button" class="chip ${filter === key ? 'active' : ''}" data-filter="${esc(key)}"><b>${n}</b> ${esc(label)}</button>`;
+  document.getElementById('summary').innerHTML = entries.length
+    ? chip('', 'total', entries.length) + Object.entries(areas).map(([k, label]) => chip(k, label, counts[k])).join('')
+    : '';
+}
+
+function renderList() {
+  const shown = filter ? entries.filter((e) => (e.help_areas || []).includes(filter)) : entries;
+  const list = document.getElementById('list');
+  if (!entries.length) { list.innerHTML = '<div class="empty-state">No one has signed up yet.</div>'; return; }
+  if (!shown.length) { list.innerHTML = '<div class="empty-state">No one picked this yet.</div>'; return; }
+  list.innerHTML = shown.map((e) => {
+    const contact = [
+      e.email ? `<a href="mailto:${esc(e.email)}">${esc(e.email)}</a>` : '',
+      e.phone ? `<a href="tel:${esc(e.phone.replace(/[^\d+]/g, ''))}">${esc(e.phone)}</a>` : '',
+    ].filter(Boolean).join(' · ');
+    const tags = (e.help_areas || []).map((k) => `<span class="tag">${esc(areas[k] || k)}</span>`).join('');
+    return `<div class="card entry">
+      <div class="entry-head">
+        <h2 class="entry-name">${esc(e.name)}</h2>
+        <span class="entry-when">${esc(new Date(e.created_at).toLocaleString([], { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }))}</span>
+      </div>
+      <div class="entry-contact">${contact}</div>
+      ${tags ? `<div class="tags">${tags}</div>` : ''}
+      ${e.note ? `<p class="entry-note">${esc(e.note)}</p>` : ''}
+      <button type="button" class="delete-entry" data-delete="${e.id}" data-name="${esc(e.name)}">Delete</button>
+    </div>`;
+  }).join('');
+}
+
+async function load() {
+  hideError();
+  try {
+    const data = await adminApi('/api/admin/volunteer-interest');
+    entries = data.entries || [];
+    areas = data.areas || {};
+    renderSummary();
+    renderList();
+  } catch (err) {
+    if (err.message !== 'Admin login required') showError(err.message);
+  }
+}
+
+document.getElementById('summary').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('[data-filter]');
+  if (!btn) return;
+  filter = btn.dataset.filter;
+  renderSummary();
+  renderList();
+});
+
+document.getElementById('list').addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('[data-delete]');
+  if (!btn) return;
+  if (!window.confirm(`Delete ${btn.dataset.name}'s entry?\n\nThis permanently removes it.`)) return;
+  try {
+    await adminApi('/api/admin/volunteer-interest/' + btn.dataset.delete, { method: 'DELETE' });
+    await load();
+  } catch (err) {
+    if (err.message !== 'Admin login required') showError(err.message);
+  }
+});
+
+load();
+</script>
+</body>
+</html>

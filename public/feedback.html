@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feedback — Stroll to the Stable</title>
+<meta name="description" content="Share your thoughts about A Stroll to the Stable in Seguin.">
+<link rel="stylesheet" href="/style.css">
+<style>
+  .intro { color:var(--wood); line-height:1.6; margin:0 0 20px; }
+  .optional { color:var(--muted); font-weight:500; font-size:13px; }
+  .hp-field { position:absolute; left:-10000px; width:1px; height:1px; overflow:hidden; }
+  .thanks { display:none; text-align:center; padding:10px 0 4px; }
+  .thanks h2 { margin:0 0 8px; color:var(--gold-bright); }
+  .thanks p { color:var(--wood); margin:0 0 18px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <p><a class="link" href="/index.html">‹ Home</a></p>
+  <p class="eyebrow">Stroll to the Stable</p>
+  <h1>Feedback</h1>
+
+  <div id="formArea">
+    <p class="intro">We'd love to hear what you thought of A Stroll to the Stable, and anything that would make it better. Your feedback goes only to the event organizers.</p>
+
+    <div class="error-banner" data-error-banner></div>
+
+    <form id="feedbackForm" novalidate>
+      <div class="field">
+        <label for="message">Your feedback</label>
+        <textarea id="message" maxlength="4000" rows="6" required></textarea>
+      </div>
+      <div class="field">
+        <label for="name">Name <span class="optional">(optional)</span></label>
+        <input type="text" id="name" autocomplete="name" maxlength="100">
+      </div>
+      <div class="field">
+        <label for="email">Email <span class="optional">(optional)</span></label>
+        <input type="email" id="email" autocomplete="email" inputmode="email" maxlength="200">
+        <p class="hint">Leave your email if you'd like us to be able to reply.</p>
+      </div>
+      <div class="hp-field" aria-hidden="true">
+        <label for="website">Website</label>
+        <input type="text" id="website" tabindex="-1" autocomplete="off">
+      </div>
+      <button type="submit" class="btn btn-primary" id="sendBtn">Send Feedback</button>
+    </form>
+  </div>
+
+  <div class="thanks" id="thanks">
+    <h2>Thank you!</h2>
+    <p>Your feedback was sent to the Stroll to the Stable organizers.</p>
+    <a class="btn btn-outline" href="/index.html">Back to Home</a>
+  </div>
+</div>
+<script src="/js/app.js"></script>
+<script>
+document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideError();
+  const message = document.getElementById('message').value.trim();
+  if (!message) { showError('Please type your feedback.'); return; }
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  try {
+    await api('/api/feedback', {
+      method: 'POST',
+      body: {
+        message,
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        website: document.getElementById('website').value,
+      },
+    });
+    document.getElementById('formArea').style.display = 'none';
+    document.getElementById('thanks').style.display = 'block';
+    window.scrollTo(0, 0);
+  } catch (err) {
+    showError(err.message);
+    btn.disabled = false;
+    btn.textContent = 'Send Feedback';
+  }
+});
+</script>
+</body>
+</html>
