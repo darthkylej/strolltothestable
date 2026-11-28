@@ -1,4 +1,4 @@
-import { getSession } from './lib/auth.js';
+import { getSession, getAdminSession } from './lib/auth.js';
 import { pageCategory, recordPageView, getPageViewStats } from './lib/pageViews.js';
 import { db } from './lib/db.js';
 import { json, requireAdmin } from './lib/util.js';
@@ -13,7 +13,7 @@ import * as donorCodes from './routes/donorCodes.js';
 import * as settings from './routes/settings.js';
 import * as messages from './routes/messages.js';
 import * as volunteers from './routes/volunteers.js';
-import { getTour } from './routes/tour.js';
+import { getTour, setNeedsBetterPhoto } from './routes/tour.js';
 import { error } from './lib/util.js';
 import { getSiteSettings, submissionsAreOpen } from './lib/siteSettings.js';
 import { openEventDays, dateRangeText, hoursCardsHtml, hoursSentence } from './lib/eventSchedule.js';
@@ -292,7 +292,7 @@ async function handle(request, env, ctx) {
       if (path === '/api/admin/request-otp' && method === 'POST') return await adminAuth.requestOtp(request, env);
       if (path === '/api/admin/verify-otp' && method === 'POST') return await adminAuth.verifyOtp(request, env);
 
-      if (path === '/api/tour' && method === 'GET') return await getTour(request, env, session);
+      if (path === '/api/tour' && method === 'GET') return await getTour(request, env, await getAdminSession(request, env));
 
       if (path === '/api/admin/participant-profile' && (method === 'GET' || method === 'POST')) return await adminAuth.participantProfile(request,env,session);
       if (path === '/api/nativities' && method === 'GET') return await nativities.listMine(request, env, session);
@@ -353,6 +353,7 @@ async function handle(request, env, ctx) {
       if (path === '/api/admin/admins' && method === 'POST') return await admin.addAdmin(request, env, session);
       if (path === '/api/admin/landing-background' && method === 'POST') return await admin.uploadLandingBackground(request, env, session);
       if (path === '/api/admin/landing-background' && method === 'DELETE') return await admin.deleteLandingBackground(request, env, session);
+      if ((m = path.match(/^\/api\/admin\/nativities\/(\d+)\/needs-better-photo$/)) && method === 'POST') return await setNeedsBetterPhoto(request, env, session, m[1]);
       if (path === '/api/admin/tour-media' && method === 'GET') return await admin.listTourMedia(request, env, session);
       if (path === '/api/admin/tour-media' && method === 'POST') return await admin.uploadTourMedia(request, env, session);
       if (path === '/api/admin/tour-media' && method === 'DELETE') return await admin.deleteTourMedia(request, env, session);

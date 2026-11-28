@@ -76,6 +76,9 @@ CREATE TABLE nativities (
                         CHECK (status IN ('pending', 'submitted', 'returned')),
     include_in_tour    BOOLEAN NOT NULL DEFAULT TRUE, -- unused: every checked-in nativity is shown in the tour
     display_photo_key  TEXT,                       -- worker-uploaded "glamour shot" in the final display spot; takes priority over photo_key in the tour
+    needs_better_photo BOOLEAN NOT NULL DEFAULT FALSE, -- admin took it off the Scroll until a better display photo is assigned
+    needs_better_photo_by TEXT,                   -- admin email who flagged it
+    needs_better_photo_at TIMESTAMPTZ,
     waiver_method      TEXT CHECK (waiver_method IN ('digital','paper')), -- how the waiver is (or will be) signed
     paper_by_admin     TEXT,                      -- admin email when the paper waiver was set up at the desk (walk-ins)
     waiver_signed      BOOLEAN NOT NULL DEFAULT FALSE,

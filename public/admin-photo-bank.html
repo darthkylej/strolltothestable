@@ -110,6 +110,7 @@
       </div>
     </div>
     <p class="counts" id="counts"></p>
+    <p class="counts" id="reshoot" hidden></p>
     <div class="strip" id="strip"></div>
   </section>
 
@@ -268,6 +269,12 @@ function renderCounts() {
     ? `<b>${photos.length}</b> photo${photos.length === 1 ? '' : 's'} in the bank · <b>${unmatched}</b> not matched yet`
     : 'No photos in the bank yet.';
   $('unmatchedTab').textContent = unmatched ? `(${unmatched})` : '';
+  // Nativities an admin took off the Scroll because they need a better photo.
+  const reshoot = cands.filter((c) => c.needs_better_photo);
+  $('reshoot').hidden = !reshoot.length;
+  $('reshoot').innerHTML = reshoot.length
+    ? `<b>${reshoot.length}</b> need${reshoot.length === 1 ? 's' : ''} a better photo (hidden from the Scroll until a new display photo is matched): ${reshoot.map((c) => esc(c.submission_number)).join(', ')}`
+    : '';
   const recent = photos.slice(-24).reverse();
   $('strip').innerHTML = recent.map((p) => `<img loading="lazy" src="${photoUrl(p.photo_key)}" class="${p.nativity_id ? 'done' : ''}" alt="">`).join('');
 }
@@ -370,13 +377,15 @@ function renderCandidates() {
   } else {
     // Best guesses leave out nativities that already have a bank photo as
     // their display photo; search finds those.
-    list = scored.filter(({ c, score }) => score !== null && !(c.display_photo_key && keys.has(c.display_photo_key)));
+    // Ones marked as needing a better photo stay in, so they can be reshot.
+    list = scored.filter(({ c, score }) => score !== null && (c.needs_better_photo || !(c.display_photo_key && keys.has(c.display_photo_key))));
     list.sort((a, b) => b.score - a.score);
     $('candTitle').textContent = list.length ? 'Best guesses' : 'Search for the nativity';
   }
   const page = list.slice(0, shown);
   $('cands').innerHTML = page.map(({ c, score, why }) => {
     const hasDisplay = c.display_photo_key && c.display_photo_key === p.photo_key ? 'This photo'
+      : c.needs_better_photo ? 'Needs a better photo'
       : c.display_photo_key && keys.has(c.display_photo_key) ? 'Matched'
       : c.display_photo_key ? 'Has display photo' : '';
     return `<button type="button" class="cand" data-id="${esc(c.id)}">
@@ -492,6 +501,7 @@ function applyMatch(p, c) {
   for (const x of cands) if (x.display_photo_key === p.photo_key) x.display_photo_key = null;
   for (const x of photos) if (x.nativity_id === c.id) { x.nativity_id = null; x.submission_number = null; }
   c.display_photo_key = p.photo_key;
+  c.needs_better_photo = false; // a new display photo puts it back on the Scroll
   p.nativity_id = c.id;
   p.submission_number = c.submission_number;
 }

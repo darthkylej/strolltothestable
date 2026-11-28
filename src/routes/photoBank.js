@@ -129,7 +129,7 @@ export async function candidates(request, env, session) {
   await ensurePhotoBankSchema(env);
   const sql = db(env);
   const rows = await sql`
-    SELECT n.id, n.submission_number, n.status, n.piece_count, n.photo_key, n.display_photo_key,
+    SELECT n.id, n.submission_number, n.status, n.piece_count, n.photo_key, n.display_photo_key, n.needs_better_photo,
            left(n.description, 300) AS description, u.name AS owner_name, u.donor_code AS owner_donor_code,
            f.fingerprint
     FROM nativities n
@@ -207,7 +207,9 @@ export async function match(request, env, session, id) {
   await sql.transaction([
     sql`UPDATE nativities SET display_photo_key = NULL, updated_at = now()
         WHERE display_photo_key = ${photo.photo_key} AND id <> ${nativityId}`,
-    sql`UPDATE nativities SET display_photo_key = ${photo.photo_key}, updated_at = now() WHERE id = ${nativityId}`,
+    // A new display photo clears "needs a better photo", which puts it back on the Scroll.
+    sql`UPDATE nativities SET display_photo_key = ${photo.photo_key}, needs_better_photo = FALSE,
+        needs_better_photo_by = NULL, needs_better_photo_at = NULL, updated_at = now() WHERE id = ${nativityId}`,
     sql`UPDATE photo_bank SET matched_by = ${admin.email || ''}, matched_at = now() WHERE id = ${photo.id}`,
   ]);
   return json({ ok: true, nativityId, submissionNumber: t.submission_number, replacedKey: t.display_photo_key || null });

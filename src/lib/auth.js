@@ -95,6 +95,22 @@ export async function getSession(request, env) {
   return null;
 }
 
+// The admin session only, for public pages (like the Scroll) that show
+// extra controls to a signed-in admin. getSession() gives public paths the
+// participant session, so it never returns the admin one there.
+export async function getAdminSession(request, env) {
+  const cookie = request.headers.get('Cookie') || '';
+  for (const name of ['admin_session', 'session']) {
+    const match = cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
+    if (!match) continue;
+    try {
+      const s = await verifySessionToken(env, decodeURIComponent(match[1]));
+      if (s && s.kind === 'admin') return s;
+    } catch { /* ignore */ }
+  }
+  return null;
+}
+
 export function sessionCookieHeader(token, { clear = false, kind = 'user' } = {}) {
   const maxAge = clear ? 0 : TWO_WEEKS_MS / 1000;
   const value = clear ? '' : token;
