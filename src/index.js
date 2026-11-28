@@ -422,6 +422,11 @@ async function handle(request, env, ctx) {
       if (path === '/api/admin/photo-bank/candidates' && method === 'GET') return await photoBank.candidates(request, env, session);
       if (path === '/api/admin/photo-bank/fingerprints' && method === 'POST') return await photoBank.saveFingerprints(request, env, session);
       if ((m = path.match(/^\/api\/admin\/photo-bank\/(\d+)\/fingerprint$/)) && method === 'POST') return await photoBank.setFingerprint(request, env, session, m[1]);
+      if (path === '/api/admin/photo-bank/proposals' && method === 'GET') return await photoBank.proposals(request, env, session);
+      if (path === '/api/admin/photo-bank/proposals/approve' && method === 'POST') return await photoBank.approveProposal(request, env, session);
+      if (path === '/api/admin/photo-bank/proposals/undo' && method === 'POST') return await photoBank.undoProposal(request, env, session);
+      if (path === '/api/admin/photo-bank/proposals/dismiss' && method === 'POST') return await photoBank.dismissProposal(request, env, session);
+      if ((m = path.match(/^\/api\/admin\/photo-bank\/(\d+)\/rotated$/)) && method === 'POST') return await photoBank.rotated(request, env, session, m[1]);
       if ((m = path.match(/^\/api\/admin\/photo-bank\/(\d+)\/match$/)) && method === 'POST') return await photoBank.match(request, env, session, m[1]);
       if ((m = path.match(/^\/api\/admin\/photo-bank\/(\d+)\/unmatch$/)) && method === 'POST') return await photoBank.unmatch(request, env, session, m[1]);
       if ((m = path.match(/^\/api\/admin\/photo-bank\/(\d+)$/)) && method === 'DELETE') return await photoBank.remove(request, env, session, m[1]);

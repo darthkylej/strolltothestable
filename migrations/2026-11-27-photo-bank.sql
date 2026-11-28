@@ -32,3 +32,11 @@ CREATE TABLE IF NOT EXISTS photo_bank_suggestions (
 );
 ALTER TABLE photo_bank ADD COLUMN IF NOT EXISTS suggest_note TEXT;
 ALTER TABLE photo_bank ADD COLUMN IF NOT EXISTS suggested_at TIMESTAMPTZ;
+
+-- Proposed matches for nativities taken off the Scroll (Approve Photo Matches page).
+ALTER TABLE photo_bank_suggestions ADD COLUMN IF NOT EXISTS confidence TEXT NOT NULL DEFAULT '';
+ALTER TABLE photo_bank_suggestions ADD COLUMN IF NOT EXISTS rotate INT NOT NULL DEFAULT 0;
+ALTER TABLE photo_bank_suggestions ADD COLUMN IF NOT EXISTS approved_by TEXT;
+ALTER TABLE photo_bank_suggestions ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+ALTER TABLE photo_bank_suggestions ADD COLUMN IF NOT EXISTS previous_display_key TEXT;
+ALTER TABLE photo_bank_suggestions ADD COLUMN IF NOT EXISTS dismissed_at TIMESTAMPTZ;

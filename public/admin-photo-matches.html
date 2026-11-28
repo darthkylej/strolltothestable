@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Approve Photo Matches — Stroll to the Stable Admin</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .pm-header { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; flex-wrap:wrap; margin-bottom:12px; }
+  .pm-header h1 { margin:0; }
+  .pm-header .links { display:flex; gap:8px; flex-wrap:wrap; }
+  .pm-header .btn { width:auto; margin:0; padding:9px 14px; min-height:0; font-size:14px; }
+  .intro { color:var(--wood); margin:0 0 14px; font-size:15px; }
+  .tabs { display:flex; gap:8px; margin:0 0 14px; flex-wrap:wrap; }
+  .tab { flex:1; min-width:96px; padding:10px 8px; border-radius:14px; border:1.5px solid var(--border); background:rgba(8,16,31,.6); color:var(--text); font:inherit; font-weight:700; font-size:14px; cursor:pointer; }
+  .tab.active { border-color:var(--gold); background:rgba(242,199,110,.16); color:var(--gold-bright); }
+  .tab .n { color:var(--gold-bright); }
+  .bulk { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:0 0 14px; font-size:14px; color:var(--wood); }
+  .bulk .btn { width:auto; margin:0; padding:9px 14px; min-height:0; font-size:14px; }
+  .group-title { margin:18px 0 8px; font-size:1.05rem; color:var(--gold-bright); }
+  .group-title small { color:var(--muted); font-weight:400; font-size:13px; }
+  .row { border:1px solid var(--border); border-radius:16px; background:rgba(8,16,31,.7); padding:10px; margin:0 0 12px; }
+  .row.done { border-color:rgba(154,215,167,.55); }
+  .row-head { display:flex; justify-content:space-between; gap:8px; align-items:baseline; flex-wrap:wrap; margin:0 0 8px; }
+  .row-head .num { font-weight:800; color:var(--gold-bright); font-size:15px; }
+  .row-head .who { font-size:13px; color:var(--wood); }
+  .row-desc { font-size:13px; color:var(--muted); margin:-4px 0 8px; overflow-wrap:anywhere; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .pair figure { margin:0; }
+  .frame { position:relative; width:100%; aspect-ratio:1; border-radius:12px; overflow:hidden; background:#0b1424; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; }
+  .frame img { max-width:100%; max-height:100%; object-fit:contain; transition:transform .2s; }
+  .frame.turned img { max-width:100%; max-height:100%; }
+  .pair figcaption { font-size:12px; color:var(--muted); text-align:center; margin-top:4px; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; font-weight:700; }
+  .tag.strong { background:rgba(154,215,167,.16); border:1px solid rgba(154,215,167,.45); color:#d6f2dc; }
+  .tag.likely { background:rgba(242,199,110,.14); border:1px solid rgba(242,199,110,.45); color:var(--gold-bright); }
+  .tag.maybe { background:rgba(255,255,255,.06); border:1px solid var(--border); color:var(--wood); }
+  .note { font-size:13px; color:var(--wood); margin:8px 0 0; }
+  .shared { font-size:12px; color:var(--muted); margin:3px 0 0; }
+  .turn { display:flex; gap:6px; justify-content:center; margin-top:4px; }
+  .turn button { border:1px solid var(--border); background:transparent; color:var(--text); border-radius:10px; padding:3px 10px; font:inherit; font-size:13px; cursor:pointer; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .actions .btn { width:auto; flex:1 1 140px; margin:0; padding:10px 12px; min-height:0; font-size:14px; }
+  .status { font-size:14px; margin-top:8px; }
+  .status.ok { color:var(--pasture); }
+  .status.err { color:#ffd3cc; }
+  .others { margin-top:8px; font-size:13px; color:var(--wood); }
+  .others button { border:0; background:transparent; color:var(--gold-bright); font:inherit; text-decoration:underline; cursor:pointer; padding:0; margin-right:10px; }
+  .nopick .frame { aspect-ratio:4/3; }
+  .nopick .actions .btn { flex:0 1 auto; }
+  .toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:60; display:none; padding:11px 16px; border-radius:14px; background:#13233f; border:1px solid var(--border-strong); box-shadow:var(--shadow); font-size:14px; max-width:calc(100% - 24px); }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<div class="page wide">
+  <div class="pm-header">
+    <div>
+      <p class="eyebrow">Stroll to the Stable · Admin</p>
+      <h1>Approve Photo Matches</h1>
+    </div>
+    <div class="links">
+      <a class="btn btn-outline" href="/admin-photo-bank.html">Display Photos</a>
+      <a class="btn btn-outline" href="/admin-dashboard.html">← Admin Home</a>
+    </div>
+  </div>
+  <p class="intro">Each nativity taken off the Scroll for a better photo is shown with the photo from the bank that looks like the same piece. Nothing changes until you press Approve. Approving makes it the display photo and puts the nativity back on the Scroll. The donor's own photo is never changed.</p>
+
+  <div class="error-banner" data-error-banner></div>
+
+  <div class="tabs">
+    <button type="button" class="tab active" data-tab="todo">To check <span class="n" id="nTodo"></span></button>
+    <button type="button" class="tab" data-tab="nopick">No match found <span class="n" id="nNopick"></span></button>
+    <button type="button" class="tab" data-tab="done">Approved <span class="n" id="nDone"></span></button>
+  </div>
+
+  <div class="bulk" id="bulk" hidden>
+    <button type="button" class="btn btn-secondary" id="bulkBtn"></button>
+    <span id="bulkText"></span>
+  </div>
+
+  <div id="list"><p class="intro">Loading…</p></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/js/app.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let rows = [];          // nativities with their proposed bank photos
+let tab = 'todo';
+const turn = new Map(); // "nativityId:bankId" -> degrees clockwise chosen on this page
+const choice = new Map(); // nativityId -> bank id being shown
+const busy = new Set();
+const ORDER = { strong: 0, likely: 1, maybe: 2, '': 3 };
+const LABEL = { strong: 'Sure match', likely: 'Likely match', maybe: 'Maybe' };
+
+function esc(v) { return String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
+const photoUrl = (key) => '/photos/' + String(key).split('/').map(encodeURIComponent).join('/');
+
+async function adminApi(path, options = {}) {
+  const isBlob = options.body instanceof Blob;
+  const res = await fetch(path, {
+    method: options.method || 'GET',
+    headers: isBlob ? { 'Content-Type': options.body.type || 'image/jpeg' } : (options.body !== undefined ? { 'Content-Type': 'application/json' } : undefined),
+    body: isBlob ? options.body : (options.body !== undefined ? JSON.stringify(options.body) : undefined),
+  });
+  if (res.status === 401) {
+    location.href = '/admin-login.html?next=' + encodeURIComponent(location.pathname);
+    throw new Error('Admin login required');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { const err = new Error(data.error || 'Something went wrong.'); err.status = res.status; err.data = data; throw err; }
+  return data;
+}
+
+function toast(text) {
+  const t = $('toast'); t.textContent = text; t.style.display = 'block';
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+function approvedPick(n) { return n.picks.find((p) => p.approved_at); }
+function activePick(n) {
+  const a = approvedPick(n);
+  if (a) return a;
+  const want = choice.get(n.id);
+  return n.picks.find((p) => p.bank_id === want) || n.picks[0] || null;
+}
+function bucket(n) {
+  if (approvedPick(n)) return 'done';
+  if (!n.picks.length) return 'nopick';
+  return 'todo';
+}
+function degrees(n, p) {
+  const k = n.id + ':' + p.bank_id;
+  return turn.has(k) ? turn.get(k) : (p.rotate || 0);
+}
+
+async function load() {
+  const data = await adminApi('/api/admin/photo-bank/proposals');
+  rows = data.nativities || [];
+  render();
+}
+
+function render() {
+  const counts = { todo: 0, nopick: 0, done: 0 };
+  rows.forEach((n) => counts[bucket(n)]++);
+  $('nTodo').textContent = counts.todo; $('nNopick').textContent = counts.nopick; $('nDone').textContent = counts.done;
+  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
+
+  let list = rows.filter((n) => bucket(n) === tab);
+  const sure = rows.filter((n) => bucket(n) === 'todo' && (activePick(n)?.confidence === 'strong'));
+  $('bulk').hidden = tab !== 'todo' || !sure.length;
+  $('bulkBtn').textContent = `Approve all ${sure.length} sure matches`;
+  $('bulkText').textContent = 'Check them below first. Each one can be undone.';
+
+  if (!list.length) {
+    $('list').innerHTML = `<div class="empty-state">${tab === 'todo' ? 'Nothing left to check.' : tab === 'done' ? 'None approved yet.' : 'Every nativity here has a proposed photo.'}</div>`;
+    return;
+  }
+  if (tab === 'todo') {
+    list.sort((a, b) => (ORDER[activePick(a).confidence] ?? 3) - (ORDER[activePick(b).confidence] ?? 3) || a.submission_number.localeCompare(b.submission_number));
+    let html = '', last = null;
+    for (const n of list) {
+      const c = activePick(n).confidence || '';
+      if (c !== last) {
+        const howMany = list.filter((x) => (activePick(x).confidence || '') === c).length;
+        html += `<h2 class="group-title">${esc(LABEL[c] || 'Other picks')} <small>(${howMany})</small></h2>`;
+        last = c;
+      }
+      html += rowHtml(n);
+    }
+    $('list').innerHTML = html;
+  } else {
+    $('list').innerHTML = list.map(tab === 'nopick' ? noPickHtml : rowHtml).join('');
+  }
+}
+
+function rowHtml(n) {
+  const p = activePick(n);
+  const done = !!p.approved_at;
+  const deg = degrees(n, p);
+  const others = done ? [] : n.picks.filter((x) => x.bank_id !== p.bank_id);
+  const turnedStyle = deg ? `style="transform:rotate(${deg}deg)"` : '';
+  return `
+  <div class="row${done ? ' done' : ''}" data-id="${n.id}">
+    <div class="row-head">
+      <span class="num">${esc(n.submission_number)}</span>
+      <span class="who">${esc(n.owner_name || '')}${n.owner_donor_code ? ' · ' + esc(n.owner_donor_code) : ''} · ${n.piece_count || 1} piece${Number(n.piece_count) === 1 ? '' : 's'}</span>
+      ${p.confidence ? `<span class="tag ${esc(p.confidence)}">${esc(LABEL[p.confidence] || p.confidence)}</span>` : ''}
+    </div>
+    ${n.description ? `<div class="row-desc">${esc(n.description)}</div>` : ''}
+    <div class="pair">
+      <figure>
+        <a class="frame" href="${n.photo_key ? photoUrl(n.photo_key) : '#'}" target="_blank" rel="noopener">${n.photo_key ? `<img loading="lazy" src="${photoUrl(n.photo_key)}" alt="Donor's photo">` : ''}</a>
+        <figcaption>Donor's photo</figcaption>
+      </figure>
+      <figure>
+        <a class="frame" href="${photoUrl(p.bank_photo_key)}" target="_blank" rel="noopener"><img loading="lazy" src="${photoUrl(p.bank_photo_key)}" alt="Photo from the bank" ${turnedStyle}></a>
+        <figcaption>${done ? 'Display photo now' : 'New photo' + (deg ? ' (will be turned upright)' : '')}</figcaption>
+        ${done ? '' : `<div class="turn"><button type="button" data-act="left" aria-label="Turn left">⟲ Turn</button><button type="button" data-act="right" aria-label="Turn right">Turn ⟳</button></div>`}
+      </figure>
+    </div>
+    ${p.note ? `<p class="note">${esc(p.note)}</p>` : ''}
+    ${p.used_by ? `<p class="shared">This photo is also the display photo of ${esc(p.used_by)}.</p>` : ''}
+    ${others.length ? `<div class="others">Other photos to compare: ${others.map((o, i) => `<button type="button" data-act="show" data-bank="${o.bank_id}">Photo ${i + 2}</button>`).join('')}</div>` : ''}
+    <div class="actions">
+      ${done
+        ? `<button type="button" class="btn btn-outline" data-act="undo">Undo</button>`
+        : `<button type="button" class="btn btn-primary" data-act="approve">Approve</button>
+           <button type="button" class="btn btn-outline" data-act="dismiss">Not this one</button>`}
+    </div>
+    <div class="status${done ? ' ok' : ''}" data-status>${done ? 'On the Scroll with this photo.' : ''}</div>
+  </div>`;
+}
+
+function noPickHtml(n) {
+  return `
+  <div class="row nopick" data-id="${n.id}">
+    <div class="row-head">
+      <span class="num">${esc(n.submission_number)}</span>
+      <span class="who">${esc(n.owner_name || '')}${n.owner_donor_code ? ' · ' + esc(n.owner_donor_code) : ''} · ${n.piece_count || 1} piece${Number(n.piece_count) === 1 ? '' : 's'}</span>
+    </div>
+    ${n.description ? `<div class="row-desc">${esc(n.description)}</div>` : ''}
+    <div class="pair">
+      <figure>
+        <a class="frame" href="${n.photo_key ? photoUrl(n.photo_key) : '#'}" target="_blank" rel="noopener">${n.photo_key ? `<img loading="lazy" src="${photoUrl(n.photo_key)}" alt="Donor's photo">` : ''}</a>
+        <figcaption>Donor's photo</figcaption>
+      </figure>
+      <div class="note">No photo in the bank looks like this one yet. It may still need to be photographed, or you can pick one on the Display Photos page.</div>
+    </div>
+  </div>`;
+}
+
+// Turns the bank photo upright in the browser and saves the turned copy.
+async function saveTurned(p, deg) {
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = photoUrl(p.bank_photo_key) + '?turn=' + Date.now();
+  await img.decode();
+  const quarter = ((deg % 360) + 360) % 360;
+  const swap = quarter === 90 || quarter === 270;
+  const canvas = document.createElement('canvas');
+  canvas.width = swap ? img.naturalHeight : img.naturalWidth;
+  canvas.height = swap ? img.naturalWidth : img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(quarter * Math.PI / 180);
+  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+  const blob = await new Promise((resolve, reject) => canvas.toBlob((b) => b ? resolve(b) : reject(new Error('Could not turn the photo.')), 'image/jpeg', 0.88));
+  return adminApi(`/api/admin/photo-bank/${p.bank_id}/rotated`, { method: 'POST', body: blob });
+}
+
+async function approve(n, p, { quiet = false } = {}) {
+  const deg = ((degrees(n, p) % 360) + 360) % 360;
+  if (deg) {
+    await saveTurned(p, deg);
+    turn.delete(n.id + ':' + p.bank_id);
+  }
+  const body = { nativityId: Number(n.id), bankId: Number(p.bank_id) };
+  try {
+    await adminApi('/api/admin/photo-bank/proposals/approve', { method: 'POST', body });
+  } catch (err) {
+    if (err.data?.needsReplace && !quiet && confirm(err.message)) {
+      await adminApi('/api/admin/photo-bank/proposals/approve', { method: 'POST', body: { ...body, replace: true } });
+    } else if (err.data?.needsReplace && quiet) {
+      return 'skipped';
+    } else if (err.data?.needsReplace) {
+      return 'cancelled';
+    } else {
+      throw err;
+    }
+  }
+  return 'ok';
+}
+
+$('list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  const rowEl = btn.closest('.row');
+  const n = rows.find((r) => r.id === rowEl.dataset.id);
+  if (!n || busy.has(n.id)) return;
+  const p = activePick(n);
+  const act = btn.dataset.act;
+  const status = rowEl.querySelector('[data-status]');
+  if (act === 'left' || act === 'right') {
+    const k = n.id + ':' + p.bank_id;
+    turn.set(k, (degrees(n, p) + (act === 'right' ? 90 : 270)) % 360);
+    render();
+    return;
+  }
+  if (act === 'show') { choice.set(n.id, btn.dataset.bank); render(); return; }
+  busy.add(n.id);
+  rowEl.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+  status.className = 'status'; status.textContent = act === 'approve' ? 'Saving…' : 'Working…';
+  try {
+    if (act === 'approve') {
+      const r = await approve(n, p);
+      if (r === 'ok') toast(`${n.submission_number} is back on the Scroll.`);
+    } else if (act === 'undo') {
+      await adminApi('/api/admin/photo-bank/proposals/undo', { method: 'POST', body: { nativityId: Number(n.id), bankId: Number(p.bank_id) } });
+      toast(`${n.submission_number} is off the Scroll again.`);
+    } else if (act === 'dismiss') {
+      await adminApi('/api/admin/photo-bank/proposals/dismiss', { method: 'POST', body: { nativityId: Number(n.id), bankId: Number(p.bank_id) } });
+      choice.delete(n.id);
+    }
+    busy.delete(n.id);
+    await load();
+  } catch (err) {
+    busy.delete(n.id);
+    status.className = 'status err'; status.textContent = err.message;
+    rowEl.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+  }
+});
+
+$('bulkBtn').addEventListener('click', async () => {
+  const sure = rows.filter((n) => bucket(n) === 'todo' && activePick(n)?.confidence === 'strong');
+  if (!sure.length || !confirm(`Approve all ${sure.length} sure matches? Each one goes back on the Scroll with its new photo.`)) return;
+  $('bulkBtn').disabled = true;
+  let ok = 0, skipped = 0, failed = 0;
+  for (const n of sure) {
+    $('bulkText').textContent = `Approving ${ok + skipped + failed + 1} of ${sure.length}…`;
+    try {
+      const r = await approve(n, activePick(n), { quiet: true });
+      if (r === 'ok') ok++; else skipped++;
+    } catch (err) { failed++; console.error(err); }
+  }
+  $('bulkBtn').disabled = false;
+  await load();
+  toast(`Approved ${ok}.` + (skipped ? ` ${skipped} already had a display photo, so I left them for you.` : '') + (failed ? ` ${failed} didn't save; try them one at a time.` : ''));
+});
+
+document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => { tab = t.dataset.tab; render(); window.scrollTo(0, 0); }));
+
+load().catch((err) => { $('list').innerHTML = `<div class="empty-state">${esc(err.message)}</div>`; });
+</script>
+</body>
+</html>

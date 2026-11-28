@@ -57,6 +57,15 @@ export function ensurePhotoBankSchema(env) {
       `;
       await sql`ALTER TABLE photo_bank ADD COLUMN IF NOT EXISTS suggest_note TEXT`;
       await sql`ALTER TABLE photo_bank ADD COLUMN IF NOT EXISTS suggested_at TIMESTAMPTZ`;
+      // Proposed matches for nativities taken off the Scroll: how sure the pick
+      // is, how far the bank photo needs turning (degrees clockwise), and who
+      // approved it, keeping the old display photo so an approval can be undone.
+      await sql`ALTER TABLE photo_bank_suggestions ADD COLUMN IF NOT EXISTS confidence TEXT NOT NULL DEFAULT ''`;
+      await sql`ALTER TABLE photo_bank_suggestions ADD COLUMN IF NOT EXISTS rotate INT NOT NULL DEFAULT 0`;
+      await sql`ALTER TABLE photo_bank_suggestions ADD COLUMN IF NOT EXISTS approved_by TEXT`;
+      await sql`ALTER TABLE photo_bank_suggestions ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`;
+      await sql`ALTER TABLE photo_bank_suggestions ADD COLUMN IF NOT EXISTS previous_display_key TEXT`;
+      await sql`ALTER TABLE photo_bank_suggestions ADD COLUMN IF NOT EXISTS dismissed_at TIMESTAMPTZ`;
     })().catch((err) => { ensured = null; throw err; });
   }
   return ensured;
@@ -108,10 +117,14 @@ export async function list(request, env, session) {
            b.matched_by, b.matched_at, b.suggest_note, b.suggested_at,
            n.id AS nativity_id, n.submission_number
     FROM photo_bank b
-    LEFT JOIN nativities n ON n.display_photo_key = b.photo_key
+    LEFT JOIN LATERAL (
+      SELECT id, submission_number FROM nativities
+      WHERE display_photo_key = b.photo_key ORDER BY submission_number LIMIT 1
+    ) n ON TRUE
     ORDER BY COALESCE(b.taken_at, b.uploaded_at), b.id`;
   const picks = await sql`
-    SELECT bank_id, nativity_id, rank, note FROM photo_bank_suggestions ORDER BY bank_id, rank, nativity_id`;
+    SELECT bank_id, nativity_id, rank, note FROM photo_bank_suggestions
+    WHERE dismissed_at IS NULL ORDER BY bank_id, rank, nativity_id`;
   const byBank = new Map();
   for (const r of picks) {
     const k = String(r.bank_id);
@@ -241,4 +254,141 @@ export async function remove(request, env, session, id) {
   await sql`DELETE FROM photo_bank WHERE id = ${photo.id}`;
   await env.PHOTOS.delete(photo.photo_key).catch((e) => console.error('Could not delete', photo.photo_key, e));
   return json({ ok: true });
+}
+
+// ── Proposed matches for nativities taken off the Scroll ─────────────
+// Every nativity marked "needs a better photo", plus any whose proposed
+// match was approved, with the proposed bank photos side by side.
+export async function proposals(request, env, session) {
+  requireAdmin(session);
+  await ensurePhotoBankSchema(env);
+  const sql = db(env);
+  const nativities = await sql`
+    SELECT n.id, n.submission_number, n.piece_count, n.photo_key, n.display_photo_key, n.needs_better_photo,
+           left(n.description, 200) AS description, u.name AS owner_name, u.donor_code AS owner_donor_code
+    FROM nativities n
+    JOIN users u ON u.id = n.owner_user_id
+    WHERE n.submission_number NOT LIKE 'DRAFT-%'
+      AND (n.needs_better_photo = TRUE
+           OR EXISTS (SELECT 1 FROM photo_bank_suggestions s WHERE s.nativity_id = n.id AND s.approved_at IS NOT NULL))
+    ORDER BY n.submission_number`;
+  const ids = nativities.map((n) => n.id);
+  const picks = ids.length ? await sql`
+    SELECT s.nativity_id, s.bank_id, s.rank, s.note, s.confidence, s.rotate, s.approved_by, s.approved_at,
+           b.photo_key AS bank_photo_key,
+           (SELECT string_agg(o.submission_number, ', ' ORDER BY o.submission_number) FROM nativities o
+             WHERE o.display_photo_key = b.photo_key AND o.id <> s.nativity_id) AS used_by
+    FROM photo_bank_suggestions s
+    JOIN photo_bank b ON b.id = s.bank_id
+    WHERE s.nativity_id = ANY(${ids}) AND s.dismissed_at IS NULL
+    ORDER BY s.nativity_id, s.rank, s.bank_id` : [];
+  const byNativity = new Map();
+  for (const p of picks) {
+    const k = String(p.nativity_id);
+    if (!byNativity.has(k)) byNativity.set(k, []);
+    byNativity.get(k).push({
+      bank_id: String(p.bank_id), bank_photo_key: p.bank_photo_key, rank: Number(p.rank), note: p.note || '',
+      confidence: p.confidence || '', rotate: Number(p.rotate) || 0, approved_by: p.approved_by, approved_at: p.approved_at,
+      used_by: p.used_by || '',
+    });
+  }
+  for (const n of nativities) n.picks = byNativity.get(String(n.id)) || [];
+  return json({ nativities });
+}
+
+async function proposal(sql, nativityId, bankId) {
+  const rows = await sql`
+    SELECT s.*, b.photo_key AS bank_photo_key FROM photo_bank_suggestions s JOIN photo_bank b ON b.id = s.bank_id
+    WHERE s.nativity_id = ${nativityId} AND s.bank_id = ${bankId}`;
+  if (!rows.length) throw error('That proposed match is no longer there. Reload the page.', 404);
+  return rows[0];
+}
+
+function ids(body) {
+  const nativityId = Number(body?.nativityId);
+  const bankId = Number(body?.bankId);
+  if (!Number.isInteger(nativityId) || nativityId <= 0 || !Number.isInteger(bankId) || bankId <= 0) {
+    throw error('Choose a nativity and a photo.');
+  }
+  return { nativityId, bankId };
+}
+
+// Approves a proposed match: the bank photo becomes the nativity's display
+// photo, which puts it back on the Scroll. Unlike match(), the same bank photo
+// may be the display photo of more than one nativity (one photo of a set that
+// was entered in parts).
+export async function approveProposal(request, env, session) {
+  const admin = requireAdmin(session);
+  await ensurePhotoBankSchema(env);
+  const body = await request.json();
+  const { nativityId, bankId } = ids(body);
+  const sql = db(env);
+  const p = await proposal(sql, nativityId, bankId);
+  const target = await sql`SELECT id, submission_number, display_photo_key FROM nativities WHERE id = ${nativityId}`;
+  if (!target.length) return error('Nativity not found.', 404);
+  const t = target[0];
+  if (t.display_photo_key === p.bank_photo_key) return json({ ok: true, unchanged: true });
+  if (t.display_photo_key && body?.replace !== true) {
+    return json({ error: `${t.submission_number} already has a display photo. Replace it?`, needsReplace: true }, { status: 409 });
+  }
+  await sql.transaction([
+    sql`UPDATE nativities SET display_photo_key = ${p.bank_photo_key}, needs_better_photo = FALSE,
+        needs_better_photo_by = NULL, needs_better_photo_at = NULL, updated_at = now() WHERE id = ${nativityId}`,
+    sql`UPDATE photo_bank_suggestions SET approved_by = ${admin.email || ''}, approved_at = now(),
+        previous_display_key = ${t.display_photo_key || null}
+        WHERE nativity_id = ${nativityId} AND bank_id = ${bankId}`,
+    sql`UPDATE photo_bank SET matched_by = ${admin.email || ''}, matched_at = now() WHERE id = ${bankId}`,
+  ]);
+  return json({ ok: true, submissionNumber: t.submission_number });
+}
+
+// Undoes an approval: the old display photo comes back and the nativity is
+// marked as needing a better photo again (off the Scroll).
+export async function undoProposal(request, env, session) {
+  const admin = requireAdmin(session);
+  await ensurePhotoBankSchema(env);
+  const { nativityId, bankId } = ids(await request.json());
+  const sql = db(env);
+  const p = await proposal(sql, nativityId, bankId);
+  if (!p.approved_at) return json({ ok: true, unchanged: true });
+  await sql.transaction([
+    sql`UPDATE nativities SET display_photo_key = ${p.previous_display_key || null}, needs_better_photo = TRUE,
+        needs_better_photo_by = ${admin.email || ''}, needs_better_photo_at = now(), updated_at = now()
+        WHERE id = ${nativityId} AND display_photo_key = ${p.bank_photo_key}`,
+    sql`UPDATE photo_bank_suggestions SET approved_by = NULL, approved_at = NULL, previous_display_key = NULL
+        WHERE nativity_id = ${nativityId} AND bank_id = ${bankId}`,
+  ]);
+  return json({ ok: true });
+}
+
+// "Not this one": hides a proposed match. It stays in the table, marked.
+export async function dismissProposal(request, env, session) {
+  requireAdmin(session);
+  await ensurePhotoBankSchema(env);
+  const { nativityId, bankId } = ids(await request.json());
+  const sql = db(env);
+  const p = await proposal(sql, nativityId, bankId);
+  if (p.approved_at) return error('Undo the approval first.', 409);
+  await sql`UPDATE photo_bank_suggestions SET dismissed_at = now() WHERE nativity_id = ${nativityId} AND bank_id = ${bankId}`;
+  return json({ ok: true });
+}
+
+// Replaces a bank photo with a turned copy made in the browser. The new image
+// gets a new key (so no one sees a cached sideways copy) and every nativity
+// using the photo follows it. The old file is kept in R2.
+export async function rotated(request, env, session, id) {
+  requireAdmin(session);
+  await ensurePhotoBankSchema(env);
+  const { bytes, type, ext } = await readImageUpload(request);
+  const sql = db(env);
+  const photo = await bankPhoto(sql, id);
+  const key = `${PHOTO_BANK_PREFIX}${crypto.randomUUID()}.${ext}`;
+  await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType: type } });
+  await sql.transaction([
+    sql`UPDATE photo_bank SET photo_key = ${key}, fingerprint = NULL WHERE id = ${photo.id}`,
+    sql`UPDATE nativities SET display_photo_key = ${key}, updated_at = now() WHERE display_photo_key = ${photo.photo_key}`,
+    sql`UPDATE photo_bank_suggestions SET rotate = 0 WHERE bank_id = ${photo.id}`,
+    sql`UPDATE photo_bank_suggestions SET previous_display_key = ${key} WHERE previous_display_key = ${photo.photo_key}`,
+  ]);
+  return json({ ok: true, photo_key: key, previous_key: photo.photo_key });
 }
